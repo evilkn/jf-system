@@ -1342,16 +1342,12 @@ const App = {
     // CONCILIADO — Resumen Mensual de Compra/Venta
     // ─────────────────────────────────────────────
 
-    setConciliadoRange(inicio, fin) {
-        State.conciliadoFechaInicio = inicio;
-        State.conciliadoFechaFin    = fin;
-        const si = document.getElementById('con-fecha-inicio');
-        const sf = document.getElementById('con-fecha-fin');
-        if (si) si.value = inicio;
-        if (sf) sf.value = fin;
-        // Resaltar botón activo
-        document.querySelectorAll('.conciliado-quick-btn').forEach(b => b.classList.remove('active'));
-        this.renderConciliadoTable();
+    setConciliadoPeriod() {
+        const a = document.getElementById('con-anio-sel');
+        const m = document.getElementById('con-mes-sel');
+        if (a) State.conciliadoAnio = parseInt(a.value);
+        if (m) State.conciliadoPeriodo = parseInt(m.value);
+        this.renderConciliadoPanel();
     },
 
     renderConciliadoPanel() {
@@ -1360,7 +1356,12 @@ const App = {
 
         const now   = new Date();
         const client = (Store.get('clientes') || []).find(c => c.id === State.currentClientId);
-        const credito = Store.getConciliadoCredito(State.currentClientId, State.conciliadoAnio);
+        // Fallback: si no hay crédito para el mes específico, buscar el anual (mes=0) o usar 0
+        let credito = Store.getConciliadoCredito(State.currentClientId, State.conciliadoAnio, State.conciliadoPeriodo);
+        if (!credito && State.conciliadoPeriodo !== 0) {
+             const fallbackCredito = Store.getConciliadoCredito(State.currentClientId, State.conciliadoAnio, 0);
+             if (fallbackCredito) credito = fallbackCredito;
+        }
 
         const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
         const MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -1394,18 +1395,21 @@ const App = {
 
                 <!-- ── FILTROS (no imprimen) ─────────────────────── -->
                 <div class="conciliado-filter-bar print-no-print">
-                    <label>Filtrar:</label>
-                    <button class="conciliado-quick-btn" onclick="App.setConciliadoRange('${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01','${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-31')">Este mes</button>
-                    <button class="conciliado-quick-btn" onclick="App._setMesAnterior()">Mes anterior</button>
-                    <button class="conciliado-quick-btn" onclick="App._setUltimoTrimestre()">Último trimestre</button>
-                    <button class="conciliado-quick-btn active" onclick="App.setConciliadoRange('${now.getFullYear()}-01-01','${now.getFullYear()}-12-31')">Este año</button>
-                    <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;">
-                        <label>Desde:</label>
-                        <input type="date" id="con-fecha-inicio" value="${State.conciliadoFechaInicio}" onchange="App._onConciliadoDateChange()" style="width:auto;padding:5px 10px;font-size:0.8rem;">
-                        <label>Hasta:</label>
-                        <input type="date" id="con-fecha-fin" value="${State.conciliadoFechaFin}" onchange="App._onConciliadoDateChange()" style="width:auto;padding:5px 10px;font-size:0.8rem;">
-                    </div>
-                    <button class="btn btn-primary print-no-print" onclick="App.exportConciliadoPDF()" style="margin-left:8px;display:flex;align-items:center;gap:8px;padding:8px 18px;">
+                    <label>Año:</label>
+                    <select id="con-anio-sel" onchange="App.setConciliadoPeriod()" style="padding:6px;border-radius:4px;border:1px solid rgba(0,0,0,0.1);">
+                        ${[...Array(10)].map((_, i) => {
+                            const y = now.getFullYear() - i;
+                            return \`<option value="\${y}" \${State.conciliadoAnio === y ? 'selected' : ''}>\${y}</option>\`;
+                        }).join('')}
+                    </select>
+                    
+                    <label style="margin-left:12px;">Período:</label>
+                    <select id="con-mes-sel" onchange="App.setConciliadoPeriod()" style="padding:6px;border-radius:4px;border:1px solid rgba(0,0,0,0.1);">
+                        <option value="0" ${State.conciliadoPeriodo === 0 ? 'selected' : ''}>Todo el año</option>
+                        ${MESES.map((m, i) => \`<option value="\${i+1}" \${State.conciliadoPeriodo === i+1 ? 'selected' : ''}>\${m}</option>\`).join('')}
+                    </select>
+                    
+                    <button class="btn btn-primary print-no-print" onclick="App.exportConciliadoPDF()" style="margin-left:auto;display:flex;align-items:center;gap:8px;padding:8px 18px;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9,15 12,18 15,15"/></svg>
                         Exportar PDF
                     </button>
@@ -1474,8 +1478,6 @@ const App = {
         const tfoot = document.getElementById('conciliado-tfoot');
         if (!tbody) return;
 
-        const inicio = new Date(State.conciliadoFechaInicio + 'T00:00:00');
-        const fin    = new Date(State.conciliadoFechaFin    + 'T23:59:59');
         const MESES  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
         const all = Store.get('sri_registros').filter(r =>
@@ -1484,12 +1486,12 @@ const App = {
 
         // Determinar meses en el rango
         const mesesEnRango = [];
-        for (let m = 1; m <= 12; m++) {
-            // Primer día del mes del año que corresponde (usamos el año del inicio)
-            const y = inicio.getFullYear();
-            const d1 = new Date(y, m-1, 1);
-            const d2 = new Date(y, m, 0); // último día del mes
-            if (d2 >= inicio && d1 <= fin) mesesEnRango.push({ mes: m, anio: y });
+        if (State.conciliadoPeriodo === 0) {
+            for (let m = 1; m <= 12; m++) {
+                mesesEnRango.push({ mes: m, anio: State.conciliadoAnio });
+            }
+        } else {
+            mesesEnRango.push({ mes: State.conciliadoPeriodo, anio: State.conciliadoAnio });
         }
 
         // Acumuladores totales
@@ -1554,7 +1556,13 @@ const App = {
 
         // Actualizar período para impresión
         const pEl = document.getElementById('print-periodo');
-        if (pEl) pEl.textContent = `${State.conciliadoFechaInicio} al ${State.conciliadoFechaFin}`;
+        if (pEl) {
+            if (State.conciliadoPeriodo === 0) {
+                pEl.textContent = `Año ${State.conciliadoAnio}`;
+            } else {
+                pEl.textContent = `${MESES[State.conciliadoPeriodo - 1]} ${State.conciliadoAnio}`;
+            }
+        }
     },
 
     _updateConciliadoBalance(ivaVentas, ivaCompras) {
@@ -1570,48 +1578,10 @@ const App = {
         if (printBal) printBal.innerHTML = html;
     },
 
-    _onConciliadoDateChange() {
-        const si = document.getElementById('con-fecha-inicio')?.value;
-        const sf = document.getElementById('con-fecha-fin')?.value;
-        if (si) State.conciliadoFechaInicio = si;
-        if (sf) State.conciliadoFechaFin    = sf;
-        document.querySelectorAll('.conciliado-quick-btn').forEach(b => b.classList.remove('active'));
-        this.renderConciliadoTable();
-    },
-
-    _setMesAnterior() {
-        const d = new Date();
-        d.setDate(1); d.setMonth(d.getMonth() - 1);
-        const y = d.getFullYear();
-        const m = String(d.getMonth()+1).padStart(2,'0');
-        const last = new Date(y, d.getMonth()+1, 0).getDate();
-        this.setConciliadoRange(`${y}-${m}-01`, `${y}-${m}-${last}`);
-    },
-
-    _setUltimoTrimestre() {
-        const d = new Date();
-        const endM = String(d.getMonth()+1).padStart(2,'0');
-        const endD = String(new Date(d.getFullYear(), d.getMonth()+1, 0).getDate()).padStart(2,'0');
-        const start = new Date(d); start.setMonth(start.getMonth() - 2); start.setDate(1);
-        const sm = String(start.getMonth()+1).padStart(2,'0');
-        this.setConciliadoRange(`${start.getFullYear()}-${sm}-01`, `${d.getFullYear()}-${endM}-${endD}`);
-    },
-
     async saveCreditoTributario() {
         const credito = parseFloat(document.getElementById('con-credito')?.value) || 0;
-        const key = `${State.currentClientId}_${State.conciliadoAnio}`;
-        await Store.saveConciliadoCredito(State.currentClientId, State.conciliadoAnio, credito);
-        // Recalcular balance con nuevo crédito
-        const all = Store.get('sri_registros').filter(r =>
-            r.clientId === State.currentClientId && r.tipo === 'venta' && !r.anulada &&
-            r.anio === State.conciliadoAnio
-        );
-        const allC = Store.get('sri_registros').filter(r =>
-            r.clientId === State.currentClientId && r.tipo === 'compra' && r.anio === State.conciliadoAnio
-        );
-        const ivaV = all.reduce((s,r) => s+(r.iva||0), 0);
-        const ivaC = allC.reduce((s,r) => s+(r.iva||0), 0);
-        this._updateConciliadoBalance(ivaV, ivaC);
+        await Store.saveConciliadoCredito(State.currentClientId, State.conciliadoAnio, State.conciliadoPeriodo, credito);
+        this.renderConciliadoTable();
         this.showToast('Crédito tributario guardado', 'success');
     },
 
@@ -1621,16 +1591,16 @@ const App = {
         const credito = parseFloat(document.getElementById('con-credito')?.value) || 0;
 
         // Recalcular datos iguales a renderConciliadoTable
-        const inicio = new Date(State.conciliadoFechaInicio + 'T00:00:00');
-        const fin    = new Date(State.conciliadoFechaFin    + 'T23:59:59');
         const MESES  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
         const all    = Store.get('sri_registros').filter(r => r.clientId === State.currentClientId);
 
         const mesesEnRango = [];
-        for (let m = 1; m <= 12; m++) {
-            const y = inicio.getFullYear();
-            const d1 = new Date(y, m-1, 1), d2 = new Date(y, m, 0);
-            if (d2 >= inicio && d1 <= fin) mesesEnRango.push({ mes: m, anio: y });
+        if (State.conciliadoPeriodo === 0) {
+            for (let m = 1; m <= 12; m++) {
+                mesesEnRango.push({ mes: m, anio: State.conciliadoAnio });
+            }
+        } else {
+            mesesEnRango.push({ mes: State.conciliadoPeriodo, anio: State.conciliadoAnio });
         }
 
         let sumVS15=0,sumVIva=0,sumVTot=0,sumCS15=0,sumCS5=0,sumCS0=0,sumCIva15=0,sumCIva5=0,sumCTot=0;
@@ -1656,7 +1626,12 @@ const App = {
         const bal   = sumVIva - (sumCIva15+sumCIva5) - credito;
         const bLbl  = bal >= 0 ? 'A FAVOR' : 'A PAGAR';
         const bCls  = bal >= 0 ? 'color:#065f46;background:#d1fae5;border:1.5px solid #10b981;' : 'color:#991b1b;background:#fee2e2;border:1.5px solid #ef4444;';
-        const per   = `${State.conciliadoFechaInicio} al ${State.conciliadoFechaFin}`;
+        
+        let per = `Año ${State.conciliadoAnio}`;
+        if (State.conciliadoPeriodo !== 0) {
+            per = `${MESES[State.conciliadoPeriodo - 1]} ${State.conciliadoAnio}`;
+        }
+        
         const fgen  = now.toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric'});
         const hora  = now.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'});
 

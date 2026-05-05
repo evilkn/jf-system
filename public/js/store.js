@@ -350,14 +350,14 @@ const Store = {
     // Cache local para créditos tributarios ya cargados
     _conciliadoCreditos: {},
 
-    getConciliadoCredito(clientId, anio) {
-        const key = `${clientId}_${anio}`;
+    getConciliadoCredito(clientId, anio, mes = 0) {
+        const key = `${clientId}_${anio}` + (mes ? `_${mes}` : '');
         return this._conciliadoCreditos[key] ?? 0;
     },
 
-    async saveConciliadoCredito(clientId, anio, credito) {
-        const key  = `${clientId}_${anio}`;
-        const data = { clientId, anio, credito, updatedAt: new Date().toISOString() };
+    async saveConciliadoCredito(clientId, anio, mes = 0, credito) {
+        const key  = `${clientId}_${anio}` + (mes ? `_${mes}` : '');
+        const data = { clientId, anio, mes, credito, updatedAt: new Date().toISOString() };
         this._conciliadoCreditos[key] = credito;  // cache local
         await db.collection('conciliados').doc(key).set(data);
     },
@@ -368,7 +368,8 @@ const Store = {
                 .where('clientId', '==', clientId).get();
             snap.forEach(doc => {
                 const d = doc.data();
-                this._conciliadoCreditos[`${d.clientId}_${d.anio}`] = d.credito || 0;
+                const key = `${d.clientId}_${d.anio}` + (d.mes ? `_${d.mes}` : '');
+                this._conciliadoCreditos[key] = d.credito || 0;
             });
         } catch (e) {
             console.warn('loadConciliadoCreditos:', e);

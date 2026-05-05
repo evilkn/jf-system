@@ -42,6 +42,7 @@ const State = {
     sriEditingId: null,                // ID del registro en edición
     sriEditingTipo: null,              // 'venta' | 'compra'
     conciliadoAnio: new Date().getFullYear(),
+    conciliadoPeriodo: 0, // 0 = Todo el año, 1 = Enero, etc.
     conciliadoFechaInicio: `${new Date().getFullYear()}-01-01`,
     conciliadoFechaFin: `${new Date().getFullYear()}-12-31`,
     // ─── Gestión de Cuentas ───────────────────────
