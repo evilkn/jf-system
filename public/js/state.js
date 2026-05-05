@@ -66,7 +66,11 @@ const State = {
     // Centro de Reportes
     reportSelectedClientId: null,
     selectedCuentasCobrar: [],
-    selectedCuentasPagar: []
+    selectedCuentasPagar: [],
+
+    // Bancos
+    showBancoModal: false,
+    bancosData: []
 };
 
 // Expose state globally for easy access in views and handlers

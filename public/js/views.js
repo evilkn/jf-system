@@ -74,6 +74,7 @@ const Views = {
                         <a href="#" class="nav-item ${State.currentRoute === 'sri' ? 'active' : ''}" onclick="App.navigate('sri', true); return false;">${Icons.navSRI()} Compra y Venta</a>
                         <a href="#" class="nav-item ${State.currentRoute === 'cuentas' ? 'active' : ''}" onclick="App.navigate('cuentas', true); return false;">${Icons.navCuentas()} Gestión de Cuentas</a>
                         <a href="#" class="nav-item ${State.currentRoute === 'matriz' ? 'active' : ''}" onclick="App.navigate('matriz', true); return false;">${Icons.navMatriz()} Matriz de Control</a>
+                        <a href="#" class="nav-item ${State.currentRoute === 'bancos' ? 'active' : ''}" onclick="App.navigate('bancos', true); return false;">${Icons.navBancos()} Bancos</a>
                         <a href="#" class="nav-item ${State.currentRoute === 'reports' ? 'active' : ''}" onclick="App.navigate('reports', true); return false;">${Icons.navReports()} Reportes</a>
                     </nav>
                     <div class="sidebar-footer">
@@ -129,6 +130,7 @@ const Views = {
             ${this.settingsModal()}
             ${this.abonoModal()}
             ${this.detalleModal()}
+            ${this.bancoModal()}
             <div id="toast-container"></div>
         `;
     },
@@ -142,6 +144,82 @@ const Views = {
                         <!-- Rendered by App -->
                     </div>
                 </div>
+            </div>
+        `;
+    },
+
+    bancoModal() {
+        return `
+            <div id="banco-modal" class="modal-overlay ${State.showBancoModal ? 'active' : ''}">
+                <div class="modal-content glass-card animate-fadeInUp" style="max-width: 450px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
+                        <h3 style="margin: 0; display:flex; align-items:center; gap:8px;">${Icons.bank()} Nuevo Banco</h3>
+                        <button class="icon-btn" onclick="App.closeBancoModal()">${Icons.close()}</button>
+                    </div>
+                    <form onsubmit="App.handleBancoSubmit(event)">
+                        <div class="form-group">
+                            <label>Nombre de la Cuenta / Banco</label>
+                            <input type="text" id="banco-nombre" required placeholder="Ej. Banco Pichincha, Caja Chica...">
+                        </div>
+                        <div class="form-group">
+                            <label>Saldo Inicial ($)</label>
+                            <input type="number" step="0.01" id="banco-saldo-inicial" required placeholder="0.00" value="0.00">
+                        </div>
+                        <div style="display:flex; justify-content:flex-end; gap: 12px; margin-top: 24px;">
+                            <button type="button" class="btn btn-secondary" onclick="App.closeBancoModal()">Cancelar</button>
+                            <button type="submit" class="btn btn-primary" id="banco-submit-btn">Guardar Banco</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+    },
+
+    bancos() {
+        let cardsHtml = '';
+        if (State.bancosData && State.bancosData.length > 0) {
+            cardsHtml = State.bancosData.map(banco => `
+                <div class="glass-card" style="padding: 24px; cursor: pointer; transition: transform 0.2s;" onclick="App.openBancoDetail('${banco.id}')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
+                        <h4 style="margin:0; font-size: 1.1rem;">${banco.nombre}</h4>
+                        <div style="opacity: 0.7;">${Icons.bank()}</div>
+                    </div>
+                    <div style="font-family: var(--font-mono); font-size: 1.8rem; font-weight: 700; color: var(--primary);">
+                        $${banco.saldo_actual.toFixed(2)}
+                    </div>
+                    <div style="margin-top: 16px; font-size: 0.85rem; color: var(--text-secondary); display:flex; justify-content:space-between; align-items:center;">
+                        <span>Ver conciliación y transacciones</span>
+                        <span style="opacity: 0.5;">${Icons.arrowRight()}</span>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            cardsHtml = `
+                <div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px; border: 1px dashed rgba(255,255,255,0.2); border-radius: 12px; background: rgba(0,0,0,0.1);">
+                    <div style="margin-bottom: 12px; opacity: 0.5;">${Icons.bank()}</div>
+                    <div style="font-size: 1.1rem; margin-bottom: 8px; color: var(--text-primary);">Aún no hay bancos registrados</div>
+                    <div style="font-size: 0.9rem;">Haga clic en "Nuevo Banco" para empezar a registrar.</div>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="bancos-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <h3 style="margin: 0; font-family: var(--font-heading); font-size: 1.5rem;">Control de Bancos</h3>
+                    <p style="color: var(--text-secondary); margin: 4px 0 0 0; font-size: 0.9rem;">Libro auxiliar y conciliación bancaria global</p>
+                </div>
+                <button class="btn btn-primary" onclick="App.showAddBancoModal()" style="display:flex;align-items:center;gap:8px;">
+                    ${Icons.plus()} Nuevo Banco
+                </button>
+            </div>
+            
+            <div id="bancos-resumen-cards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                ${cardsHtml}
+            </div>
+
+            <div id="bancos-detalle-view" style="display: none; animation: fadeIn 0.3s ease;">
+                <!-- Detalle de transacciones y conciliación -->
             </div>
         `;
     },
@@ -237,7 +315,8 @@ const Views = {
             'sri': 'REGISTRO DE COMPRA Y VENTA',
             'cuentas': 'GESTIÓN DE CUENTAS',
             'reports': 'CONCILIACIÓN Y REPORTES',
-            'matriz': 'MATRIZ DE CONTROL TRIBUTARIO'
+            'matriz': 'MATRIZ DE CONTROL TRIBUTARIO',
+            'bancos': 'CONTROL DE BANCOS'
         };
         return titles[State.currentRoute] || 'JF SYSTEM';
     },

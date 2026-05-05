@@ -144,6 +144,10 @@ const App = {
             State.fichaEditingSection = null;
         }
 
+        if (route === 'bancos') {
+            this.loadBancos();
+        }
+
         this.render();
     },
 
@@ -190,6 +194,7 @@ const App = {
             case 'reports': return Views.reports();
             case 'matriz': return Views.matriz();
             case 'cuentas': return Views.cuentas();
+            case 'bancos': return Views.bancos();
             default: return Views.dashboard();
         }
     },
@@ -2948,6 +2953,79 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         if (!name) return;
         this.showToast(`Generando reporte para ${name}...`, 'info');
         this.generatePremiumReport(name);
+    },
+
+    // ─── BANCOS ─────────────────────────────────────────────────────────────
+    showAddBancoModal() {
+        State.showBancoModal = true;
+        this.render();
+        setTimeout(() => {
+            const input = document.getElementById('banco-nombre');
+            if (input) input.focus();
+        }, 100);
+    },
+
+    openBancoDetail(bancoId) {
+        this.showToast('Funcionalidad de detalles en desarrollo', 'info');
+    },
+
+    closeBancoModal() {
+        State.showBancoModal = false;
+        this.render();
+    },
+
+    async handleBancoSubmit(event) {
+        event.preventDefault();
+        const nombre = document.getElementById('banco-nombre').value.trim();
+        const saldoInicial = parseFloat(document.getElementById('banco-saldo-inicial').value) || 0;
+
+        if (!nombre) {
+            this.showToast('Ingrese el nombre del banco', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('banco-submit-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `${Icons.loading()} Guardando...`;
+        }
+
+        try {
+            await db.collection('cuentas_bancarias').add({
+                nombre,
+                saldo_inicial: saldoInicial,
+                saldo_actual: saldoInicial, // Inicialmente es el mismo
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            this.showToast('Banco creado exitosamente', 'success');
+            this.closeBancoModal();
+            this.loadBancos(); // Reload data
+        } catch (error) {
+            console.error("Error creating banco:", error);
+            this.showToast('Error al crear banco', 'error');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = 'Guardar Banco';
+            }
+        }
+    },
+
+    async loadBancos() {
+        try {
+            const snapshot = await db.collection('cuentas_bancarias').orderBy('createdAt', 'asc').get();
+            const bancosData = [];
+            snapshot.forEach(doc => {
+                bancosData.push({ id: doc.id, ...doc.data() });
+            });
+            State.bancosData = bancosData;
+            if (State.currentRoute === 'bancos') {
+                this.render();
+            }
+        } catch (error) {
+            console.error("Error loading bancos:", error);
+            this.showToast('Error al cargar bancos', 'error');
+        }
     }
 };
 
