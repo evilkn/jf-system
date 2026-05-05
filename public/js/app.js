@@ -1396,7 +1396,7 @@ const App = {
                 <!-- ── FILTROS (no imprimen) ─────────────────────── -->
                 <div class="conciliado-filter-bar print-no-print">
                     <label>Año:</label>
-                    <select id="con-anio-sel" onchange="App.setConciliadoPeriod()" style="padding:6px;border-radius:4px;border:1px solid rgba(0,0,0,0.1);">
+                    <select id="con-anio-sel" class="premium-select" onchange="App.setConciliadoPeriod()">
                         ${[...Array(10)].map((_, i) => {
                             const y = now.getFullYear() - i;
                             return `<option value="${y}" ${State.conciliadoAnio === y ? 'selected' : ''}>${y}</option>`;
@@ -1404,7 +1404,7 @@ const App = {
                     </select>
                     
                     <label style="margin-left:12px;">Período:</label>
-                    <select id="con-mes-sel" onchange="App.setConciliadoPeriod()" style="padding:6px;border-radius:4px;border:1px solid rgba(0,0,0,0.1);">
+                    <select id="con-mes-sel" class="premium-select" onchange="App.setConciliadoPeriod()">
                         <option value="0" ${State.conciliadoPeriodo === 0 ? 'selected' : ''}>Todo el año</option>
                         ${MESES.map((m, i) => `<option value="${i+1}" ${State.conciliadoPeriodo === i+1 ? 'selected' : ''}>${m}</option>`).join('')}
                     </select>
