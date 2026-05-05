@@ -1399,14 +1399,14 @@ const App = {
                     <select id="con-anio-sel" onchange="App.setConciliadoPeriod()" style="padding:6px;border-radius:4px;border:1px solid rgba(0,0,0,0.1);">
                         ${[...Array(10)].map((_, i) => {
                             const y = now.getFullYear() - i;
-                            return \`<option value="\${y}" \${State.conciliadoAnio === y ? 'selected' : ''}>\${y}</option>\`;
+                            return `<option value="${y}" ${State.conciliadoAnio === y ? 'selected' : ''}>${y}</option>`;
                         }).join('')}
                     </select>
                     
                     <label style="margin-left:12px;">Período:</label>
                     <select id="con-mes-sel" onchange="App.setConciliadoPeriod()" style="padding:6px;border-radius:4px;border:1px solid rgba(0,0,0,0.1);">
                         <option value="0" ${State.conciliadoPeriodo === 0 ? 'selected' : ''}>Todo el año</option>
-                        ${MESES.map((m, i) => \`<option value="\${i+1}" \${State.conciliadoPeriodo === i+1 ? 'selected' : ''}>\${m}</option>\`).join('')}
+                        ${MESES.map((m, i) => `<option value="${i+1}" ${State.conciliadoPeriodo === i+1 ? 'selected' : ''}>${m}</option>`).join('')}
                     </select>
                     
                     <button class="btn btn-primary print-no-print" onclick="App.exportConciliadoPDF()" style="margin-left:auto;display:flex;align-items:center;gap:8px;padding:8px 18px;">
