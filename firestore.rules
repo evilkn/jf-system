@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Función para verificar si el usuario es administrador basado en su correo
+    function isAdmin() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/usuarios/$(request.auth.token.email)) &&
+             get(/databases/$(database)/documents/usuarios/$(request.auth.token.email)).data.role == 'admin';
+    }
+
+    // Reglas para la colección de usuarios (usando el email como ID del documento)
+    match /usuarios/{email} {
+      // Un usuario puede leer su propio perfil, admins pueden leer todos
+      allow read: if request.auth != null && (request.auth.token.email == email || isAdmin());
+      
+      // Permitir que un usuario se cree a sí mismo si no existe (auto-registro)
+      // Pero solo puede ponerse el rol 'lector'
+      allow create: if request.auth != null && 
+                     request.auth.token.email == email && 
+                     request.resource.data.role == 'lector';
+      
+      // Solo admins pueden borrar usuarios o cambiar roles ajenos
+      allow delete: if isAdmin();
+      
+      // Un usuario puede actualizar su propio perfil (ej: foto y tema), admins pueden todo
+      // Prevenir escalada de privilegios: un usuario no puede cambiar su propio rol
+      allow update: if request.auth != null && (
+        isAdmin() || 
+        (request.auth.token.email == email && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+      );
+    }
+
+    // Reglas para clientes
+    match /clientes/{clientId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    // Reglas para registros SRI
+    match /sri_registros/{regId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Reglas para metadatos (Dashboard)
+    match /metadata/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Reglas para créditos tributarios del Conciliado
+    match /conciliados/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Reglas para Gestión de Cuentas
+    match /cuentas_cobrar/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    match /cuentas_pagar/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Por defecto, denegar todo lo demás
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
