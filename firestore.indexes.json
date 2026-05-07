@@ -46,6 +46,15 @@
   //     ]
   //   },
   // ]
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "pagos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "banco_destino", "order": "ASCENDING" },
+        { "fieldPath": "fecha_pago", "order": "DESCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

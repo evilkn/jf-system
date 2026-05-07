@@ -2965,8 +2965,453 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         }, 100);
     },
 
-    openBancoDetail(bancoId) {
-        this.showToast('Funcionalidad de detalles en desarrollo', 'info');
+    async openBancoDetail(bancoId) {
+        const banco = State.bancosData.find(b => b.id === bancoId);
+        if (!banco) return;
+        
+        State.showDetalleModal = true;
+        this.render();
+
+        const contentDiv = document.getElementById('detalle-modal-content');
+        if (contentDiv) {
+            contentDiv.innerHTML = Views.bancoDetalleContent(banco);
+        }
+
+        try {
+            const listDiv = document.getElementById('transacciones-list');
+            
+            // Fetch both automatic payments and manual movements
+            const [pagosSnapshot, movsSnapshot] = await Promise.all([
+                db.collection('pagos')
+                    .where('banco_destino', '==', banco.nombre)
+                    .orderBy('fecha_pago', 'desc')
+                    .limit(30)
+                    .get(),
+                db.collection('cuentas_bancarias').doc(bancoId).collection('movimientos')
+                    .orderBy('fecha', 'desc')
+                    .limit(30)
+                    .get()
+            ]);
+
+            let transacciones = [];
+            
+            pagosSnapshot.forEach(doc => {
+                const p = doc.data();
+                transacciones.push({
+                    tipo: 'ingreso',
+                    categoria: `Pago: ${p.cliente || 'S/N'}`,
+                    monto: p.monto || 0,
+                    fecha: p.fecha_pago,
+                    metodo: p.metodo_pago,
+                    isPago: true
+                });
+            });
+
+            movsSnapshot.forEach(doc => {
+                const m = doc.data();
+                transacciones.push({
+                    tipo: m.tipo,
+                    categoria: m.descripcion,
+                    monto: m.monto || 0,
+                    fecha: m.fecha,
+                    metodo: 'Manual',
+                    isPago: false,
+                    isAjuste: m.isAjuste
+                });
+            });
+
+            // Sort merged results
+            transacciones.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+            if (transacciones.length === 0) {
+                listDiv.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-secondary);">No hay transacciones registradas.</div>';
+                return;
+            }
+
+            let html = '';
+            transacciones.slice(0, 50).forEach(t => {
+                const fecha = t.fecha ? new Date(t.fecha).toLocaleDateString() : 'N/A';
+                const color = t.tipo === 'ingreso' ? 'var(--success)' : (t.isAjuste ? 'var(--primary)' : 'var(--error)');
+                const signo = (t.tipo === 'ingreso' || t.monto > 0) ? '+' : '-';
+                const icon = t.isPago ? '💰' : (t.isAjuste ? '⚙️' : '📝');
+                const tag = t.tag || (t.isPago ? 'Ventas' : (t.isAjuste ? 'Conciliación' : ''));
+                
+                html += `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                        <div style="display:flex; align-items:center; gap:12px; flex: 1;">
+                            <div style="font-size: 1.2rem; opacity: 0.8; width: 30px; text-align: center;">${icon}</div>
+                            <div style="flex: 1;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <div style="font-weight: 500; font-size: 0.95rem; color: var(--text-primary);">${t.categoria}</div>
+                                    ${tag ? `<span style="font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; background: rgba(74, 144, 226, 0.1); color: #4a90e2; border: 1px solid rgba(74, 144, 226, 0.2); font-weight: 600; text-transform: uppercase;">${tag}</span>` : ''}
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">
+                                    ${fecha} • <span style="opacity: 0.8;">${t.metodo}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="font-weight: 800; font-family: var(--font-mono); color: ${color}; font-size: 1.05rem; white-space: nowrap; margin-left: 15px;">
+                            ${signo}$${Math.abs(t.monto).toFixed(2)}
+                        </div>
+                    </div>
+                `;
+            });
+            listDiv.innerHTML = html;
+        } catch (error) {
+            console.error('Error loading transactions:', error);
+            const listDiv = document.getElementById('transacciones-list');
+            if (listDiv) listDiv.innerHTML = `<div style="text-align:center; padding:20px; color:var(--error);">Error: ${error.message}</div>`;
+        }
+    },
+
+    closeDetalleModal() {
+        State.showDetalleModal = false;
+        this.render();
+    },
+
+    actualizarComparacion(saldoSistema) {
+        const input = document.getElementById('saldo-real-input');
+        const statusDiv = document.getElementById('conciliacion-status');
+        const label = document.getElementById('conciliacion-label');
+        const diffSpan = document.getElementById('conciliacion-diff');
+        
+        const saldoReal = parseFloat(input.value);
+        
+        if (isNaN(saldoReal)) {
+            statusDiv.style.background = 'rgba(255,255,255,0.05)';
+            label.textContent = 'INGRESE SALDO REAL';
+            diffSpan.textContent = '---';
+            return;
+        }
+
+        const diferencia = saldoReal - saldoSistema;
+        
+        if (Math.abs(diferencia) < 0.01) {
+            statusDiv.style.background = 'rgba(0, 200, 83, 0.2)';
+            statusDiv.style.color = '#00C853';
+            label.textContent = 'CUADRADO';
+            diffSpan.textContent = '$0.00';
+        } else if (diferencia < 0) {
+            statusDiv.style.background = 'rgba(255, 82, 82, 0.2)';
+            statusDiv.style.color = '#FF5252';
+            label.textContent = 'FALTANTE';
+            diffSpan.textContent = `-$${Math.abs(diferencia).toFixed(2)}`;
+        } else {
+            statusDiv.style.background = 'rgba(64, 196, 255, 0.2)';
+            statusDiv.style.color = '#40C4FF';
+            label.textContent = 'SOBRANTE';
+            diffSpan.textContent = `+$${diferencia.toFixed(2)}`;
+        }
+    },
+
+    async guardarConciliacion(bancoId) {
+        const input = document.getElementById('saldo-real-input');
+        const nuevoSaldoReal = parseFloat(input.value);
+        const banco = State.bancosData.find(b => b.id === bancoId);
+        
+        if (isNaN(nuevoSaldoReal) || !banco) {
+            this.showToast('Ingrese un saldo válido', 'warning');
+            return;
+        }
+
+        const diferencia = nuevoSaldoReal - (banco.saldo_actual || 0);
+        if (Math.abs(diferencia) < 0.01) {
+            this.showToast('El saldo ya está cuadrado', 'info');
+            return;
+        }
+
+        const btn = input.nextElementSibling;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = Icons.loading();
+        btn.disabled = true;
+
+        try {
+            const batch = db.batch();
+            const bancoRef = db.collection('cuentas_bancarias').doc(bancoId);
+            
+            // 1. Update main balance
+            batch.update(bancoRef, {
+                saldo_actual: nuevoSaldoReal,
+                ultima_conciliacion: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            // 2. Log adjustment in history
+            const movRef = bancoRef.collection('movimientos').doc();
+            batch.set(movRef, {
+                tipo: diferencia > 0 ? 'ingreso' : 'egreso',
+                monto: Math.abs(diferencia),
+                descripcion: `Ajuste por Conciliación (Saldo anterior: $${(banco.saldo_actual || 0).toFixed(2)})`,
+                fecha: new Date().toISOString(),
+                isAjuste: true,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            await batch.commit();
+
+            this.showToast('Conciliación guardada y registrada', 'success');
+            await this.loadBancos();
+            this.openBancoDetail(bancoId);
+        } catch (error) {
+            console.error('Error conciliando banco:', error);
+            this.showToast('Error al conciliar saldo', 'error');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    },
+
+    async handleMovimientoSubmit(e, bancoId) {
+        e.preventDefault();
+        const tipo = document.getElementById('mov-tipo').value;
+        const monto = parseFloat(document.getElementById('mov-monto').value);
+        const desc = document.getElementById('mov-desc').value;
+        const tag = document.getElementById('mov-tag').value;
+        const banco = State.bancosData.find(b => b.id === bancoId);
+
+        if (!banco || isNaN(monto)) return;
+
+        const btn = e.target.querySelector('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `${Icons.loading()} Procesando...`;
+        btn.disabled = true;
+
+        try {
+            const batch = db.batch();
+            const bancoRef = db.collection('cuentas_bancarias').doc(bancoId);
+            
+            const factor = tipo === 'ingreso' ? 1 : -1;
+            const nuevoSaldo = (banco.saldo_actual || 0) + (monto * factor);
+
+            batch.update(bancoRef, {
+                saldo_actual: nuevoSaldo,
+                ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            const movRef = bancoRef.collection('movimientos').doc();
+            batch.set(movRef, {
+                tipo,
+                monto,
+                descripcion: desc,
+                tag: tag || null,
+                fecha: new Date().toISOString(),
+                isAjuste: false,
+                origen: 'manual',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            await batch.commit();
+            this.showToast('Movimiento registrado correctamente', 'success');
+            
+            // Re-render
+            await this.loadBancos();
+            this.openBancoDetail(bancoId);
+        } catch (error) {
+            console.error('Error recording movement:', error);
+            this.showToast('Error al registrar movimiento', 'error');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    },
+
+    async exportBankHistoryPDF(bancoId) {
+        const banco = State.bancosData.find(b => b.id === bancoId);
+        if (!banco) return;
+
+        this.showToast('Preparando reporte...', 'info');
+
+        try {
+            const [pagosSnap, movsSnap] = await Promise.all([
+                db.collection('pagos').where('bancoId', '==', bancoId).get(),
+                db.collection('cuentas_bancarias').doc(bancoId).collection('movimientos').orderBy('fecha', 'desc').get()
+            ]);
+
+            const history = [];
+            pagosSnap.forEach(doc => {
+                const p = doc.data();
+                history.push({
+                    fecha: p.fecha_pago ? new Date(p.fecha_pago) : new Date(),
+                    desc: `Pago: ${p.cliente || 'S/N'}`,
+                    monto: p.monto || 0,
+                    tipo: 'ingreso',
+                    tag: 'Ventas'
+                });
+            });
+
+            movsSnap.forEach(doc => {
+                const m = doc.data();
+                history.push({
+                    fecha: m.fecha ? new Date(m.fecha) : new Date(),
+                    desc: m.descripcion,
+                    monto: m.monto || 0,
+                    tipo: m.tipo,
+                    tag: m.tag || (m.isAjuste ? 'Ajuste' : '')
+                });
+            });
+
+            history.sort((a, b) => b.fecha - a.fecha);
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Premium Design
+            doc.setFillColor(45, 52, 54);
+            doc.rect(0, 0, 210, 45, 'F');
+            
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(24);
+            doc.setFont('helvetica', 'bold');
+            doc.text('ESTADO DE CUENTA AUXILIAR', 105, 20, { align: 'center' });
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`JF SYSTEM - REPORTE FINANCIERO PROFESIONAL`, 105, 30, { align: 'center' });
+            doc.text(`Generado el: ${new Date().toLocaleString()}`, 105, 36, { align: 'center' });
+
+            // Account Details Card
+            doc.setTextColor(0, 0, 0);
+            doc.setFillColor(249, 250, 251);
+            doc.roundedRect(15, 55, 180, 25, 3, 3, 'F');
+            doc.setDrawColor(220, 220, 220);
+            doc.roundedRect(15, 55, 180, 25, 3, 3, 'D');
+
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${banco.nombre}`, 25, 65);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`NÚMERO DE CUENTA: ${banco.numero || 'No registrada'}`, 25, 72);
+            
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(74, 144, 226);
+            doc.text(`$${(banco.saldo_actual || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 185, 70, { align: 'right' });
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text('SALDO DISPONIBLE', 185, 75, { align: 'right' });
+
+            // Table Header
+            const startY = 95;
+            doc.setFillColor(74, 144, 226);
+            doc.rect(15, startY, 180, 10, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text('FECHA', 20, startY + 6.5);
+            doc.text('DESCRIPCIÓN / DETALLE', 50, startY + 6.5);
+            doc.text('CATEGORÍA', 135, startY + 6.5);
+            doc.text('VALOR', 190, startY + 6.5, { align: 'right' });
+
+            let y = startY + 18;
+            doc.setTextColor(45, 52, 54);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+
+            history.forEach((item, index) => {
+                if (y > 275) {
+                    doc.addPage();
+                    y = 25;
+                }
+
+                // Alternate row background
+                if (index % 2 === 0) {
+                    doc.setFillColor(252, 253, 254);
+                    doc.rect(15, y - 6, 180, 10, 'F');
+                }
+
+                const f = item.fecha;
+                const fStr = `${f.getDate().toString().padStart(2, '0')}/${(f.getMonth() + 1).toString().padStart(2, '0')}/${f.getFullYear()}`;
+                
+                doc.text(fStr, 20, y);
+                doc.text(doc.splitTextToSize(item.desc.substring(0, 45), 80), 50, y);
+                doc.setFontSize(8);
+                doc.setTextColor(120, 120, 120);
+                doc.text(item.tag || '-', 135, y);
+                doc.setFontSize(9);
+                
+                if (item.tipo === 'ingreso') doc.setTextColor(0, 150, 0);
+                else doc.setTextColor(200, 0, 0);
+                
+                const sign = item.tipo === 'ingreso' ? '+' : '-';
+                doc.setFont('helvetica', 'bold');
+                doc.text(`${sign} $${item.monto.toFixed(2)}`, 190, y, { align: 'right' });
+                
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(45, 52, 54);
+                y += 10;
+            });
+
+            doc.save(`Historial_${banco.nombre.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`);
+            this.showToast('Historial exportado correctamente', 'success');
+
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            this.showToast('Error al exportar PDF', 'error');
+        }
+    },
+
+    confirmarEliminarBanco(bancoId) {
+        const banco = State.bancosData.find(b => b.id === bancoId);
+        if (!banco) return;
+
+        // Create modal element
+        const modalHtml = Views.modalEliminarBanco(banco);
+        const div = document.createElement('div');
+        div.id = 'temp-delete-container';
+        div.innerHTML = modalHtml;
+        document.body.appendChild(div);
+
+        // Focus input
+        setTimeout(() => {
+            document.getElementById('delete-confirm-input')?.focus();
+        }, 100);
+    },
+
+    async ejecutarEliminarBanco(bancoId) {
+        const input = document.getElementById('delete-confirm-input');
+        const confirmWord = input.value.trim().toUpperCase();
+
+        if (confirmWord !== 'ELIMINAR') {
+            this.showToast('Escribe la palabra ELIMINAR para confirmar', 'warning');
+            input.style.border = '2px solid #ff4d4d';
+            input.style.animation = 'shake 0.4s';
+            setTimeout(() => {
+                input.style.animation = '';
+            }, 400);
+            return;
+        }
+
+        const btn = document.getElementById('btn-final-delete');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `${Icons.loading()} Borrando...`;
+        btn.disabled = true;
+
+        try {
+            const batch = db.batch();
+            const bancoRef = db.collection('cuentas_bancarias').doc(bancoId);
+            
+            // 1. Delete movements first
+            const movsSnap = await bancoRef.collection('movimientos').get();
+            movsSnap.forEach(doc => batch.delete(doc.ref));
+            
+            // 2. Delete main bank doc
+            batch.delete(bancoRef);
+            
+            await batch.commit();
+
+            this.showToast('Cuenta eliminada permanentemente', 'success');
+            
+            // Cleanup UI
+            document.getElementById('confirm-delete-modal')?.remove();
+            State.showDetalleModal = false;
+            
+            // Reload
+            await this.loadBancos();
+            this.render();
+        } catch (error) {
+            console.error('Error deleting bank:', error);
+            this.showToast('Error al eliminar la cuenta', 'error');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
     },
 
     closeBancoModal() {
@@ -2974,10 +3419,34 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         this.render();
     },
 
+    toggleOtroBanco() {
+        const seleccion = document.querySelector('input[name="banco_seleccion"]:checked').value;
+        const containerOtro = document.getElementById('container-otro-banco');
+        const inputOtro = document.getElementById('banco-nombre-manual');
+        if (seleccion === 'Otro') {
+            containerOtro.style.display = 'block';
+            inputOtro.required = true;
+            inputOtro.focus();
+        } else {
+            containerOtro.style.display = 'none';
+            inputOtro.required = false;
+        }
+    },
+
     async handleBancoSubmit(event) {
         event.preventDefault();
-        const nombre = document.getElementById('banco-nombre').value.trim();
+        
+        const seleccion = document.querySelector('input[name="banco_seleccion"]:checked').value;
+        let nombre = '';
+        
+        if (seleccion === 'Otro') {
+            nombre = document.getElementById('banco-nombre-manual').value.trim();
+        } else {
+            nombre = seleccion;
+        }
+        
         const saldoInicial = parseFloat(document.getElementById('banco-saldo-inicial').value) || 0;
+        const nroCuenta = document.getElementById('banco-numero-cuenta')?.value || '';
 
         if (!nombre) {
             this.showToast('Ingrese el nombre del banco', 'error');
@@ -2993,14 +3462,17 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         try {
             await db.collection('cuentas_bancarias').add({
                 nombre,
+                numero: nroCuenta,
                 saldo_inicial: saldoInicial,
-                saldo_actual: saldoInicial, // Inicialmente es el mismo
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                saldo_actual: saldoInicial,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
             });
 
             this.showToast('Banco creado exitosamente', 'success');
-            this.closeBancoModal();
-            this.loadBancos(); // Reload data
+            State.showBancoModal = false;
+            await this.loadBancos();
+            this.render();
         } catch (error) {
             console.error("Error creating banco:", error);
             this.showToast('Error al crear banco', 'error');
@@ -3024,7 +3496,6 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             }
         } catch (error) {
             console.error("Error loading bancos:", error);
-            this.showToast('Error al cargar bancos', 'error');
         }
     }
 };

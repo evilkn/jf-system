@@ -139,7 +139,7 @@ const Views = {
         return `
             <!-- DETALLE MODAL -->
             <div id="detalle-modal" class="modal-overlay ${State.showDetalleModal ? 'active' : ''}">
-                <div class="modal-content glass-card animate-fadeInUp" style="max-width: 700px; padding: 0; overflow: hidden;">
+                <div class="modal-content glass-card animate-fadeInUp" style="max-width: 750px; padding: 0; overflow: hidden;">
                     <div id="detalle-modal-content">
                         <!-- Rendered by App -->
                     </div>
@@ -148,12 +148,104 @@ const Views = {
         `;
     },
 
+    bancoDetalleContent(banco) {
+        const bankInfo = this.getBankInfo(banco.nombre);
+        return `
+            <div style="padding: 30px; background: ${bankInfo.themeClass.includes('generic') ? 'var(--surface)' : 'var(--glass-bg)'};" class="${bankInfo.themeClass}">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 24px;">
+                    <div style="display:flex; align-items:center; gap: 16px;">
+                        <div class="bank-logo-container" style="width: 50px; height: 50px; background: white; border-radius: 12px; padding: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                            ${bankInfo.icon}
+                        </div>
+                        <div>
+                            <h2 style="margin: 0; font-size: 1.5rem; color: var(--text-primary); text-shadow: 0 1px 2px rgba(0,0,0,0.1);">${banco.nombre}</h2>
+                            <span style="color: var(--text-secondary); font-size: 0.9rem;">Saldo Inicial: $${(banco.saldo_inicial || 0).toFixed(2)}</span>
+                        </div>
+                    </div>
+                    <button class="icon-btn" onclick="App.closeDetalleModal()">${Icons.close()}</button>
+                </div>
+                
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+                    <div class="glass-card" style="background: rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.05); padding: 20px;">
+                        <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 8px;">Saldo del Sistema</div>
+                        <div id="saldo-sistema-valor" class="bank-balance" style="font-family: var(--font-mono); font-size: 2.2rem; font-weight: 800; letter-spacing: -1px;">
+                            $${(banco.saldo_actual || 0).toFixed(2)}
+                        </div>
+                    </div>
+                    
+                    <div class="glass-card" style="background: rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.05); padding: 20px;">
+                        <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 8px;">Conciliación (Saldo Banco Real)</div>
+                        <div style="display:flex; gap: 12px; align-items:center; margin-bottom: 12px;">
+                            <input type="number" step="0.01" id="saldo-real-input" oninput="App.actualizarComparacion(${banco.saldo_actual})" placeholder="0.00" style="font-size: 1.1rem; padding: 8px; flex-grow:1; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--border); border-radius: 8px;">
+                            <button class="btn btn-primary" onclick="App.guardarConciliacion('${banco.id}')">Ajustar</button>
+                        </div>
+                        <div id="conciliacion-status" style="display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 0.85rem; padding: 8px 12px; border-radius: 6px; background: rgba(255,255,255,0.05);">
+                            <span id="conciliacion-label">INGRESE SALDO REAL</span>
+                            <span id="conciliacion-diff">---</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px;">
+                    <div class="glass-card" style="background: rgba(0,0,0,0.2); padding: 20px;">
+                        <h3 style="margin: 0 0 16px 0; display:flex; align-items:center; gap: 8px; font-size: 1.1rem;">${Icons.docList ? Icons.docList(20) : '📄'} Historial de Movimientos</h3>
+                        <div id="transacciones-list" style="max-height: 350px; overflow-y: auto; padding-right: 8px;">
+                            <div style="text-align: center; color: var(--text-secondary); padding: 30px; background: rgba(0,0,0,0.05); border-radius: 8px;">
+                                Cargando movimientos...
+                            </div>
+                        </div>
+                        <div style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 16px; display:flex; justify-content:center;">
+                            <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 16px; display:flex; align-items:center; gap:8px;" onclick="App.exportBankHistoryPDF('${banco.id}')">
+                                ${Icons.export(14)} Descargar Historial (PDF)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="glass-card" style="background: rgba(255,255,255,0.02); padding: 20px; border: 1px solid rgba(255,255,255,0.05);">
+                        <h3 style="margin: 0 0 16px 0; font-size: 1.1rem;">Nuevo Movimiento</h3>
+                        <form onsubmit="App.handleMovimientoSubmit(event, '${banco.id}')" style="display:grid; gap: 12px;">
+                            <div class="form-group">
+                                <label style="font-size: 0.75rem; opacity: 0.7;">Tipo de Movimiento</label>
+                                <select id="mov-tipo" style="width: 100%; padding: 8px; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px;">
+                                    <option value="ingreso">Ingreso (+)</option>
+                                    <option value="egreso">Egreso (-)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label style="font-size: 0.75rem; opacity: 0.7;">Monto ($)</label>
+                                <input type="number" step="0.01" id="mov-monto" required placeholder="0.00" style="width: 100%; padding: 8px; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px;">
+                            </div>
+                            <div class="form-group">
+                                <label style="font-size: 0.75rem; opacity: 0.7;">Descripción</label>
+                                <input type="text" id="mov-desc" required placeholder="Ej. Pago de servicios..." style="width: 100%; padding: 8px; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px;">
+                            </div>
+                            <div class="form-group">
+                                <label style="font-size: 0.75rem; opacity: 0.7;">Etiqueta (Opcional)</label>
+                                <select id="mov-tag" style="width: 100%; padding: 8px; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px;">
+                                    <option value="">Sin etiqueta</option>
+                                    <option value="Impuestos">Impuestos</option>
+                                    <option value="Servicios">Servicios</option>
+                                    <option value="Nómina">Nómina</option>
+                                    <option value="Transferencia">Transferencia</option>
+                                    <option value="Ajuste">Ajuste</option>
+                                    <option value="Ventas">Ventas</option>
+                                    <option value="Otros">Otros</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="margin-top: 8px; width: 100%;">Registrar Movimiento</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
     getBankInfo(nombre) {
         const n = nombre.toLowerCase();
-        if (n.includes('pichincha')) return { icon: Icons.bankPichincha(24), themeClass: 'bank-theme-pichincha' };
-        if (n.includes('guayaquil')) return { icon: Icons.bankGuayaquil(24), themeClass: 'bank-theme-guayaquil' };
-        if (n.includes('jep')) return { icon: Icons.bankJEP(24), themeClass: 'bank-theme-jep' };
-        if (n.includes('jardín azuayo') || n.includes('jardin azuayo')) return { icon: Icons.bankJardinAzuayo(24), themeClass: 'bank-theme-jardin' };
+        if (n.includes('pichincha')) return { icon: '<img src="Bancos/banco_pichincha.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-pichincha' };
+        if (n.includes('guayaquil')) return { icon: '<img src="Bancos/banco_guayaquil.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-guayaquil' };
+        if (n.includes('jep')) return { icon: '<img src="Bancos/cooperativa_jep.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-jep' };
+        if (n.includes('jardín azuayo') || n.includes('jardin azuayo')) return { icon: '<img src="Bancos/cooperativa_jardin_azuayo.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-jardin' };
         if (n.includes('produbanco')) return { icon: Icons.bankProdubanco(24), themeClass: 'bank-theme-produbanco' };
         if (n.includes('pacifico')) return { icon: Icons.bankPacifico(24), themeClass: 'bank-theme-pacifico' };
         return { icon: Icons.bank(24), themeClass: 'bank-theme-generic' };
@@ -162,15 +254,51 @@ const Views = {
     bancoModal() {
         return `
             <div id="banco-modal" class="modal-overlay ${State.showBancoModal ? 'active' : ''}">
-                <div class="modal-content glass-card animate-fadeInUp" style="max-width: 450px;">
+                <div class="modal-content glass-card animate-fadeInUp" style="max-width: 550px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
                         <h3 style="margin: 0; display:flex; align-items:center; gap:8px;">${Icons.bank()} Nuevo Banco</h3>
                         <button class="icon-btn" onclick="App.closeBancoModal()">${Icons.close()}</button>
                     </div>
                     <form onsubmit="App.handleBancoSubmit(event)">
                         <div class="form-group">
-                            <label>Nombre de la Cuenta / Banco</label>
-                            <input type="text" id="banco-nombre" required placeholder="Ej. Banco Pichincha, Caja Chica...">
+                            <label>Selecciona el Banco</label>
+                            <div class="bank-selection-grid">
+                                <label class="bank-option">
+                                    <input type="radio" name="banco_seleccion" value="Banco Pichincha" onchange="App.toggleOtroBanco()" checked>
+                                    <div class="bank-option-content">
+                                        <img src="Bancos/banco_pichincha.png" alt="Pichincha">
+                                    </div>
+                                </label>
+                                <label class="bank-option">
+                                    <input type="radio" name="banco_seleccion" value="Banco Guayaquil" onchange="App.toggleOtroBanco()">
+                                    <div class="bank-option-content">
+                                        <img src="Bancos/banco_guayaquil.png" alt="Guayaquil">
+                                    </div>
+                                </label>
+                                <label class="bank-option">
+                                    <input type="radio" name="banco_seleccion" value="Cooperativa JEP" onchange="App.toggleOtroBanco()">
+                                    <div class="bank-option-content">
+                                        <img src="Bancos/cooperativa_jep.png" alt="JEP">
+                                    </div>
+                                </label>
+                                <label class="bank-option">
+                                    <input type="radio" name="banco_seleccion" value="Cooperativa Jardín Azuayo" onchange="App.toggleOtroBanco()">
+                                    <div class="bank-option-content">
+                                        <img src="Bancos/cooperativa_jardin_azuayo.png" alt="Jardín Azuayo">
+                                    </div>
+                                </label>
+                                <label class="bank-option">
+                                    <input type="radio" name="banco_seleccion" value="Otro" onchange="App.toggleOtroBanco()">
+                                    <div class="bank-option-content">
+                                        <div class="otro-icon">${Icons.bank(24)}</div>
+                                        <span>Otro Banco</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group" id="container-otro-banco" style="display:none;">
+                            <label>Escribe el nombre del Banco/Cuenta</label>
+                            <input type="text" id="banco-nombre-manual" placeholder="Ej. Caja Chica, Produbanco...">
                         </div>
                         <div class="form-group">
                             <label>Saldo Inicial ($)</label>
@@ -219,12 +347,26 @@ const Views = {
         }
 
         return `
-            <div class="bancos-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
-                <div>
-                    <h3 style="margin: 0; font-family: var(--font-heading); font-size: 1.5rem;">Control de Bancos</h3>
-                    <p style="color: var(--text-secondary); margin: 4px 0 0 0; font-size: 0.9rem;">Libro auxiliar y conciliación bancaria global</p>
+            <div class="bancos-header" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px; gap: 20px; flex-wrap: wrap;">
+                <div class="header-info">
+                    <h1 style="margin: 0; font-size: 2.2rem; background: linear-gradient(135deg, #fff 0%, #aaa 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Control de Bancos</h1>
+                    <p style="margin: 5px 0 0 0; color: var(--text-secondary); font-size: 1rem;">Gestión independiente de activos líquidos y conciliación.</p>
                 </div>
-                <button class="btn btn-primary" onclick="App.showAddBancoModal()" style="display:flex;align-items:center;gap:8px;">
+                
+                <div class="total-liquidez-card glass-card" style="padding: 20px 30px; background: linear-gradient(135deg, rgba(74, 144, 226, 0.15) 0%, rgba(74, 144, 226, 0.05) 100%); border: 1px solid rgba(74, 144, 226, 0.3); min-width: 280px; position: relative; overflow: hidden;">
+                    <div style="position: absolute; top: -20px; right: -20px; opacity: 0.1;">
+                        ${Icons.chart(120)}
+                    </div>
+                    <span style="color: rgba(255,255,255,0.6); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Saldo Disponible Total</span>
+                    <div style="font-size: 2.4rem; font-weight: 700; color: #4a90e2; margin-top: 5px; text-shadow: 0 0 20px rgba(74, 144, 226, 0.3);">
+                        $${totalLiquidez.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 0.8rem; color: #4cd137;">
+                        <span style="width: 8px; height: 8px; background: #4cd137; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px #4cd137;"></span>
+                        Sincronizado en tiempo real
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="App.showAddBancoModal()" style="display:flex;align-items:center;gap:8px; height: fit-content; align-self: flex-start;">
                     ${Icons.plus()} Nuevo Banco
                 </button>
             </div>
