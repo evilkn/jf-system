@@ -92,6 +92,13 @@ const Icons = {
     loading: (size=16) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
     calendar: (size=16) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" fill="#f97316" opacity="0.15" stroke="#f97316" stroke-width="1.5"/><path d="M16 2v4M8 2v4M3 10h18" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/></svg>`,
     pdf: (size=16) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 18h10M7 14h10M7 10h10" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/><rect x="4" y="2" width="16" height="20" rx="2" stroke="#ef4444" stroke-width="1.5" fill="none"/><rect x="4" y="2" width="16" height="5" rx="2" fill="#ef4444" opacity="0.2"/></svg>`,
+    
+    /* Bank Logos */
+    bankPichincha: (size=24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#FFDD00"/><path d="M7 6h6c3 0 5 2 5 5s-2 5-5 5H9v2H7V6zm2 2v6h4c2 0 3-1 3-3s-1-3-3-3H9z" fill="#002D72"/></svg>`,
+    bankGuayaquil: (size=24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#E3006F"/><path d="M12 6c-3.3 0-6 2.7-6 6s2.7 6 6 6 6-2.7 6-6H12v-2h8.5c0-4.4-3.6-8-8.5-8zm0 10c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4v2h-4v2z" fill="#FFF"/></svg>`,
+    bankJEP: (size=24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#DA291C"/><text x="12" y="16" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#FFF" text-anchor="middle">JEP</text></svg>`,
+    bankProdubanco: (size=24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#0033A0"/><path d="M6 12l6-6 6 6-6 6-6-6z" fill="#78BE20"/></svg>`,
+    bankPacifico: (size=24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#00A2E8"/><circle cx="12" cy="12" r="6" fill="#FFF"/><circle cx="12" cy="12" r="3" fill="#00A2E8"/></svg>`
 };
 
 

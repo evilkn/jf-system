@@ -148,6 +148,16 @@ const Views = {
         `;
     },
 
+    getBankLogo(nombre) {
+        const n = nombre.toLowerCase();
+        if (n.includes('pichincha')) return Icons.bankPichincha(24);
+        if (n.includes('guayaquil')) return Icons.bankGuayaquil(24);
+        if (n.includes('jep')) return Icons.bankJEP(24);
+        if (n.includes('produbanco')) return Icons.bankProdubanco(24);
+        if (n.includes('pacifico')) return Icons.bankPacifico(24);
+        return Icons.bank(24);
+    },
+
     bancoModal() {
         return `
             <div id="banco-modal" class="modal-overlay ${State.showBancoModal ? 'active' : ''}">
@@ -178,21 +188,25 @@ const Views = {
     bancos() {
         let cardsHtml = '';
         if (State.bancosData && State.bancosData.length > 0) {
-            cardsHtml = State.bancosData.map(banco => `
-                <div class="glass-card" style="padding: 24px; cursor: pointer; transition: transform 0.2s;" onclick="App.openBancoDetail('${banco.id}')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
-                        <h4 style="margin:0; font-size: 1.1rem;">${banco.nombre}</h4>
-                        <div style="opacity: 0.7;">${Icons.bank()}</div>
+            cardsHtml = State.bancosData.map(banco => {
+                const bankIcon = Views.getBankLogo(banco.nombre);
+                return `
+                <div class="glass-card bank-card" style="cursor: pointer;" onclick="App.openBancoDetail('${banco.id}')">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
+                        <h4 style="margin:0; font-size: 1.2rem; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.1); color: var(--text-primary);">${banco.nombre}</h4>
+                        <div class="bank-logo-container">
+                            ${bankIcon}
+                        </div>
                     </div>
-                    <div style="font-family: var(--font-mono); font-size: 1.8rem; font-weight: 700; color: var(--primary);">
+                    <div style="font-family: var(--font-mono); font-size: 2.2rem; font-weight: 800; background: linear-gradient(135deg, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px; margin-bottom: 8px;">
                         $${banco.saldo_actual.toFixed(2)}
                     </div>
-                    <div style="margin-top: 16px; font-size: 0.85rem; color: var(--text-secondary); display:flex; justify-content:space-between; align-items:center;">
-                        <span>Ver conciliación y transacciones</span>
-                        <span style="opacity: 0.5;">${Icons.arrowRight()}</span>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); display:flex; justify-content:space-between; align-items:center; padding-top: 16px; border-top: 1px solid var(--glass-border);">
+                        <span style="font-weight: 500;">Ver conciliación y transacciones</span>
+                        <div class="arrow-btn">${Icons.arrowRight()}</div>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         } else {
             cardsHtml = `
                 <div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px; border: 1px dashed rgba(255,255,255,0.2); border-radius: 12px; background: rgba(0,0,0,0.1);">

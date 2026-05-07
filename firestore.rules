@@ -65,6 +65,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Reglas para Control de Bancos
+    match /cuentas_bancarias/{bancoId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+      
+      // Subcolección de movimientos
+      match /movimientos/{movId} {
+        allow read: if request.auth != null;
+        allow write: if isAdmin();
+      }
+    }
+
     // Por defecto, denegar todo lo demás
     match /{document=**} {
       allow read, write: if false;
