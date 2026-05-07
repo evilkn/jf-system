@@ -148,14 +148,15 @@ const Views = {
         `;
     },
 
-    getBankLogo(nombre) {
+    getBankInfo(nombre) {
         const n = nombre.toLowerCase();
-        if (n.includes('pichincha')) return Icons.bankPichincha(24);
-        if (n.includes('guayaquil')) return Icons.bankGuayaquil(24);
-        if (n.includes('jep')) return Icons.bankJEP(24);
-        if (n.includes('produbanco')) return Icons.bankProdubanco(24);
-        if (n.includes('pacifico')) return Icons.bankPacifico(24);
-        return Icons.bank(24);
+        if (n.includes('pichincha')) return { icon: Icons.bankPichincha(24), themeClass: 'bank-theme-pichincha' };
+        if (n.includes('guayaquil')) return { icon: Icons.bankGuayaquil(24), themeClass: 'bank-theme-guayaquil' };
+        if (n.includes('jep')) return { icon: Icons.bankJEP(24), themeClass: 'bank-theme-jep' };
+        if (n.includes('jardín azuayo') || n.includes('jardin azuayo')) return { icon: Icons.bankJardinAzuayo(24), themeClass: 'bank-theme-jardin' };
+        if (n.includes('produbanco')) return { icon: Icons.bankProdubanco(24), themeClass: 'bank-theme-produbanco' };
+        if (n.includes('pacifico')) return { icon: Icons.bankPacifico(24), themeClass: 'bank-theme-pacifico' };
+        return { icon: Icons.bank(24), themeClass: 'bank-theme-generic' };
     },
 
     bancoModal() {
@@ -189,16 +190,16 @@ const Views = {
         let cardsHtml = '';
         if (State.bancosData && State.bancosData.length > 0) {
             cardsHtml = State.bancosData.map(banco => {
-                const bankIcon = Views.getBankLogo(banco.nombre);
+                const bankInfo = Views.getBankInfo(banco.nombre);
                 return `
-                <div class="glass-card bank-card" style="cursor: pointer;" onclick="App.openBancoDetail('${banco.id}')">
+                <div class="glass-card bank-card ${bankInfo.themeClass}" style="cursor: pointer;" onclick="App.openBancoDetail('${banco.id}')">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
                         <h4 style="margin:0; font-size: 1.2rem; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.1); color: var(--text-primary);">${banco.nombre}</h4>
                         <div class="bank-logo-container">
-                            ${bankIcon}
+                            ${bankInfo.icon}
                         </div>
                     </div>
-                    <div style="font-family: var(--font-mono); font-size: 2.2rem; font-weight: 800; background: linear-gradient(135deg, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px; margin-bottom: 8px;">
+                    <div class="bank-balance" style="font-family: var(--font-mono); font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px;">
                         $${banco.saldo_actual.toFixed(2)}
                     </div>
                     <div style="font-size: 0.85rem; color: var(--text-secondary); display:flex; justify-content:space-between; align-items:center; padding-top: 16px; border-top: 1px solid var(--glass-border);">
