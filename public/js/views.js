@@ -159,7 +159,7 @@ const Views = {
                         </div>
                         <div>
                             <h2 style="margin: 0; font-size: 1.5rem; color: var(--text-primary); text-shadow: 0 1px 2px rgba(0,0,0,0.1);">${banco.nombre}</h2>
-                            <span style="color: var(--text-secondary); font-size: 0.9rem;">Saldo Inicial: $${(banco.saldo_inicial || 0).toFixed(2)}</span>
+                            <span style="color: var(--text-secondary); font-size: 0.9rem;">Saldo Inicial: ${App.formatMoney(banco.saldo_inicial || 0)}</span>
                         </div>
                     </div>
                     <button class="icon-btn" onclick="App.closeDetalleModal()">${Icons.close()}</button>
@@ -169,7 +169,7 @@ const Views = {
                     <div class="glass-card" style="background: rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.05); padding: 20px;">
                         <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 8px;">Saldo del Sistema</div>
                         <div id="saldo-sistema-valor" class="bank-balance" style="font-family: var(--font-mono); font-size: 2.2rem; font-weight: 800; letter-spacing: -1px;">
-                            $${(banco.saldo_actual || 0).toFixed(2)}
+                            ${App.formatMoney(banco.saldo_actual || 0)}
                         </div>
                     </div>
                     
@@ -329,7 +329,7 @@ const Views = {
                         </div>
                     </div>
                     <div class="bank-balance" style="font-family: var(--font-mono); font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px;">
-                        $${banco.saldo_actual.toFixed(2)}
+                        ${App.formatMoney(banco.saldo_actual)}
                     </div>
                     <div style="font-size: 0.85rem; color: var(--text-secondary); display:flex; justify-content:space-between; align-items:center; padding-top: 16px; border-top: 1px solid var(--glass-border);">
                         <span style="font-weight: 500;">Ver conciliación y transacciones</span>
@@ -364,7 +364,7 @@ const Views = {
                     <div style="position: relative; z-index: 2;">
                         <span style="color: rgba(255,255,255,0.7); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; display: block; margin-bottom: 4px;">Saldo Disponible Total</span>
                         <div style="font-size: 2.6rem; font-weight: 800; color: white; margin-top: 2px; font-family: var(--font-mono); letter-spacing: -1px;">
-                            $${totalLiquidez.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            ${App.formatMoney(totalLiquidez)}
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 0.85rem; color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.1); width: fit-content; padding: 4px 12px; border-radius: 20px; backdrop-filter: blur(5px);">
                             <span style="width: 8px; height: 8px; background: #4cd137; border-radius: 50%; display: inline-block; box-shadow: 0 0 10px #4cd137; animation: pulse 2s infinite;"></span>
@@ -607,7 +607,7 @@ const Views = {
                         <div class="progress-bar ${statusClass}" style="width: ${percent}%"></div>
                     </div>
                     <div style="font-size: 0.75rem; color: var(--text-secondary);">
-                        $${sales.toLocaleString()} / $${limit.toLocaleString()}
+                        $${App.formatNumber(sales)} / $${App.formatNumber(limit)}
                     </div>
                 </div>
             `;
@@ -628,7 +628,7 @@ const Views = {
         const ivaVentas     = ventas.reduce((s, r)  => s + (r.iva||0), 0);
         const ivaCompras    = compras.reduce((s, r) => s + (r.iva||0), 0);
         const balance = ivaVentas - ivaCompras;
-        const fmt = n => '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        const fmt = n => App.formatMoney(n);
         return `
             <div class="stat-card" style="border-top: 3px solid var(--success);">
                 <div class="stat-body" style="padding: 14px 18px;">

@@ -54,6 +54,26 @@ const App = {
         }[m]));
     },
 
+    // Formateo de moneda con estándares contables (Locale: Ecuador)
+    formatMoney(n) {
+        const val = parseFloat(n) || 0;
+        return val.toLocaleString('es-EC', { 
+            style: 'currency', 
+            currency: 'USD', 
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2 
+        });
+    },
+
+    // Formateo de número puro (sin el símbolo $) con separadores de miles y decimales
+    formatNumber(n, decimals = 2) {
+        const val = parseFloat(n) || 0;
+        return val.toLocaleString('es-EC', { 
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals 
+        });
+    },
+
     togglePasswordVis(inputId) {
         const input = document.getElementById(inputId);
         if (input) {
@@ -752,8 +772,8 @@ const App = {
                         <span style="font-size:0.7rem; background:rgba(var(--primary-rgb),0.1); padding:2px 6px; border-radius:10px; font-weight:600;">${g.items.length} ${g.items.length === 1 ? 'deuda' : 'deudas'}</span>
                     </td>
                     <td colspan="2" style="font-size:0.8rem; color:var(--text-secondary);">Resumen de deudas activas</td>
-                    <td style="text-align:right; font-weight:700;">$${g.totalMonto.toFixed(2)}</td>
-                    <td style="text-align:right; font-weight:800; color:${isPaid ? 'var(--success)' : 'var(--primary)'};">$${g.totalPendiente.toFixed(2)}</td>
+                    <td style="text-align:right; font-weight:700;">${App.formatMoney(g.totalMonto)}</td>
+                    <td style="text-align:right; font-weight:800; color:${isPaid ? 'var(--success)' : 'var(--primary)'};">${App.formatMoney(g.totalPendiente)}</td>
                     <td>
                         <span class="status-pill ${isPaid ? 'status-green' : 'status-yellow'}" style="font-size:0.7rem; padding:4px 8px;">
                             ${isPaid ? 'Al día' : 'Con Saldo'}
@@ -786,8 +806,8 @@ const App = {
                             <td style="padding-left:30px; font-size:0.85rem; color:var(--text-secondary);">└─ Detalle</td>
                             <td style="font-size:0.85rem; font-weight:600;">${c.concepto || 'Sin concepto'}</td>
                             <td style="font-size:0.85rem;">${c.fecha}</td>
-                            <td style="text-align:right; font-size:0.85rem; color:var(--text-secondary);">$${c.montoTotal.toFixed(2)}</td>
-                            <td style="text-align:right; font-weight:700; color:${cIsPaid ? 'var(--success)' : 'var(--primary)'};">$${c.pendiente.toFixed(2)}</td>
+                            <td style="text-align:right; font-size:0.85rem; color:var(--text-secondary);">${App.formatMoney(c.montoTotal)}</td>
+                            <td style="text-align:right; font-weight:700; color:${cIsPaid ? 'var(--success)' : 'var(--primary)'};">${App.formatMoney(c.pendiente)}</td>
                             <td>
                                 <span class="status-pill ${cIsPaid ? 'status-green' : 'status-yellow'}" style="font-size:0.65rem; padding:2px 6px; opacity:0.8;">
                                     ${cIsPaid ? 'Pagado' : 'Pendiente'}
@@ -1084,8 +1104,8 @@ const App = {
                         <span style="font-size:0.7rem; background:rgba(var(--danger-rgb),0.1); padding:2px 6px; border-radius:10px; font-weight:600;">${g.items.length} ${g.items.length === 1 ? 'obligación' : 'obligaciones'}</span>
                     </td>
                     <td colspan="2" style="font-size:0.8rem; color:var(--text-secondary);">Resumen de obligaciones</td>
-                    <td style="text-align:right; font-weight:700;">$${g.totalMonto.toFixed(2)}</td>
-                    <td style="text-align:right; font-weight:800; color:${isPaid ? 'var(--success)' : 'var(--danger)'};">$${g.totalPendiente.toFixed(2)}</td>
+                    <td style="text-align:right; font-weight:700;">${App.formatMoney(g.totalMonto)}</td>
+                    <td style="text-align:right; font-weight:800; color:${isPaid ? 'var(--success)' : 'var(--danger)'};">${App.formatMoney(g.totalPendiente)}</td>
                     <td>
                         <span class="status-pill ${isPaid ? 'status-green' : 'status-red'}" style="font-size:0.7rem; padding:4px 8px;">
                             ${isPaid ? 'Al día' : 'Pendiente'}
@@ -1114,8 +1134,8 @@ const App = {
                             <td style="padding-left:30px; font-size:0.85rem; color:var(--text-secondary);">└─ Detalle</td>
                             <td style="font-size:0.85rem; font-weight:600;">${c.concepto || 'Sin concepto'}</td>
                             <td style="font-size:0.85rem;">${c.fecha}</td>
-                            <td style="text-align:right; font-size:0.85rem; color:var(--text-secondary);">$${c.montoTotal.toFixed(2)}</td>
-                            <td style="text-align:right; font-weight:700; color:${cIsPaid ? 'var(--success)' : 'var(--danger)'};">$${c.pendiente.toFixed(2)}</td>
+                            <td style="text-align:right; font-size:0.85rem; color:var(--text-secondary);">${App.formatMoney(c.montoTotal)}</td>
+                            <td style="text-align:right; font-weight:700; color:${cIsPaid ? 'var(--success)' : 'var(--danger)'};">${App.formatMoney(c.pendiente)}</td>
                             <td>
                                 <span class="status-pill ${cIsPaid ? 'status-green' : 'status-red'}" style="font-size:0.65rem; padding:2px 6px; opacity:0.8;">
                                     ${cIsPaid ? 'Pagado' : 'Pendiente'}
@@ -1270,15 +1290,15 @@ const App = {
                 <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px;">
                     <div style="padding:16px; border-radius:16px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); backdrop-filter:blur(10px);">
                         <div style="font-size:0.75rem; text-transform:uppercase; opacity:0.7; margin-bottom:6px; font-weight:700; letter-spacing:0.5px;">Deuda Total</div>
-                        <div style="font-size:1.3rem; font-weight:800; font-family:var(--font-mono);">$${r.montoTotal.toFixed(2)}</div>
+                        <div style="font-size:1.3rem; font-weight:800; font-family:var(--font-mono);">${this.formatMoney(r.montoTotal)}</div>
                     </div>
                     <div style="padding:16px; border-radius:16px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); backdrop-filter:blur(10px);">
                         <div style="font-size:0.75rem; text-transform:uppercase; opacity:0.7; margin-bottom:6px; font-weight:700; letter-spacing:0.5px;">Total Pagado</div>
-                        <div style="font-size:1.3rem; font-weight:800; font-family:var(--font-mono); color:#10b981;">$${totalPaid.toFixed(2)}</div>
+                        <div style="font-size:1.3rem; font-weight:800; font-family:var(--font-mono); color:#10b981;">${this.formatMoney(totalPaid)}</div>
                     </div>
                     <div style="padding:16px; border-radius:16px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); backdrop-filter:blur(10px);">
                         <div style="font-size:0.75rem; text-transform:uppercase; opacity:0.8; margin-bottom:6px; font-weight:700; letter-spacing:0.5px;">Saldo Pendiente</div>
-                        <div style="font-size:1.3rem; font-weight:800; font-family:var(--font-mono); color:${r.pendiente > 0 ? '#fbbf24' : '#10b981'};">$${r.pendiente.toFixed(2)}</div>
+                        <div style="font-size:1.3rem; font-weight:800; font-family:var(--font-mono); color:${r.pendiente > 0 ? '#fbbf24' : '#10b981'};">${this.formatMoney(r.pendiente)}</div>
                     </div>
                 </div>
             </div>
@@ -1307,7 +1327,7 @@ const App = {
                                         ${isTransf ? this.getBankLogoHTML(a.banco, 32).replace('margin-right:8px;', 'margin-right:0;') : Icons.cash(28)}
                                     </div>
                                     <div>
-                                        <div style="font-weight:800; font-size:1.25rem; color:var(--text-primary); font-family:var(--font-mono); letter-spacing:-0.5px;">$${a.monto.toFixed(2)}</div>
+                                        <div style="font-weight:800; font-size:1.25rem; color:var(--text-primary); font-family:var(--font-mono); letter-spacing:-0.5px;">${this.formatMoney(a.monto)}</div>
                                         <div style="font-size:0.8rem; color:var(--text-secondary); font-weight:500;">
                                             ${this.formatDateTime(a.fecha)}
                                         </div>
@@ -1451,7 +1471,7 @@ const App = {
             .sort((a,b) => a.fecha > b.fecha ? -1 : 1);
 
         const isAdmin = State.currentUser?.role === 'admin';
-        const fmt = n => '$' + (n||0).toFixed(2);
+        const fmt = n => this.formatMoney(n);
 
         if (registros.length === 0) {
             tbody.innerHTML = `<tr><td colspan="${isAdmin?10:9}" style="border:none;padding:0;">
@@ -1529,7 +1549,7 @@ const App = {
             .sort((a,b) => a.fecha > b.fecha ? -1 : 1);
 
         const isAdmin = State.currentUser?.role === 'admin';
-        const fmt = n => '$' + (n||0).toFixed(2);
+        const fmt = n => this.formatMoney(n);
 
         if (registros.length === 0) {
             tbody.innerHTML = `<tr><td colspan="${isAdmin?10:9}" style="border:none;padding:0;">
@@ -1805,7 +1825,7 @@ const App = {
         let sumVS15=0, sumVIva=0, sumVTot=0;
         let sumCS15=0, sumCS5=0, sumCS0=0, sumCIva15=0, sumCIva5=0, sumCTot=0;
 
-        const fmt = n => (n||0).toFixed(2);
+        const fmt = n => this.formatNumber(n);
 
         const rows = mesesEnRango.map(({mes, anio}) => {
             const ventasMes  = all.filter(r => r.tipo==='venta'  && !r.anulada && r.mes===mes && r.anio===anio);
@@ -1877,7 +1897,7 @@ const App = {
         const balance  = ivaVentas - ivaCompras - credito;
         const chip     = document.getElementById('con-balance-chip');
         const printBal = document.getElementById('print-balance-area');
-        const fmt      = n => '$' + Math.abs(n).toFixed(2);
+        const fmt      = n => this.formatMoney(Math.abs(n));
         const label    = balance >= 0 ? 'A FAVOR' : 'A PAGAR';
         const cls      = balance >= 0 ? 'a-favor' : 'a-pagar';
         const html     = `<span class="balance-chip ${cls}">${label}: ${fmt(balance)}</span>`;
@@ -1911,7 +1931,7 @@ const App = {
         }
 
         let sumVS15=0,sumVIva=0,sumVTot=0,sumCS15=0,sumCS5=0,sumCS0=0,sumCIva15=0,sumCIva5=0,sumCTot=0;
-        const fmt = n => (n||0).toFixed(2);
+        const fmt = n => this.formatNumber(n);
 
         const rowsHTML = mesesEnRango.map(({mes, anio}) => {
             const V = all.filter(r => r.tipo==='venta'  && !r.anulada && r.mes===mes && r.anio===anio);
@@ -2008,7 +2028,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
 <div class="ftr">
   <div><div class="lbl">Crédito Tributario (arrastre)</div><div class="cval">$ ${fmt(credito)}</div></div>
   <div><div class="lbl">Balance IVA del Período</div>
-       <span class="pill" style="${bCls}">${bLbl}: $${Math.abs(bal).toFixed(2)}</span></div>
+       <span class="pill" style="${bCls}">${bLbl}: ${this.formatMoney(Math.abs(bal))}</span></div>
   <div style="text-align:right;"><div class="lbl">IVA Ventas</div><div class="cval">$ ${fmt(sumVIva)}</div></div>
   <div style="text-align:right;"><div class="lbl">IVA Compras</div><div class="cval">$ ${fmt(sumCIva15+sumCIva5)}</div></div>
 </div>
@@ -2945,13 +2965,6 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         });
     },
 
-    clearReportClient() {
-        State.reportSelectedClientId = null;
-        document.getElementById('report-selected-badge').style.display = 'none';
-        document.getElementById('report-client-search').parentElement.style.display = 'block';
-        document.getElementById('report-client-search').focus();
-    },
-
     setReportRange(range) {
         const startInput = document.getElementById('report-date-start');
         const endInput = document.getElementById('report-date-end');
@@ -3201,11 +3214,11 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                         <tr>
                             <td style="width:33%; text-align:center; border-right:1px solid #e2e8f0;">
                                 <p style="margin:0; font-size:9px; color:#64748b; text-transform:uppercase; font-weight:600;">Total Facturado</p>
-                                <h3 style="margin:4px 0 0 0; font-size:16px; color:#1e293b; font-weight:800;">$${totalDeuda.toFixed(2)}</h3>
+                                <h3 style="margin:4px 0 0 0; font-size:16px; color:#1e293b; font-weight:800;">${App.formatMoney(totalDeuda)}</h3>
                             </td>
                             <td style="width:33%; text-align:center; border-right:1px solid #e2e8f0;">
                                 <p style="margin:0; font-size:9px; color:#64748b; text-transform:uppercase; font-weight:600;">Total Pagado</p>
-                                <h3 style="margin:4px 0 0 0; font-size:16px; color:#059669; font-weight:800;">$${totalPagado.toFixed(2)}</h3>
+                                <h3 style="margin:4px 0 0 0; font-size:16px; color:#059669; font-weight:800;">${App.formatMoney(totalPagado)}</h3>
                             </td>
                             <td style="width:33%; text-align:center;">
                                 <p style="margin:0; font-size:9px; color:#64748b; text-transform:uppercase; font-weight:600;">Saldo Pendiente</p>
@@ -3238,7 +3251,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                                             <span style="font-size:9px;">${m.metodo} ${m.banco ? `(${m.banco})` : ''}</span>
                                         </div>
                                     </td>
-                                    <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700; color:#059669;">+$${(m.monto||0).toFixed(2)}</td>
+                                    <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700; color:#059669;">+${App.formatMoney(m.monto)}</td>
                                 </tr>
                             `).join('') : '<tr><td colspan="4" style="padding:20px; text-align:center; color:#94a3b8;">No se registran movimientos de pago en el periodo</td></tr>'}
                         </tbody>
@@ -3283,9 +3296,9 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                                     <tr>
                                         <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${a.fecha}</td>
                                         <td style="padding:8px; border-bottom:1px solid #f1f5f9; font-weight:500;">${a.concepto || '—'}</td>
-                                        <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; color:#64748b;">$${total.toFixed(2)}</td>
-                                        <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; color:#059669;">$${abonado.toFixed(2)}</td>
-                                        <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700; color:${pend > 0 ? '#dc2626' : '#059669'};">$${pend.toFixed(2)}</td>
+                                        <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; color:#64748b;">${App.formatMoney(total)}</td>
+                                        <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; color:#059669;">${App.formatMoney(abonado)}</td>
+                                        <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700; color:${pend > 0 ? '#dc2626' : '#059669'};">${App.formatMoney(pend)}</td>
                                         <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:center;">
                                             <span style="font-size:8px; font-weight:800; text-transform:uppercase; padding:2px 6px; border-radius:4px; color:${statusColor}; background:${statusBg}; border:1px solid ${statusColor}33;">
                                                 ${statusLabel}
@@ -3315,10 +3328,10 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                             ${sri.map(s => `
                                 <tr>
                                     <td style="padding:6px; border-bottom:1px solid #f1f5f9;">${s.fecha.substring(0,7)}</td>
-                                    <td style="padding:6px; border-bottom:1px solid #f1f5f9; text-align:right;">$${(s.ventasTotal||0).toFixed(2)}</td>
-                                    <td style="padding:6px; border-bottom:1px solid #f1f5f9; text-align:right;">$${(s.ventasIva||0).toFixed(2)}</td>
-                                    <td style="padding:6px; border-bottom:1px solid #f1f5f9; text-align:right;">$${(s.comprasTotal||0).toFixed(2)}</td>
-                                    <td style="padding:6px; border-bottom:1px solid #f1f5f9; text-align:right;">$${(s.comprasIvaTotal||0).toFixed(2)}</td>
+                                    <td style="padding:6px; border-bottom:1px solid #f1f5f9; text-align:right;">${App.formatMoney(s.ventasTotal)}</td>
+                                    <td style="padding:6px; border-bottom:1px solid #f1f5f9; text-align:right;">${App.formatMoney(s.ventasIva)}</td>
+                                    <td style="padding:6px; border-bottom:1px solid #f1f5f9; text-align:right;">${App.formatMoney(s.comprasTotal)}</td>
+                                    <td style="padding:6px; border-bottom:1px solid #f1f5f9; text-align:right;">${App.formatMoney(s.comprasIvaTotal)}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -3535,7 +3548,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                             </div>
                         </div>
                         <div style="font-weight: 800; font-family: var(--font-mono); color: ${color}; font-size: 1.05rem; white-space: nowrap; margin-left: 15px;">
-                            ${signo}$${Math.abs(t.monto).toFixed(2)}
+                            ${signo}${App.formatMoney(Math.abs(t.monto))}
                         </div>
                     </div>
                 `;
@@ -3579,12 +3592,12 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             statusDiv.style.background = 'rgba(255, 82, 82, 0.2)';
             statusDiv.style.color = '#FF5252';
             label.textContent = 'FALTANTE';
-            diffSpan.textContent = `-$${Math.abs(diferencia).toFixed(2)}`;
+            diffSpan.textContent = `-${App.formatMoney(Math.abs(diferencia))}`;
         } else {
             statusDiv.style.background = 'rgba(64, 196, 255, 0.2)';
             statusDiv.style.color = '#40C4FF';
             label.textContent = 'SOBRANTE';
-            diffSpan.textContent = `+$${diferencia.toFixed(2)}`;
+            diffSpan.textContent = `+${App.formatMoney(diferencia)}`;
         }
     },
 
@@ -3624,7 +3637,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             batch.set(movRef, {
                 tipo: diferencia > 0 ? 'ingreso' : 'egreso',
                 monto: Math.abs(diferencia),
-                descripcion: `Ajuste por Conciliación (Saldo anterior: $${(banco.saldo_actual || 0).toFixed(2)})`,
+                descripcion: `Ajuste por Conciliación (Saldo anterior: ${App.formatMoney(banco.saldo_actual || 0)})`,
                 fecha: new Date().toISOString(),
                 isAjuste: true,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -3816,7 +3829,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 
                 const sign = item.tipo === 'ingreso' ? '+' : '-';
                 doc.setFont('helvetica', 'bold');
-                doc.text(`${sign} $${item.monto.toFixed(2)}`, 190, y, { align: 'right' });
+                doc.text(`${sign} ${App.formatMoney(item.monto)}`, 190, y, { align: 'right' });
                 
                 doc.setFont('helvetica', 'normal');
                 doc.setTextColor(45, 52, 54);
