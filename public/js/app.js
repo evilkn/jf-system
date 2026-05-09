@@ -54,23 +54,25 @@ const App = {
         }[m]));
     },
 
-    // Formateo de moneda con estándares contables (Locale: Ecuador)
+    // Formateo de moneda con estándares contables (Locale: Ecuador: 1.234,56)
     formatMoney(n) {
         const val = parseFloat(n) || 0;
         return val.toLocaleString('es-EC', { 
             style: 'currency', 
             currency: 'USD', 
             minimumFractionDigits: 2,
-            maximumFractionDigits: 2 
+            maximumFractionDigits: 2,
+            useGrouping: true
         });
     },
 
-    // Formateo de número puro (sin el símbolo $) con separadores de miles y decimales
+    // Formateo de número puro con separadores de miles y decimales (1.234,56)
     formatNumber(n, decimals = 2) {
         const val = parseFloat(n) || 0;
         return val.toLocaleString('es-EC', { 
             minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals 
+            maximumFractionDigits: decimals,
+            useGrouping: true
         });
     },
 
@@ -428,7 +430,7 @@ const App = {
         const abono = parseFloat(document.getElementById('cobrar-abono')?.value) || 0;
         const pendiente = Math.max(0, monto - abono);
         const pendienteEl = document.getElementById('cobrar-pendiente');
-        if (pendienteEl) pendienteEl.value = pendiente.toFixed(2);
+        if (pendienteEl) pendienteEl.value = this.formatNumber(pendiente);
     },
 
     toggleBankSelect(type, isTransfer) {
@@ -915,7 +917,7 @@ const App = {
         const abono = parseFloat(document.getElementById('pagar-abono')?.value) || 0;
         const pendiente = Math.max(0, monto - abono);
         const pendienteEl = document.getElementById('pagar-pendiente');
-        if (pendienteEl) pendienteEl.value = pendiente.toFixed(2);
+        if (pendienteEl) pendienteEl.value = this.formatNumber(pendiente);
     },
 
     async saveCuentaPagar() {
@@ -1370,8 +1372,8 @@ const App = {
         const total = s15 + s0 + iva;
         const ivaEl   = document.getElementById('venta-iva');
         const totalEl = document.getElementById('venta-total');
-        if (ivaEl)   ivaEl.value   = iva.toFixed(2);
-        if (totalEl) totalEl.value = total.toFixed(2);
+        if (ivaEl)   ivaEl.value   = this.formatNumber(iva);
+        if (totalEl) totalEl.value = this.formatNumber(total);
     },
 
     calculateCompraIVA() {
@@ -1382,8 +1384,8 @@ const App = {
         const total = s15 + s0 + s5 + iva;
         const ivaEl   = document.getElementById('compra-iva');
         const totalEl = document.getElementById('compra-total');
-        if (ivaEl)   ivaEl.value   = iva.toFixed(2);
-        if (totalEl) totalEl.value = total.toFixed(2);
+        if (ivaEl)   ivaEl.value   = this.formatNumber(iva);
+        if (totalEl) totalEl.value = this.formatNumber(total);
     },
 
     // Keep legacy calculateIVA alias for backward compatibility
@@ -2725,7 +2727,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                         beginAtZero: true,
                         ticks: { 
                             color: isDark ? 'rgba(255,255,255,0.6)' : '#64748b',
-                            callback: (value) => '$' + value.toLocaleString()
+                            callback: (value) => this.formatMoney(value)
                         },
                         grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
                     },
@@ -3222,7 +3224,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                             </td>
                             <td style="width:33%; text-align:center;">
                                 <p style="margin:0; font-size:9px; color:#64748b; text-transform:uppercase; font-weight:600;">Saldo Pendiente</p>
-                                <h3 style="margin:4px 0 0 0; font-size:16px; color:#dc2626; font-weight:800;">$${totalPendiente.toFixed(2)}</h3>
+                                <h3 style="margin:4px 0 0 0; font-size:16px; color:#dc2626; font-weight:800;">${this.formatMoney(totalPendiente)}</h3>
                             </td>
                         </tr>
                     </table>
@@ -3761,7 +3763,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             doc.setFontSize(10);
             doc.setFont('helvetica', 'normal');
             doc.text(`JF SYSTEM - REPORTE FINANCIERO PROFESIONAL`, 105, 30, { align: 'center' });
-            doc.text(`Generado el: ${new Date().toLocaleString()}`, 105, 36, { align: 'center' });
+            doc.text(`Generado el: ${new Date().toLocaleString('es-EC')}`, 105, 36, { align: 'center' });
 
             // Account Details Card
             doc.setTextColor(0, 0, 0);
@@ -3780,7 +3782,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             doc.setFontSize(16);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(74, 144, 226);
-            doc.text(`$${(banco.saldo_actual || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 185, 70, { align: 'right' });
+            doc.text(`${App.formatMoney(banco.saldo_actual || 0)}`, 185, 70, { align: 'right' });
             doc.setFontSize(8);
             doc.setTextColor(150, 150, 150);
             doc.text('SALDO DISPONIBLE', 185, 75, { align: 'right' });

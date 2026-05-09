@@ -607,7 +607,7 @@ const Views = {
                         <div class="progress-bar ${statusClass}" style="width: ${percent}%"></div>
                     </div>
                     <div style="font-size: 0.75rem; color: var(--text-secondary);">
-                        $${App.formatNumber(sales)} / $${App.formatNumber(limit)}
+                        ${App.formatMoney(sales)} / ${App.formatMoney(limit)}
                     </div>
                 </div>
             `;
@@ -693,8 +693,8 @@ const Views = {
                 <div class="form-group"><label>Fecha *</label><input type="date" id="venta-fecha" required></div>
                 <div class="form-group"><label>Subtotal 15%</label><input type="number" step="0.01" min="0" id="venta-subt15" placeholder="0.00" oninput="App.calculateVentaIVA()"></div>
                 <div class="form-group"><label>Subtotal 0%</label><input type="number" step="0.01" min="0" id="venta-subt0" placeholder="0.00" oninput="App.calculateVentaIVA()"></div>
-                <div class="form-group"><label>IVA (calculado)</label><input type="number" id="venta-iva" readonly style="background:rgba(var(--success-rgb,34,197,94),0.06);font-weight:700;color:var(--success);"></div>
-                <div class="form-group"><label>Total (calculado)</label><input type="number" id="venta-total" readonly style="background:rgba(var(--primary-rgb),0.06);font-weight:800;color:var(--primary);"></div>
+                <div class="form-group"><label>IVA (calculado)</label><input type="text" id="venta-iva" readonly style="background:rgba(var(--success-rgb,34,197,94),0.06);font-weight:700;color:var(--success);"></div>
+                <div class="form-group"><label>Total (calculado)</label><input type="text" id="venta-total" readonly style="background:rgba(var(--primary-rgb),0.06);font-weight:800;color:var(--primary);"></div>
             </div>
             <div style="display:flex;align-items:center;gap:16px;margin-top:8px;flex-wrap:wrap;">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:500;text-transform:none;letter-spacing:0;">
@@ -718,8 +718,8 @@ const Views = {
                 <div class="form-group"><label>Subtotal 15%</label><input type="number" step="0.01" min="0" id="compra-subt15" placeholder="0.00" oninput="App.calculateCompraIVA()"></div>
                 <div class="form-group"><label>Subtotal 0%</label><input type="number" step="0.01" min="0" id="compra-subt0" placeholder="0.00" oninput="App.calculateCompraIVA()"></div>
                 <div class="form-group"><label>Subtotal 5%</label><input type="number" step="0.01" min="0" id="compra-subt5" placeholder="0.00" oninput="App.calculateCompraIVA()"></div>
-                <div class="form-group"><label>IVA (calculado)</label><input type="number" id="compra-iva" readonly style="background:rgba(239,68,68,0.06);font-weight:700;color:var(--danger);"></div>
-                <div class="form-group"><label>Total (calculado)</label><input type="number" id="compra-total" readonly style="background:rgba(239,68,68,0.04);font-weight:800;color:var(--danger);"></div>
+                <div class="form-group"><label>IVA (calculado)</label><input type="text" id="compra-iva" readonly style="background:rgba(239,68,68,0.06);font-weight:700;color:var(--danger);"></div>
+                <div class="form-group"><label>Total (calculado)</label><input type="text" id="compra-total" readonly style="background:rgba(239,68,68,0.04);font-weight:800;color:var(--danger);"></div>
             </div>
             <div style="display:flex;justify-content:flex-end;margin-top:8px;">
                 <button type="submit" class="btn btn-primary">Guardar Compra</button>
@@ -901,7 +901,7 @@ const Views = {
 
                                 <div class="form-group" id="cobrar-pendiente-group" style="margin-bottom:0; width: 180px; flex-shrink: 0;">
                                     <label style="margin-bottom:8px;">Deuda Pendiente</label>
-                                    <input type="number" id="cobrar-pendiente" readonly style="background:rgba(var(--primary-rgb),0.06);font-weight:800;color:var(--primary); width:100%; height:45px;">
+                                    <input type="text" id="cobrar-pendiente" readonly style="background:rgba(var(--primary-rgb),0.06);font-weight:800;color:var(--primary); width:100%; height:45px;">
                                 </div>
                             </div>
                         </div>
@@ -1045,8 +1045,8 @@ const Views = {
                                 </div>
 
                                 <div class="form-group" id="pagar-pendiente-group" style="margin-bottom:0; width: 180px; flex-shrink: 0;">
-                                    <label style="margin-bottom:8px;">Deuda Pendiente</label>
-                                    <input type="number" id="pagar-pendiente" readonly style="background:rgba(var(--danger-rgb),0.06);font-weight:800;color:var(--danger); width:100%; height:45px;">
+                                    <label style="margin-bottom:8px;">Saldo Restante</label>
+                                    <input type="text" id="pagar-pendiente" readonly style="background:rgba(var(--danger-rgb),0.06);font-weight:800;color:var(--danger); width:100%; height:45px;">
                                 </div>
                             </div>
                         </div>
