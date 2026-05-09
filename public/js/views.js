@@ -348,33 +348,34 @@ const Views = {
         }
 
         return `
-            <div class="bancos-header" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; gap: 24px; flex-wrap: wrap;">
+            <div class="bancos-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; gap: 24px; flex-wrap: wrap;">
                 <div class="header-info">
-                    <h1 style="margin: 0; font-size: 2.4rem; font-weight: 800; background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px;">Control de Bancos</h1>
-                    <p style="margin: 6px 0 0 0; color: var(--text-secondary); font-size: 1.05rem; font-weight: 400;">Gestión independiente de activos líquidos y conciliación bancaria.</p>
+                    <h1 style="margin: 0; font-size: 2.2rem; font-weight: 800; background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px;">Control de Bancos</h1>
+                    <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 1rem; font-weight: 400;">Gestión independiente de activos líquidos y conciliación bancaria.</p>
                 </div>
                 
-                <div class="total-liquidez-card glass-card" style="padding: 24px 32px; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; min-width: 300px; position: relative; overflow: hidden; box-shadow: 0 20px 40px -10px rgba(79, 70, 229, 0.3); border-radius: 20px;">
-                    <!-- Decoración de fondo -->
-                    <div style="position: absolute; top: -30px; right: -30px; opacity: 0.15; color: white; transform: rotate(-15deg);">
-                        ${Icons.chart(160)}
-                    </div>
-                    <div style="position: absolute; bottom: -20px; left: -20px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); filter: blur(40px); border-radius: 50%;"></div>
-                    
-                    <div style="position: relative; z-index: 2;">
-                        <span style="color: rgba(255,255,255,0.7); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; display: block; margin-bottom: 4px;">Saldo Disponible Total</span>
-                        <div style="font-size: 2.6rem; font-weight: 800; color: white; margin-top: 2px; font-family: var(--font-mono); letter-spacing: -1px;">
-                            ${App.formatMoney(totalLiquidez)}
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <div class="total-liquidez-card glass-card" style="padding: 16px 24px; background: rgba(var(--primary-rgb), 0.1); border: 1px solid rgba(var(--primary-rgb), 0.2); min-width: 240px; position: relative; overflow: hidden; border-radius: 18px; backdrop-filter: blur(10px); box-shadow: var(--glass-shadow);">
+                        <!-- Decoración sutil de fondo -->
+                        <div style="position: absolute; top: -15px; right: -15px; opacity: 0.05; color: var(--primary); transform: rotate(-15deg);">
+                            ${Icons.chart(100)}
                         </div>
-                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 0.85rem; color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.1); width: fit-content; padding: 4px 12px; border-radius: 20px; backdrop-filter: blur(5px);">
-                            <span style="width: 8px; height: 8px; background: #4cd137; border-radius: 50%; display: inline-block; box-shadow: 0 0 10px #4cd137; animation: pulse 2s infinite;"></span>
-                            Sistema Sincronizado
+                        
+                        <div style="position: relative; z-index: 2;">
+                            <span style="color: var(--text-secondary); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; display: block; margin-bottom: 2px;">Saldo Disponible Total</span>
+                            <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono); letter-spacing: -1px;">
+                                ${App.formatMoney(totalLiquidez)}
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.75rem; color: var(--text-secondary); font-weight: 500;">
+                                <span style="width: 7px; height: 7px; background: #4cd137; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px rgba(76, 209, 55, 0.4); animation: pulse 2s infinite;"></span>
+                                Sistema Sincronizado
+                            </div>
                         </div>
                     </div>
+                    <button class="btn btn-primary" onclick="App.showAddBancoModal()" style="display:flex;align-items:center;gap:10px; height: 48px; padding: 0 24px; font-weight: 600; border-radius: 14px; box-shadow: 0 10px 20px -5px rgba(var(--primary-rgb), 0.3);">
+                        ${Icons.plus(20)} Nuevo Banco
+                    </button>
                 </div>
-                <button class="btn btn-primary" onclick="App.showAddBancoModal()" style="display:flex;align-items:center;gap:10px; height: 48px; padding: 0 24px; font-weight: 600; border-radius: 12px; box-shadow: 0 10px 20px -5px rgba(var(--primary-rgb), 0.3);">
-                    ${Icons.plus(20)} Nuevo Banco
-                </button>
             </div>
             
             <div id="bancos-resumen-cards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; margin-bottom: 30px;">
