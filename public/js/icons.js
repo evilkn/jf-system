@@ -99,7 +99,18 @@ const Icons = {
     bankGuayaquil: (size=24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#E3006F"/><path d="M12 6c-3.3 0-6 2.7-6 6s2.7 6 6 6 6-2.7 6-6H12v-2h8.5c0-4.4-3.6-8-8.5-8zm0 10c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4v2h-4v2z" fill="#FFF"/></svg>`,
     bankJEP: (size=24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#DA291C"/><text x="12" y="16" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#FFF" text-anchor="middle">JEP</text></svg>`,
     bankProdubanco: (size=24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#0033A0"/><path d="M6 12l6-6 6 6-6 6-6-6z" fill="#78BE20"/></svg>`,
-    bankPacifico: (size=24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#00A2E8"/><circle cx="12" cy="12" r="6" fill="#FFF"/><circle cx="12" cy="12" r="3" fill="#00A2E8"/></svg>`
+    bankPacifico: (size=24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#00A2E8"/><circle cx="12" cy="12" r="6" fill="#FFF"/><circle cx="12" cy="12" r="3" fill="#00A2E8"/></svg>`,
+
+    chart: (size=16) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 20V10M18 20V4M6 20v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+
+    tag: (size=16) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/></svg>`,
+
+    externalLink: (size=16) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+
+    chevronRight: (size=16) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+
+    chevronDown: (size=16) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    check: (size=16) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 };
 
 

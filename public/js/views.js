@@ -315,6 +315,7 @@ const Views = {
     },
 
     bancos() {
+        const totalLiquidez = (State.bancosData || []).reduce((acc, b) => acc + (b.saldo_actual || 0), 0);
         let cardsHtml = '';
         if (State.bancosData && State.bancosData.length > 0) {
             cardsHtml = State.bancosData.map(banco => {
@@ -347,27 +348,32 @@ const Views = {
         }
 
         return `
-            <div class="bancos-header" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px; gap: 20px; flex-wrap: wrap;">
+            <div class="bancos-header" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; gap: 24px; flex-wrap: wrap;">
                 <div class="header-info">
-                    <h1 style="margin: 0; font-size: 2.2rem; background: linear-gradient(135deg, #fff 0%, #aaa 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Control de Bancos</h1>
-                    <p style="margin: 5px 0 0 0; color: var(--text-secondary); font-size: 1rem;">Gestión independiente de activos líquidos y conciliación.</p>
+                    <h1 style="margin: 0; font-size: 2.4rem; font-weight: 800; background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px;">Control de Bancos</h1>
+                    <p style="margin: 6px 0 0 0; color: var(--text-secondary); font-size: 1.05rem; font-weight: 400;">Gestión independiente de activos líquidos y conciliación bancaria.</p>
                 </div>
                 
-                <div class="total-liquidez-card glass-card" style="padding: 20px 30px; background: linear-gradient(135deg, rgba(74, 144, 226, 0.15) 0%, rgba(74, 144, 226, 0.05) 100%); border: 1px solid rgba(74, 144, 226, 0.3); min-width: 280px; position: relative; overflow: hidden;">
-                    <div style="position: absolute; top: -20px; right: -20px; opacity: 0.1;">
-                        ${Icons.chart(120)}
+                <div class="total-liquidez-card glass-card" style="padding: 24px 32px; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; min-width: 300px; position: relative; overflow: hidden; box-shadow: 0 20px 40px -10px rgba(79, 70, 229, 0.3); border-radius: 20px;">
+                    <!-- Decoración de fondo -->
+                    <div style="position: absolute; top: -30px; right: -30px; opacity: 0.15; color: white; transform: rotate(-15deg);">
+                        ${Icons.chart(160)}
                     </div>
-                    <span style="color: rgba(255,255,255,0.6); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Saldo Disponible Total</span>
-                    <div style="font-size: 2.4rem; font-weight: 700; color: #4a90e2; margin-top: 5px; text-shadow: 0 0 20px rgba(74, 144, 226, 0.3);">
-                        $${totalLiquidez.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 0.8rem; color: #4cd137;">
-                        <span style="width: 8px; height: 8px; background: #4cd137; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px #4cd137;"></span>
-                        Sincronizado en tiempo real
+                    <div style="position: absolute; bottom: -20px; left: -20px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); filter: blur(40px); border-radius: 50%;"></div>
+                    
+                    <div style="position: relative; z-index: 2;">
+                        <span style="color: rgba(255,255,255,0.7); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; display: block; margin-bottom: 4px;">Saldo Disponible Total</span>
+                        <div style="font-size: 2.6rem; font-weight: 800; color: white; margin-top: 2px; font-family: var(--font-mono); letter-spacing: -1px;">
+                            $${totalLiquidez.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 0.85rem; color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.1); width: fit-content; padding: 4px 12px; border-radius: 20px; backdrop-filter: blur(5px);">
+                            <span style="width: 8px; height: 8px; background: #4cd137; border-radius: 50%; display: inline-block; box-shadow: 0 0 10px #4cd137; animation: pulse 2s infinite;"></span>
+                            Sistema Sincronizado
+                        </div>
                     </div>
                 </div>
-                <button class="btn btn-primary" onclick="App.showAddBancoModal()" style="display:flex;align-items:center;gap:8px; height: fit-content; align-self: flex-start;">
-                    ${Icons.plus()} Nuevo Banco
+                <button class="btn btn-primary" onclick="App.showAddBancoModal()" style="display:flex;align-items:center;gap:10px; height: 48px; padding: 0 24px; font-weight: 600; border-radius: 12px; box-shadow: 0 10px 20px -5px rgba(var(--primary-rgb), 0.3);">
+                    ${Icons.plus(20)} Nuevo Banco
                 </button>
             </div>
             
@@ -808,10 +814,17 @@ const Views = {
 
             <!-- CUENTAS POR COBRAR -->
             <div id="cuentas-panel-cobrar" class="sri-panel animate-fadeIn" style="display:${State.cuentasActiveTab==='cobrar'?'block':'none'};">
-                <div class="glass-card" style="margin-bottom:20px;">
+                <div style="display:flex; justify-content:flex-end; margin-bottom:16px;">
+                    <button id="btn-toggle-form-cobrar" class="btn btn-primary" onclick="App.toggleCuentaForm('cobrar')" style="display:flex; align-items:center; gap:8px;">
+                        ${State.showCobrarForm ? Icons.close(18) : Icons.plus(18)} ${State.showCobrarForm ? 'Cerrar Formulario' : 'Nuevo Registro'}
+                    </button>
+                </div>
+
+                <div id="form-container-cobrar" class="glass-card animate-fadeIn" style="display:${State.showCobrarForm ? 'block' : 'none'}; margin-bottom:20px; border-left: 4px solid var(--success);">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
                         <h4 style="margin:0;color:var(--success);font-size:0.95rem;">${State.editingCuentasCobrarId ? 'Editar' : 'Nuevo Registro de'} Cuenta por Cobrar</h4>
                     </div>
+                    
                     <div id="cobrar-monto-card" class="glass-card animate-fadeIn" style="background:linear-gradient(135deg, rgba(var(--primary-rgb),0.1), rgba(var(--success-rgb),0.1)); border:1px solid rgba(var(--primary-rgb),0.2); margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; padding:20px;">
                         <div>
                             <p style="margin:0; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-secondary);">Monto Inicial de la Deuda</p>
@@ -830,43 +843,67 @@ const Views = {
                     </div>
 
                     <form id="form-cuentas-cobrar" onsubmit="event.preventDefault(); App.saveCuentaCobrar()" style="margin-top:30px;">
-                        <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:32px;">
+                        <div class="form-grid" style="grid-template-columns:repeat(3, 1fr); gap:24px;">
                             <div class="form-group"><label>Fecha *</label><input type="date" id="cobrar-fecha" required></div>
                             
-                            <div class="form-group" style="display:flex; flex-direction:column; align-items:center;">
-                                <label style="text-align:center;">Método de Pago</label>
-                                <div style="display:flex;gap:12px;margin-top:8px; width:100%; justify-content:center;">
-                                    <label class="custom-method-select" style="max-width:130px;">
-                                        <input type="checkbox" name="cobrar-metodo" value="Efectivo" checked onclick="App.handleMethodCheck('cobrar', 'Efectivo')">
-                                        <span class="method-box">
-                                            ${Icons.cash(18)}
-                                            <span>Efect.</span>
-                                        </span>
-                                    </label>
-                                    <label class="custom-method-select" style="max-width:130px;">
-                                        <input type="checkbox" name="cobrar-metodo" value="Transferencia" onclick="App.handleMethodCheck('cobrar', 'Transferencia')">
-                                        <span class="method-box">
-                                            ${Icons.transfer(18)}
-                                            <span>Transf.</span>
-                                        </span>
-                                    </label>
-                                </div>
+                            <div class="form-group" style="position:relative;">
+                                <label>Cliente / Deudor *</label>
+                                <input type="text" id="cobrar-cliente" placeholder="Nombre del cliente" required autocomplete="off" oninput="App.showClientSuggestions('cobrar', this.value)">
+                                <input type="hidden" id="cobrar-cliente-id">
+                                <ul id="cobrar-client-list" class="bank-list-dropdown glass-card" style="display:none; position:absolute; top:100%; left:0; right:0; max-height:200px; overflow-y:auto; list-style:none; padding:4px 0; margin:4px 0 0 0; z-index: 100;"></ul>
                             </div>
-
-                            <div class="form-group" id="cobrar-banco-container" style="display:none; position:relative;">
-                                <label>Banco (Búsqueda) *</label>
-                                <div style="position:relative;">
-                                    <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--primary);">${Icons.bank(14)}</span>
-                                    <input type="text" id="cobrar-banco-search" style="padding-left:35px;" placeholder="Buscar banco..." autocomplete="off" oninput="App.filterBanks('cobrar', this.value)" onfocus="App.filterBanks('cobrar', this.value)">
-                                </div>
-                                <ul id="cobrar-banco-list" class="bank-list-dropdown glass-card" style="display:none; position:absolute; top:100%; left:0; right:0; max-height:150px; overflow-y:auto; list-style:none; padding:4px 0; margin:4px 0 0 0; z-index: 10;"></ul>
-                                <input type="hidden" id="cobrar-banco-selected">
-                            </div>
-
-                            <div class="form-group"><label>Cliente / Deudor *</label><input type="text" id="cobrar-cliente" placeholder="Nombre del cliente" required></div>
+                            
                             <div class="form-group"><label>Concepto</label><input type="text" id="cobrar-concepto" placeholder="Ej. Factura 001, Servicios"></div>
-                            <div class="form-group"><label>Abono Inicial</label><input type="number" step="0.01" min="0" id="cobrar-abono" placeholder="0.00" oninput="App.calculateCuentasCobrar()" ${State.editingCuentasCobrarId ? 'disabled' : ''}></div>
-                            <div class="form-group"><label>Deuda Pendiente</label><input type="number" id="cobrar-pendiente" readonly style="background:rgba(var(--primary-rgb),0.06);font-weight:800;color:var(--primary);"></div>
+                            
+                            <div style="grid-column: span 3; display: flex; gap: 24px; align-items: flex-start; flex-wrap: nowrap;">
+                                <div class="form-group" id="cobrar-has-abono-group" style="margin-bottom:0; display:flex; flex-direction:column; flex-shrink: 0;">
+                                    <label style="margin-bottom:8px;">&nbsp;</label>
+                                    <label class="checkbox-container" style="display:flex; align-items:center; gap:8px; cursor:pointer; background:rgba(var(--primary-rgb),0.05); padding:6px 12px; border-radius:10px; width:fit-content; border:1px solid rgba(var(--primary-rgb),0.1); transition: var(--transition); height:45px; margin-bottom:0;">
+                                        <input type="checkbox" id="cobrar-has-abono" ${State.hasCobrarAbono ? 'checked' : ''} onchange="App.toggleAbonoFields('cobrar', this.checked)" style="width:18px; height:18px;">
+                                        <span style="font-weight:600; color:var(--primary); font-size:0.85rem; white-space: nowrap;">¿Abono Inicial?</span>
+                                    </label>
+                                </div>
+
+                                <div id="cobrar-metodo-group" class="form-group animate-fadeIn" style="display:${State.hasCobrarAbono ? 'flex' : 'none'}; flex-direction:column; align-items:center; margin-bottom:0; flex-shrink: 0;">
+                                    <label style="margin-bottom:8px; text-align:center;">Método de Pago</label>
+                                    <div style="display:flex; gap:10px;">
+                                        <label class="custom-method-select">
+                                            <input type="checkbox" name="cobrar-metodo" value="Efectivo" checked onclick="App.handleMethodCheck('cobrar', 'Efectivo')">
+                                            <span class="method-box">
+                                                ${Icons.cash(18)}
+                                                <span>Efect.</span>
+                                            </span>
+                                        </label>
+                                        <label class="custom-method-select">
+                                            <input type="checkbox" name="cobrar-metodo" value="Transferencia" onclick="App.handleMethodCheck('cobrar', 'Transferencia')">
+                                            <span class="method-box">
+                                                ${Icons.transfer(18)}
+                                                <span>Transf.</span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div id="cobrar-banco-container" class="form-group animate-fadeIn" style="display:none; position:relative; width:280px; flex-shrink: 0; margin-bottom:0;">
+                                    <label style="margin-bottom:8px;">Banco (Búsqueda) *</label>
+                                    <div style="position:relative;">
+                                        <span id="cobrar-banco-icon" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--primary); line-height:0;">${Icons.bank(14)}</span>
+                                        <input type="text" id="cobrar-banco-search" style="padding-left:35px; height:45px;" placeholder="Buscar banco..." autocomplete="off" oninput="App.filterBanks('cobrar', this.value)" onfocus="App.filterBanks('cobrar', this.value)">
+                                    </div>
+                                    <ul id="cobrar-banco-list" class="bank-list-dropdown glass-card" style="display:none; position:absolute; top:100%; left:0; width:max-content; max-height:150px; overflow-y:auto; list-style:none; padding:4px 0; margin:4px 0 0 0; z-index: 10;"></ul>
+                                    <input type="hidden" id="cobrar-banco-selected">
+                                </div>
+
+                                <div id="cobrar-abono-group" class="form-group animate-fadeIn" style="display:${State.hasCobrarAbono ? 'block' : 'none'}; flex-shrink: 0; margin-bottom:0; width: 180px;">
+                                    <label style="margin-bottom:8px;">Monto del Abono</label>
+                                    <input type="number" step="0.01" min="0" id="cobrar-abono" style="height:45px;" placeholder="0.00" oninput="App.calculateCuentasCobrar()" ${State.editingCuentasCobrarId ? 'disabled' : ''}>
+                                </div>
+
+                                <div class="form-group" id="cobrar-pendiente-group" style="margin-bottom:0; width: 180px; flex-shrink: 0;">
+                                    <label style="margin-bottom:8px;">Deuda Pendiente</label>
+                                    <input type="number" id="cobrar-pendiente" readonly style="background:rgba(var(--primary-rgb),0.06);font-weight:800;color:var(--primary); width:100%; height:45px;">
+                                </div>
+                            </div>
                         </div>
                         <div style="display:flex;justify-content:flex-end;margin-top:16px;gap:8px;">
                             ${State.editingCuentasCobrarId ? `<button type="button" class="btn btn-secondary" onclick="App.cancelEditCuentaCobrar()">Cancelar Edición</button>` : ''}
@@ -888,13 +925,18 @@ const Views = {
                             <button class="btn btn-secondary" onclick="App.exportSelectedReports('cobrar')" style="display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:0.75rem;" title="Exportar seleccionados">
                                 ${Icons.pdf(14)} Exportar PDF
                             </button>
+                            ${State.selectedCuentasCobrar.length > 0 ? `
+                                <button class="btn btn-danger animate-fadeIn" onclick="App.deleteSelectedCuentas('cobrar')" style="display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:0.75rem; background:var(--danger); border:none;">
+                                    ${Icons.delete(14)} Eliminar (${State.selectedCuentasCobrar.length})
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
                     <div class="table-container">
                         <table>
                             <thead>
                                 <tr>
-                                    <th style="width:40px;"><input type="checkbox" onchange="App.toggleAllCuentas('cobrar', this.checked)"></th>
+                                    <th style="width:40px;"><input type="checkbox" ${State.cuentasCobrarData.length > 0 && State.selectedCuentasCobrar.length === State.cuentasCobrarData.length ? 'checked' : ''} onchange="App.toggleAllCuentas('cobrar', this.checked)"></th>
                                     <th>Cliente</th>
                                     <th>Concepto</th>
                                     <th>Fecha</th>
@@ -917,10 +959,17 @@ const Views = {
 
             <!-- CUENTAS POR PAGAR -->
             <div id="cuentas-panel-pagar" class="sri-panel animate-fadeIn" style="display:${State.cuentasActiveTab==='pagar'?'block':'none'};">
-                <div class="glass-card" style="margin-bottom:20px;">
+                <div style="display:flex; justify-content:flex-end; margin-bottom:16px;">
+                    <button id="btn-toggle-form-pagar" class="btn btn-danger" onclick="App.toggleCuentaForm('pagar')" style="display:flex; align-items:center; gap:8px;">
+                        ${State.showPagarForm ? Icons.close(18) : Icons.plus(18)} ${State.showPagarForm ? 'Cerrar Formulario' : 'Nuevo Registro'}
+                    </button>
+                </div>
+
+                <div id="form-container-pagar" class="glass-card animate-fadeIn" style="display:${State.showPagarForm ? 'block' : 'none'}; margin-bottom:20px; border-left: 4px solid var(--danger);">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
                         <h4 style="margin:0;color:var(--danger);font-size:0.95rem;">${State.editingCuentasPagarId ? 'Editar' : 'Nuevo Registro de'} Cuenta por Pagar</h4>
                     </div>
+                    
                     <div id="pagar-monto-card" class="glass-card animate-fadeIn" style="background:linear-gradient(135deg, rgba(var(--danger-rgb),0.1), rgba(var(--primary-rgb),0.1)); border:1px solid rgba(var(--danger-rgb),0.2); margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; padding:20px;">
                         <div>
                             <p style="margin:0; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-secondary);">Monto Inicial de la Obligación</p>
@@ -939,13 +988,67 @@ const Views = {
                     </div>
 
                     <form id="form-cuentas-pagar" onsubmit="event.preventDefault(); App.saveCuentaPagar()" style="margin-top:30px;">
-                        <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:32px;">
+                        <div class="form-grid" style="grid-template-columns:repeat(3, 1fr); gap:24px;">
                             <div class="form-group"><label>Fecha *</label><input type="date" id="pagar-fecha" required></div>
                             
-                            <div class="form-group"><label>Proveedor / Acreedor *</label><input type="text" id="pagar-proveedor" placeholder="Nombre del proveedor" required></div>
+                            <div class="form-group" style="position:relative;">
+                                <label>Proveedor / Acreedor *</label>
+                                <input type="text" id="pagar-proveedor" placeholder="Nombre del proveedor" required autocomplete="off" oninput="App.showClientSuggestions('pagar', this.value)">
+                                <input type="hidden" id="pagar-proveedor-id">
+                                <ul id="pagar-client-list" class="bank-list-dropdown glass-card" style="display:none; position:absolute; top:100%; left:0; width:max-content; max-height:200px; overflow-y:auto; list-style:none; padding:4px 0; margin:4px 0 0 0; z-index: 100;"></ul>
+                            </div>
+                            
                             <div class="form-group"><label>Concepto</label><input type="text" id="pagar-concepto" placeholder="Ej. Compra de insumos, Alquiler"></div>
-                            <div class="form-group"><label>Abono Inicial</label><input type="number" step="0.01" min="0" id="pagar-abono" placeholder="0.00" oninput="App.calculateCuentasPagar()" ${State.editingCuentasPagarId ? 'disabled' : ''}></div>
-                            <div class="form-group"><label>Deuda Pendiente</label><input type="number" id="pagar-pendiente" readonly style="background:rgba(var(--danger-rgb),0.06);font-weight:800;color:var(--danger);"></div>
+                            
+                            <div style="grid-column: span 3; display: flex; gap: 24px; align-items: flex-start; flex-wrap: nowrap;">
+                                <div class="form-group" id="pagar-has-abono-group" style="margin-bottom:0; display:flex; flex-direction:column; flex-shrink: 0;">
+                                    <label style="margin-bottom:8px;">&nbsp;</label>
+                                    <label class="checkbox-container" style="display:flex; align-items:center; gap:8px; cursor:pointer; background:rgba(var(--danger-rgb),0.05); padding:6px 12px; border-radius:10px; width:fit-content; border:1px solid rgba(var(--danger-rgb),0.1); transition: var(--transition); height:45px; margin-bottom:0;">
+                                        <input type="checkbox" id="pagar-has-abono" ${State.hasPagarAbono ? 'checked' : ''} onchange="App.toggleAbonoFields('pagar', this.checked)" style="width:18px; height:18px;">
+                                        <span style="font-weight:600; color:var(--danger); font-size:0.85rem; white-space: nowrap;">¿Abono Inicial?</span>
+                                    </label>
+                                </div>
+
+                                <div id="pagar-metodo-group" class="form-group animate-fadeIn" style="display:${State.hasPagarAbono ? 'flex' : 'none'}; flex-direction:column; align-items:center; margin-bottom:0; flex-shrink: 0;">
+                                    <label style="margin-bottom:8px; text-align:center;">Método de Pago</label>
+                                    <div style="display:flex; gap:10px;">
+                                        <label class="custom-method-select">
+                                            <input type="checkbox" name="pagar-metodo" value="Efectivo" checked onclick="App.handleMethodCheck('pagar', 'Efectivo')">
+                                            <span class="method-box danger">
+                                                ${Icons.cash(18)}
+                                                <span>Efect.</span>
+                                            </span>
+                                        </label>
+                                        <label class="custom-method-select">
+                                            <input type="checkbox" name="pagar-metodo" value="Transferencia" onclick="App.handleMethodCheck('pagar', 'Transferencia')">
+                                            <span class="method-box danger">
+                                                ${Icons.transfer(18)}
+                                                <span>Transf.</span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div id="pagar-banco-container" class="form-group animate-fadeIn" style="display:none; position:relative; width:280px; flex-shrink: 0; margin-bottom:0;">
+                                    <label style="margin-bottom:8px;">Banco (Búsqueda) *</label>
+                                    <div style="position:relative;">
+                                        <span id="pagar-banco-icon" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--danger); line-height:0;">${Icons.bank(14)}</span>
+                                        <input type="text" id="pagar-banco-search" style="padding-left:35px; height:45px;" placeholder="Buscar banco..." autocomplete="off" oninput="App.filterBanks('pagar', this.value)" onfocus="App.filterBanks('pagar', this.value)">
+                                    </div>
+                                    <ul id="pagar-banco-list" class="bank-list-dropdown glass-card" style="display:none; position:absolute; top:100%; left:0; width:max-content; max-height:150px; overflow-y:auto; list-style:none; padding:4px 0; margin:4px 0 0 0; z-index: 10;"></ul>
+                                    <input type="hidden" id="pagar-banco-selected">
+                                </div>
+
+                                <div id="pagar-abono-group" class="form-group animate-fadeIn" style="display:${State.hasPagarAbono ? 'block' : 'none'}; flex-shrink: 0; margin-bottom:0; width: 180px;">
+                                    <label style="margin-bottom:8px;">Monto del Abono</label>
+                                    <input type="number" step="0.01" min="0" id="pagar-abono" style="height:45px;" placeholder="0.00" oninput="App.calculateCuentasPagar()" ${State.editingCuentasPagarId ? 'disabled' : ''}>
+                                </div>
+
+                                <div class="form-group" id="pagar-pendiente-group" style="margin-bottom:0; width: 180px; flex-shrink: 0;">
+                                    <label style="margin-bottom:8px;">Deuda Pendiente</label>
+                                    <input type="number" id="pagar-pendiente" readonly style="background:rgba(var(--danger-rgb),0.06);font-weight:800;color:var(--danger); width:100%; height:45px;">
+                                </div>
+                            </div>
                         </div>
                         <div style="display:flex;justify-content:flex-end;margin-top:16px;gap:8px;">
                             ${State.editingCuentasPagarId ? `<button type="button" class="btn btn-secondary" onclick="App.cancelEditCuentaPagar()">Cancelar Edición</button>` : ''}
@@ -967,13 +1070,18 @@ const Views = {
                             <button class="btn btn-secondary" onclick="App.exportSelectedReports('pagar')" style="display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:0.75rem;" title="Exportar seleccionados">
                                 ${Icons.pdf(14)} Exportar PDF
                             </button>
+                            ${State.selectedCuentasPagar.length > 0 ? `
+                                <button class="btn btn-danger animate-fadeIn" onclick="App.deleteSelectedCuentas('pagar')" style="display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:0.75rem; background:var(--danger); border:none;">
+                                    ${Icons.delete(14)} Eliminar (${State.selectedCuentasPagar.length})
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
                     <div class="table-container">
                         <table>
                             <thead>
                                 <tr>
-                                    <th style="width:40px;"><input type="checkbox" onchange="App.toggleAllCuentas('pagar', this.checked)"></th>
+                                    <th style="width:40px;"><input type="checkbox" ${State.cuentasPagarData.length > 0 && State.selectedCuentasPagar.length === State.cuentasPagarData.length ? 'checked' : ''} onchange="App.toggleAllCuentas('pagar', this.checked)"></th>
                                     <th>Proveedor</th>
                                     <th>Concepto</th>
                                     <th>Fecha</th>
@@ -1487,9 +1595,22 @@ const Views = {
                     </div>
 
                     <div style="display:grid; gap:20px;">
-                        <!-- SELECCIÓN DE CLIENTE -->
+                        <!-- TIPO DE REPORTE -->
+                        <div class="form-group">
+                            <label>Tipo de Reporte</label>
+                            <div style="display:flex; gap:10px;">
+                                <button class="report-type-chip active" data-type="cobrar" onclick="App.setReportType('cobrar')" style="flex:1; padding:10px; border-radius:10px; border:1px solid rgba(var(--primary-rgb),0.2); background:rgba(var(--primary-rgb),0.05); color:var(--primary); font-weight:600; cursor:pointer; transition:all 0.2s;">
+                                    ${Icons.navCuentas(14)} Cobrar
+                                </button>
+                                <button class="report-type-chip" data-type="pagar" onclick="App.setReportType('pagar')" style="flex:1; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:var(--text-secondary); font-weight:600; cursor:pointer; transition:all 0.2s;">
+                                    ${Icons.navCuentas(14)} Pagar
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- SELECCIÓN DE CONTACTO -->
                         <div class="form-group" style="position:relative;">
-                            <label>Seleccionar Cliente *</label>
+                            <label>Seleccionar Contacto *</label>
                             <div style="position:relative;">
                                 <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--primary);">${Icons.navClients(14)}</span>
                                 <input type="text" id="report-client-search" style="padding-left:35px;" placeholder="Buscar por nombre o RUC..." autocomplete="off" oninput="App.filterReportClients(this.value)">

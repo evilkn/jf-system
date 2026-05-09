@@ -228,6 +228,16 @@ const Store = {
         await db.collection("cuentas_pagar").doc(id).delete();
     },
 
+    async deleteCuentasBatch(type, ids) {
+        const collection = type === 'cobrar' ? "cuentas_cobrar" : "cuentas_pagar";
+        const batch = db.batch();
+        ids.forEach(id => {
+            const docRef = db.collection(collection).doc(id);
+            batch.delete(docRef);
+        });
+        await batch.commit();
+    },
+
     async saveClient(data, isEditing = false) {
         console.log('[Store.saveClient] Guardando doc ID:', data.id, '| isEditing:', isEditing);
         if (isEditing) {
@@ -374,6 +384,17 @@ const Store = {
         } catch (e) {
             console.warn('loadConciliadoCreditos:', e);
         }
+    },
+    async deleteCuentasBatch(type, ids) {
+        const batch = db.batch();
+        const collection = type === 'cobrar' ? 'cuentas_cobrar' : 'cuentas_pagar';
+        
+        ids.forEach(id => {
+            const ref = db.collection(collection).doc(id);
+            batch.delete(ref);
+        });
+
+        await batch.commit();
     }
 };
 

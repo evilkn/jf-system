@@ -356,6 +356,51 @@ const App = {
         if (panelPagar) panelPagar.style.display = tab === 'pagar' ? 'block' : 'none';
     },
 
+    toggleCuentaForm(type) {
+        if (type === 'cobrar') {
+            State.showCobrarForm = !State.showCobrarForm;
+            if (!State.showCobrarForm) {
+                State.editingCuentasCobrarId = null;
+                State.hasCobrarAbono = false;
+            }
+        } else {
+            State.showPagarForm = !State.showPagarForm;
+            if (!State.showPagarForm) {
+                State.editingCuentasPagarId = null;
+                State.hasPagarAbono = false;
+            }
+        }
+        this.render();
+    },
+
+    toggleAbonoFields(type, checked) {
+        if (type === 'cobrar') State.hasCobrarAbono = checked;
+        else State.hasPagarAbono = checked;
+        
+        const abonoGroup = document.getElementById(`${type}-abono-group`);
+        const metodoGroup = document.getElementById(`${type}-metodo-group`);
+        const bancoContainer = document.getElementById(`${type}-banco-container`);
+        const pendienteGroup = document.getElementById(`${type}-pendiente-group`);
+        
+        if (abonoGroup) abonoGroup.style.display = checked ? 'block' : 'none';
+        if (metodoGroup) metodoGroup.style.display = checked ? 'flex' : 'none';
+        
+        // If unchecking, ensure bank is also hidden
+        if (!checked && bancoContainer) {
+            bancoContainer.style.display = 'none';
+        } else if (checked) {
+            // Show bank only if Transferencia is selected
+            const method = document.querySelector(`input[name="${type}-metodo"]:checked`)?.value;
+            if (method === 'Transferencia' && bancoContainer) {
+                bancoContainer.style.display = 'block';
+            }
+        }
+        
+        // Update calculation immediately
+        if (type === 'cobrar') this.calculateCuentasCobrar();
+        else this.calculateCuentasPagar();
+    },
+
     // --- Gestión de Cuentas: Lógica ---
 
     calculateCuentasCobrar() {
@@ -405,10 +450,14 @@ const App = {
         const search = document.getElementById(`${type}-banco-search`);
         const selected = document.getElementById(`${type}-banco-selected`);
         const list = document.getElementById(`${type}-banco-list`);
+        const iconContainer = document.getElementById(`${type}-banco-icon`);
         
         if (search) search.value = bankName;
         if (selected) selected.value = bankName;
         if (list) list.style.display = 'none';
+        if (iconContainer) {
+            iconContainer.innerHTML = this.getBankLogoHTML(bankName, 14);
+        }
     },
 
     handleMethodCheck(type, method) {
@@ -459,6 +508,7 @@ const App = {
     async saveCuentaCobrar() {
         const data = {
             cliente: document.getElementById('cobrar-cliente').value,
+            clienteId: document.getElementById('cobrar-cliente-id').value || null,
             concepto: document.getElementById('cobrar-concepto').value,
             fecha: document.getElementById('cobrar-fecha').value,
             montoTotal: parseFloat(document.getElementById('cobrar-monto').value) || 0,
@@ -466,18 +516,20 @@ const App = {
         };
 
         if (!State.editingCuentasCobrarId) {
-            // Es nuevo registro, procesar abono inicial si existe
-            const abonoInicial = parseFloat(document.getElementById('cobrar-abono').value) || 0;
+            // Es nuevo registro, procesar abono inicial si existe y está activado
             data.abonos = [];
-            if (abonoInicial > 0) {
-                const metodo = document.querySelector('input[name="cobrar-metodo"]:checked')?.value || 'Efectivo';
-                const banco = metodo === 'Transferencia' ? document.getElementById('cobrar-banco-selected').value : '';
-                data.abonos.push({
-                    fecha: new Date().toISOString(),
-                    monto: abonoInicial,
-                    metodo: metodo,
-                    banco: banco
-                });
+            if (State.hasCobrarAbono) {
+                const abonoInicial = parseFloat(document.getElementById('cobrar-abono').value) || 0;
+                if (abonoInicial > 0) {
+                    const metodo = document.querySelector('input[name="cobrar-metodo"]:checked')?.value || 'Efectivo';
+                    const banco = metodo === 'Transferencia' ? document.getElementById('cobrar-banco-selected').value : '';
+                    data.abonos.push({
+                        fecha: new Date().toISOString(),
+                        monto: abonoInicial,
+                        metodo: metodo,
+                        banco: banco
+                    });
+                }
             }
         } else {
             data.id = State.editingCuentasCobrarId;
@@ -498,8 +550,10 @@ const App = {
 
         try {
             await Store.saveCuentaCobrar(data);
-            this.showToast('Cuenta por cobrar guardada correctamente', 'success');
+            this.showToast('Cuenta guardada con éxito');
             State.editingCuentasCobrarId = null;
+            State.showCobrarForm = false;
+            State.hasCobrarAbono = false;
             this.render();
         } catch (e) {
             console.error(e);
@@ -512,6 +566,13 @@ const App = {
         if (!record) return;
 
         State.editingCuentasCobrarId = id;
+        State.showCobrarForm = true;
+        
+        // Si tiene abonos, activar el check de abono inicial para edición (asumiendo el primero es el inicial)
+        if (record.abonos && record.abonos.length > 0) {
+            State.hasCobrarAbono = true;
+        }
+
         this.render();
 
         setTimeout(() => {
@@ -520,6 +581,9 @@ const App = {
             document.getElementById('cobrar-fecha').value = record.fecha || '';
             document.getElementById('cobrar-monto').value = record.montoTotal || 0;
             document.getElementById('cobrar-pendiente').value = record.pendiente || 0;
+            if (document.getElementById('cobrar-cliente-id')) {
+                document.getElementById('cobrar-cliente-id').value = record.clienteId || '';
+            }
             
             // Poblar método y banco del primer abono si existe y los campos están presentes
             const firstAbono = (record.abonos && record.abonos.length > 0) ? record.abonos[0] : null;
@@ -544,6 +608,8 @@ const App = {
 
     cancelEditCuentaCobrar() {
         State.editingCuentasCobrarId = null;
+        State.showCobrarForm = false;
+        State.hasCobrarAbono = false;
         this.render();
     },
 
@@ -596,6 +662,40 @@ const App = {
         return html;
     },
 
+    toggleCuentaExpanded(name) {
+        if (State.expandedCuentas.has(name)) {
+            State.expandedCuentas.delete(name);
+        } else {
+            State.expandedCuentas.add(name);
+        }
+        this.render();
+    },
+
+    _groupCuentas(data, nameField) {
+        const groups = {};
+        data.forEach(item => {
+            const name = (item[nameField] || 'Desconocido').trim();
+            if (!groups[name]) {
+                groups[name] = {
+                    name,
+                    totalMonto: 0,
+                    totalPendiente: 0,
+                    items: []
+                };
+            }
+            groups[name].totalMonto += item.montoTotal || 0;
+            groups[name].totalPendiente += item.pendiente || 0;
+            groups[name].items.push(item);
+        });
+        
+        // Sort items within group by date (newest first)
+        Object.values(groups).forEach(g => {
+            g.items.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+        });
+
+        return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
+    },
+
     renderCuentasCobrarTable() {
         const allData = State.cuentasCobrarData || [];
         const q = (State.cobrarSearch || '').toLowerCase().trim();
@@ -606,66 +706,126 @@ const App = {
             : allData;
 
         if (allData.length === 0) {
-            return `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-secondary);">No hay registros de cuentas por cobrar.</td></tr>`;
+            return `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-secondary);">No hay registros de cuentas por cobrar.</td></tr>`;
         }
 
-        if (filtered.length === 0) {
-            return `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-secondary);">No se encontraron resultados para "${this.escapeHTML(q)}".</td></tr>`;
-        }
-
-        // Paginate
+        const groups = this._groupCuentas(filtered, 'cliente');
+        
+        // Paginate groups
         const start = (State.cobrarPage - 1) * State.pageSize;
-        const paged = filtered.slice(start, start + State.pageSize);
+        const pagedGroups = groups.slice(start, start + State.pageSize);
 
-        return paged.map(c => {
-            const isPaid = c.pendiente <= 0;
-            const lastTransfer = (c.abonos || []).filter(a => a.metodo === 'Transferencia').pop();
-            const bankName = lastTransfer ? lastTransfer.banco : '';
+        if (pagedGroups.length === 0 && q) {
+            return `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-secondary);">No se encontraron resultados para "${this.escapeHTML(q)}".</td></tr>`;
+        }
 
-            return `
-                <tr class="animate-fadeIn">
-                    <td>
-                        <input type="checkbox" class="cobrar-checkbox" 
-                            ${State.selectedCuentasCobrar.includes(c.id) ? 'checked' : ''} 
-                            onchange="App.toggleCuentaSelection('cobrar', '${c.id}', this.checked)">
+        let html = '';
+        pagedGroups.forEach(g => {
+            const isExpanded = State.expandedCuentas.has(g.name);
+            const isPaid = g.totalPendiente <= 0;
+            
+            const systemMatch = (Store.clientes || []).find(sc => (sc.name || sc.nombre || '').toLowerCase().trim() === g.name.toLowerCase().trim());
+            const isVerified = g.items.some(i => i.clienteId);
+
+            // Row for the Person (Header)
+            html += `
+                <tr class="group-header-row" style="background:rgba(var(--primary-rgb), 0.03); cursor:pointer;" onclick="App.toggleCuentaExpanded('${this.escapeHTML(g.name)}')">
+                    <td onclick="event.stopPropagation()">
+                        <input type="checkbox" ${g.items.every(item => State.selectedCuentasCobrar.includes(item.id)) ? 'checked' : ''} onchange="App.toggleGroupSelection('cobrar', '${this.escapeHTML(g.name)}', this.checked)">
                     </td>
-                    <td>
-                        <div style="font-weight:700;">${c.cliente}</div>
-                        ${bankName ? `<div style="margin-top:4px; display:flex; align-items:center; font-size:0.7rem; color:var(--text-secondary); opacity:0.8;">
-                            ${this.getBankLogoHTML(bankName, 12)} ${bankName}
-                        </div>` : ''}
+                    <td style="font-weight:800; color:var(--primary); display:flex; align-items:center; gap:10px;">
+                        <span style="transform:rotate(${isExpanded ? '90deg' : '0deg'}); transition:transform 0.2s; display:inline-block;">${Icons.chevronRight(14)}</span>
+                        ${g.name}
+                        ${isVerified ? `
+                            <span class="status-pill status-blue" style="font-size:0.6rem; padding:2px 6px; display:flex; align-items:center; gap:4px; border-radius:6px;" title="Cliente vinculado a base de datos">
+                                ${Icons.check(10)} Verificado
+                            </span>
+                        ` : systemMatch ? `
+                            <button class="status-pill status-yellow" style="font-size:0.6rem; padding:2px 6px; display:flex; align-items:center; gap:4px; border-radius:6px; cursor:pointer; border:1px solid rgba(var(--warning-rgb),0.3); transition:all 0.2s;" 
+                                onclick="event.stopPropagation(); App.linkHistoricalRecords('${this.escapeHTML(g.name)}', 'cobrar')"
+                                onmouseover="this.style.background='var(--warning)'; this.style.color='white';"
+                                onmouseout="this.style.background='rgba(var(--warning-rgb),0.1)'; this.style.color='var(--warning)';"
+                                title="Click para vincular registros históricos a este cliente">
+                                ${Icons.sync(10)} Vincular Historial
+                            </button>
+                        ` : ''}
+                        <span style="font-size:0.7rem; background:rgba(var(--primary-rgb),0.1); padding:2px 6px; border-radius:10px; font-weight:600;">${g.items.length} ${g.items.length === 1 ? 'deuda' : 'deudas'}</span>
                     </td>
-                    <td style="font-size:0.8rem;color:var(--text-secondary);">${c.concepto || '-'}</td>
-                    <td>${c.fecha}</td>
-                    <td style="text-align:right;font-weight:700;">$${c.montoTotal.toFixed(2)}</td>
-                    <td style="text-align:right;font-weight:800;color:${isPaid ? 'var(--success)' : 'var(--primary)'};">$${c.pendiente.toFixed(2)}</td>
+                    <td colspan="2" style="font-size:0.8rem; color:var(--text-secondary);">Resumen de deudas activas</td>
+                    <td style="text-align:right; font-weight:700;">$${g.totalMonto.toFixed(2)}</td>
+                    <td style="text-align:right; font-weight:800; color:${isPaid ? 'var(--success)' : 'var(--primary)'};">$${g.totalPendiente.toFixed(2)}</td>
                     <td>
-                        <span class="status-pill ${isPaid ? 'status-green' : 'status-yellow'}" style="font-size:0.7rem;padding:4px 8px;">
-                            ${isPaid ? 'Pagado' : 'Pendiente'}
+                        <span class="status-pill ${isPaid ? 'status-green' : 'status-yellow'}" style="font-size:0.7rem; padding:4px 8px;">
+                            ${isPaid ? 'Al día' : 'Con Saldo'}
                         </span>
                     </td>
                     <td>
-                        <div style="display:flex;gap:4px;">
-                            <button class="icon-btn" onclick="App.openDetalleModal('cobrar', '${c.id}')" title="Ver Detalles" style="color:var(--primary);">
-                                ${Icons.eye()}
-                            </button>
-                            <button class="icon-btn" onclick="App.openAbonoModal('${c.id}')" title="Registrar Abono" style="color:var(--success);">
-                                ${Icons.plus()}
-                            </button>
-                            <button class="icon-btn" onclick="App.editCuentaCobrar('${c.id}')" title="Editar Metadatos" style="color:var(--primary);">
-                                ${Icons.edit()}
-                            </button>
-                            <button class="icon-btn" onclick="App.deleteCuentaCobrar('${c.id}')" title="Eliminar" style="color:var(--danger);">
-                                ${Icons.delete()}
-                            </button>
-                            <button class="icon-btn" onclick="App.exportSingleClientReport('${c.cliente}')" title="Exportar PDF Individual" style="color:var(--accent);">
-                                ${Icons.pdf()}
+                        <div style="display:flex; gap:4px;">
+                            <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.7rem;" onclick="event.stopPropagation(); App.exportSingleClientReport('${this.escapeHTML(g.name)}', 'cobrar')">
+                                ${Icons.pdf(12)} Reporte
                             </button>
                         </div>
                     </td>
                 </tr>
             `;
-        }).join('');
+
+            // Rows for each debt (Children)
+            if (isExpanded) {
+                g.items.forEach(c => {
+                    const cIsPaid = c.pendiente <= 0;
+                    const lastTransfer = (c.abonos || []).filter(a => a.metodo === 'Transferencia').pop();
+                    const bankName = lastTransfer ? lastTransfer.banco : '';
+
+                    html += `
+                        <tr class="animate-fadeIn child-row" style="background:transparent; border-left:4px solid var(--primary);">
+                            <td style="padding-left:20px;">
+                                <input type="checkbox" class="cobrar-checkbox" 
+                                    ${State.selectedCuentasCobrar.includes(c.id) ? 'checked' : ''} 
+                                    onchange="App.toggleCuentaSelection('cobrar', '${c.id}', this.checked)">
+                            </td>
+                            <td style="padding-left:30px; font-size:0.85rem; color:var(--text-secondary);">└─ Detalle</td>
+                            <td style="font-size:0.85rem; font-weight:600;">${c.concepto || 'Sin concepto'}</td>
+                            <td style="font-size:0.85rem;">${c.fecha}</td>
+                            <td style="text-align:right; font-size:0.85rem; color:var(--text-secondary);">$${c.montoTotal.toFixed(2)}</td>
+                            <td style="text-align:right; font-weight:700; color:${cIsPaid ? 'var(--success)' : 'var(--primary)'};">$${c.pendiente.toFixed(2)}</td>
+                            <td>
+                                <span class="status-pill ${cIsPaid ? 'status-green' : 'status-yellow'}" style="font-size:0.65rem; padding:2px 6px; opacity:0.8;">
+                                    ${cIsPaid ? 'Pagado' : 'Pendiente'}
+                                </span>
+                            </td>
+                            <td>
+                                <div style="display:flex; gap:4px;">
+                                    <button class="icon-btn" onclick="App.openDetalleModal('cobrar', '${c.id}')" title="Ver Historial" style="color:var(--primary); transform:scale(0.85);">
+                                        ${Icons.eye()}
+                                    </button>
+                                    <button class="icon-btn" onclick="App.openAbonoModal('${c.id}')" title="Registrar Abono" style="color:var(--success); transform:scale(0.85);">
+                                        ${Icons.plus()}
+                                    </button>
+                                    <button class="icon-btn" onclick="App.editCuentaCobrar('${c.id}')" title="Editar" style="color:var(--primary); transform:scale(0.85);">
+                                        ${Icons.edit()}
+                                    </button>
+                                    <button class="icon-btn" onclick="App.deleteCuentaCobrar('${c.id}')" title="Eliminar" style="color:var(--danger); transform:scale(0.85);">
+                                        ${Icons.delete()}
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+        });
+        return html;
+    },
+
+    toggleGroupSelection(type, name, checked) {
+        const data = type === 'cobrar' ? State.cuentasCobrarData : State.cuentasPagarData;
+        const nameField = type === 'cobrar' ? 'cliente' : 'proveedor';
+        const clientItems = data.filter(item => (item[nameField] || '').trim() === name);
+        
+        clientItems.forEach(item => {
+            this.toggleCuentaSelection(type, item.id, checked);
+        });
+        this.render();
     },
 
     openAbonoModal(id, type = 'cobrar') {
@@ -741,6 +901,7 @@ const App = {
     async saveCuentaPagar() {
         const data = {
             proveedor: document.getElementById('pagar-proveedor').value,
+            proveedorId: document.getElementById('pagar-proveedor-id').value || null,
             concepto: document.getElementById('pagar-concepto').value,
             fecha: document.getElementById('pagar-fecha').value,
             montoTotal: parseFloat(document.getElementById('pagar-monto').value) || 0,
@@ -748,20 +909,20 @@ const App = {
         };
 
         if (!State.editingCuentasPagarId) {
-            const abonoInicial = parseFloat(document.getElementById('pagar-abono').value) || 0;
+            // Es nuevo registro, procesar abono inicial si existe y está activado
             data.abonos = [];
-            if (abonoInicial > 0) {
-                const methodInput = document.querySelector('input[name="pagar-metodo"]:checked');
-                const metodo = methodInput ? methodInput.value : 'Efectivo';
-                const bankEl = document.getElementById('pagar-banco-selected');
-                const banco = (metodo === 'Transferencia' && bankEl) ? bankEl.value : '';
-                
-                data.abonos.push({
-                    fecha: new Date().toISOString(),
-                    monto: abonoInicial,
-                    metodo: metodo,
-                    banco: banco
-                });
+            if (State.hasPagarAbono) {
+                const abonoInicial = parseFloat(document.getElementById('pagar-abono').value) || 0;
+                if (abonoInicial > 0) {
+                    const metodo = document.querySelector('input[name="pagar-metodo"]:checked')?.value || 'Efectivo';
+                    const banco = metodo === 'Transferencia' ? document.getElementById('pagar-banco-selected').value : '';
+                    data.abonos.push({
+                        fecha: new Date().toISOString(),
+                        monto: abonoInicial,
+                        metodo: metodo,
+                        banco: banco
+                    });
+                }
             }
         } else {
             data.id = State.editingCuentasPagarId;
@@ -784,8 +945,10 @@ const App = {
 
         try {
             await Store.saveCuentaPagar(data);
-            this.showToast('Cuenta por pagar guardada', 'success');
+            this.showToast('Cuenta guardada con éxito');
             State.editingCuentasPagarId = null;
+            State.showPagarForm = false;
+            State.hasPagarAbono = false;
             this.render();
         } catch (e) {
             console.error(e);
@@ -798,6 +961,12 @@ const App = {
         if (!record) return;
 
         State.editingCuentasPagarId = id;
+        State.showPagarForm = true;
+
+        if (record.abonos && record.abonos.length > 0) {
+            State.hasPagarAbono = true;
+        }
+
         this.render();
 
         setTimeout(() => {
@@ -806,6 +975,9 @@ const App = {
             document.getElementById('pagar-fecha').value = record.fecha || '';
             document.getElementById('pagar-monto').value = record.montoTotal || 0;
             document.getElementById('pagar-pendiente').value = record.pendiente || 0;
+            if (document.getElementById('pagar-proveedor-id')) {
+                document.getElementById('pagar-proveedor-id').value = record.proveedorId || '';
+            }
             
             const firstAbono = (record.abonos && record.abonos.length > 0) ? record.abonos[0] : null;
             if (firstAbono && document.querySelector('input[name="pagar-metodo"]')) {
@@ -829,6 +1001,8 @@ const App = {
 
     cancelEditCuentaPagar() {
         State.editingCuentasPagarId = null;
+        State.showPagarForm = false;
+        State.hasPagarAbono = false;
         this.render();
     },
 
@@ -866,63 +1040,191 @@ const App = {
             : allData;
 
         if (allData.length === 0) {
-            return `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-secondary);">No hay registros de cuentas por pagar.</td></tr>`;
+            return `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-secondary);">No hay registros de cuentas por pagar.</td></tr>`;
         }
 
-        if (filtered.length === 0) {
-            return `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-secondary);">No se encontraron resultados para "${this.escapeHTML(q)}".</td></tr>`;
-        }
-
+        const groups = this._groupCuentas(filtered, 'proveedor');
+        
         const start = (State.pagarPage - 1) * State.pageSize;
-        const paged = filtered.slice(start, start + State.pageSize);
+        const pagedGroups = groups.slice(start, start + State.pageSize);
 
-        return paged.map(c => {
-            const isPaid = c.pendiente <= 0;
-            const lastTransfer = (c.abonos || []).filter(a => a.metodo === 'Transferencia').pop();
-            const bankName = lastTransfer ? lastTransfer.banco : '';
+        if (pagedGroups.length === 0 && q) {
+            return `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-secondary);">No se encontraron resultados para "${this.escapeHTML(q)}".</td></tr>`;
+        }
 
-            return `
-                <tr class="animate-fadeIn">
-                    <td>
-                        <input type="checkbox" class="pagar-checkbox" 
-                            ${State.selectedCuentasPagar.includes(c.id) ? 'checked' : ''} 
-                            onchange="App.toggleCuentaSelection('pagar', '${c.id}', this.checked)">
+        let html = '';
+        pagedGroups.forEach(g => {
+            const isExpanded = State.expandedCuentas.has(g.name);
+            const isPaid = g.totalPendiente <= 0;
+            
+            const systemMatch = (Store.get('proveedores') || []).find(sp => (sp.name || sp.nombre || '').toLowerCase().trim() === g.name.toLowerCase().trim());
+            const isVerified = g.items.some(i => i.proveedorId);
+
+            html += `
+                <tr class="group-header-row" style="background:rgba(var(--danger-rgb), 0.03); cursor:pointer;" onclick="App.toggleCuentaExpanded('${this.escapeHTML(g.name)}')">
+                    <td onclick="event.stopPropagation()">
+                        <input type="checkbox" ${g.items.every(item => State.selectedCuentasPagar.includes(item.id)) ? 'checked' : ''} onchange="App.toggleGroupSelection('pagar', '${this.escapeHTML(g.name)}', this.checked)">
                     </td>
-                    <td><strong>${c.proveedor}</strong></td>
-                    <td style="font-size:0.8rem;color:var(--text-secondary);">${c.concepto || '-'}</td>
-                    <td>${c.fecha}</td>
-                    <td style="text-align:right;font-weight:700;">$${c.montoTotal.toFixed(2)}</td>
-                    <td style="text-align:right;font-weight:800;color:${isPaid ? 'var(--success)' : 'var(--danger)'};">$${c.pendiente.toFixed(2)}</td>
+                    <td style="font-weight:800; color:var(--danger); display:flex; align-items:center; gap:10px;">
+                        <span style="transform:rotate(${isExpanded ? '90deg' : '0deg'}); transition:transform 0.2s; display:inline-block;">${Icons.chevronRight(14)}</span>
+                        ${g.name}
+                        ${isVerified ? `
+                            <span class="status-pill status-blue" style="font-size:0.6rem; padding:2px 6px; display:flex; align-items:center; gap:4px; border-radius:6px;" title="Proveedor vinculado a base de datos">
+                                ${Icons.check(10)} Verificado
+                            </span>
+                        ` : systemMatch ? `
+                            <button class="status-pill status-yellow" style="font-size:0.6rem; padding:2px 6px; display:flex; align-items:center; gap:4px; border-radius:6px; cursor:pointer; border:1px solid rgba(var(--warning-rgb),0.3); transition:all 0.2s;" 
+                                onclick="event.stopPropagation(); App.linkHistoricalRecords('${this.escapeHTML(g.name)}', 'pagar')"
+                                onmouseover="this.style.background='var(--warning)'; this.style.color='white';"
+                                onmouseout="this.style.background='rgba(var(--warning-rgb),0.1)'; this.style.color='var(--warning)';"
+                                title="Click para vincular registros históricos a este proveedor">
+                                ${Icons.sync(10)} Vincular Historial
+                            </button>
+                        ` : ''}
+                        <span style="font-size:0.7rem; background:rgba(var(--danger-rgb),0.1); padding:2px 6px; border-radius:10px; font-weight:600;">${g.items.length} ${g.items.length === 1 ? 'obligación' : 'obligaciones'}</span>
+                    </td>
+                    <td colspan="2" style="font-size:0.8rem; color:var(--text-secondary);">Resumen de obligaciones</td>
+                    <td style="text-align:right; font-weight:700;">$${g.totalMonto.toFixed(2)}</td>
+                    <td style="text-align:right; font-weight:800; color:${isPaid ? 'var(--success)' : 'var(--danger)'};">$${g.totalPendiente.toFixed(2)}</td>
                     <td>
-                        <span class="status-pill ${isPaid ? 'status-green' : 'status-red'}" style="font-size:0.7rem;padding:4px 8px;">
-                            ${isPaid ? 'Pagado' : 'Pendiente'}
+                        <span class="status-pill ${isPaid ? 'status-green' : 'status-red'}" style="font-size:0.7rem; padding:4px 8px;">
+                            ${isPaid ? 'Al día' : 'Pendiente'}
                         </span>
-                        ${bankName ? `<div style="margin-top:6px; display:flex; align-items:center; font-size:0.7rem; color:var(--text-secondary); opacity:0.8;">
-                            ${this.getBankLogoHTML(bankName, 12)} ${bankName}
-                        </div>` : ''}
                     </td>
                     <td>
-                        <div style="display:flex;gap:4px;">
-                            <button class="icon-btn" onclick="App.openDetalleModal('pagar', '${c.id}')" title="Ver Detalles" style="color:var(--primary);">
-                                ${Icons.eye()}
-                            </button>
-                            <button class="icon-btn" onclick="App.openAbonoModal('${c.id}', 'pagar')" title="Registrar Pago" style="color:var(--success);">
-                                ${Icons.plus()}
-                            </button>
-                            <button class="icon-btn" onclick="App.editCuentaPagar('${c.id}')" title="Editar" style="color:var(--primary);">
-                                ${Icons.edit()}
-                            </button>
-                            <button class="icon-btn" onclick="App.deleteCuentaPagar('${c.id}')" title="Eliminar" style="color:var(--danger);">
-                                ${Icons.delete()}
-                            </button>
-                            <button class="icon-btn" onclick="App.exportSingleClientReport('${c.proveedor}')" title="Exportar PDF Individual" style="color:var(--accent);">
-                                ${Icons.pdf()}
+                        <div style="display:flex; gap:4px;">
+                            <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.7rem;" onclick="event.stopPropagation(); App.exportSingleClientReport('${this.escapeHTML(g.name)}', 'pagar')">
+                                ${Icons.pdf(12)} Reporte
                             </button>
                         </div>
                     </td>
                 </tr>
             `;
-        }).join('');
+
+            if (isExpanded) {
+                g.items.forEach(c => {
+                    const cIsPaid = c.pendiente <= 0;
+                    html += `
+                        <tr class="animate-fadeIn child-row" style="background:transparent; border-left:4px solid var(--danger);">
+                            <td style="padding-left:20px;">
+                                <input type="checkbox" class="pagar-checkbox" 
+                                    ${State.selectedCuentasPagar.includes(c.id) ? 'checked' : ''} 
+                                    onchange="App.toggleCuentaSelection('pagar', '${c.id}', this.checked)">
+                            </td>
+                            <td style="padding-left:30px; font-size:0.85rem; color:var(--text-secondary);">└─ Detalle</td>
+                            <td style="font-size:0.85rem; font-weight:600;">${c.concepto || 'Sin concepto'}</td>
+                            <td style="font-size:0.85rem;">${c.fecha}</td>
+                            <td style="text-align:right; font-size:0.85rem; color:var(--text-secondary);">$${c.montoTotal.toFixed(2)}</td>
+                            <td style="text-align:right; font-weight:700; color:${cIsPaid ? 'var(--success)' : 'var(--danger)'};">$${c.pendiente.toFixed(2)}</td>
+                            <td>
+                                <span class="status-pill ${cIsPaid ? 'status-green' : 'status-red'}" style="font-size:0.65rem; padding:2px 6px; opacity:0.8;">
+                                    ${cIsPaid ? 'Pagado' : 'Pendiente'}
+                                </span>
+                            </td>
+                            <td>
+                                <div style="display:flex; gap:4px;">
+                                    <button class="icon-btn" onclick="App.openDetalleModal('pagar', '${c.id}')" title="Ver Detalles" style="color:var(--primary); transform:scale(0.85);">
+                                        ${Icons.eye()}
+                                    </button>
+                                    <button class="icon-btn" onclick="App.openAbonoModal('${c.id}', 'pagar')" title="Registrar Pago" style="color:var(--success); transform:scale(0.85);">
+                                        ${Icons.plus()}
+                                    </button>
+                                    <button class="icon-btn" onclick="App.editCuentaPagar('${c.id}')" title="Editar" style="color:var(--primary); transform:scale(0.85);">
+                                        ${Icons.edit()}
+                                    </button>
+                                    <button class="icon-btn" onclick="App.deleteCuentaPagar('${c.id}')" title="Eliminar" style="color:var(--danger); transform:scale(0.85);">
+                                        ${Icons.delete()}
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+        });
+        return html;
+    },
+
+    showClientSuggestions(type, query) {
+        const listId = type === 'cobrar' ? 'cobrar-client-list' : 'pagar-client-list';
+        const listEl = document.getElementById(listId);
+        if (!listEl) return;
+
+        if (!query || query.length < 1) {
+            listEl.style.display = 'none';
+            return;
+        }
+
+        const q = query.toLowerCase();
+        
+        // 1. Clientes de la Base de Datos (Store.clientes)
+        const systemClients = (Store.clientes || [])
+            .filter(c => {
+                const name = (c.name || c.nombre || '').toLowerCase();
+                const ruc = (c.ruc || '').toLowerCase();
+                return name.includes(q) || ruc.includes(q);
+            })
+            .map(c => ({ 
+                name: c.name || c.nombre, 
+                id: c.id, 
+                type: 'system',
+                ruc: c.ruc
+            }));
+
+        // 2. Nombres ya usados en Cuentas (Independientes)
+        const accountsData = type === 'cobrar' ? State.cuentasCobrarData : State.cuentasPagarData;
+        const nameField = type === 'cobrar' ? 'cliente' : 'proveedor';
+        const existingNames = [...new Set(accountsData.map(item => item[nameField]))]
+            .filter(n => {
+                if (!n) return false;
+                const lowN = n.toLowerCase();
+                // Solo si coincide con la búsqueda y NO está ya en el sistema
+                return lowN.includes(q) && !systemClients.some(sc => sc.name.toLowerCase() === lowN);
+            })
+            .map(n => ({ name: n, id: null, type: 'independent' }));
+
+        const allSuggestions = [...systemClients, ...existingNames].slice(0, 10);
+
+        if (allSuggestions.length === 0) {
+            listEl.style.display = 'none';
+            return;
+        }
+
+        listEl.innerHTML = allSuggestions.map(s => `
+            <li onclick="App.selectClientSuggestion('${type}', '${this.escapeHTML(s.name)}', '${s.id || ''}')" 
+                style="padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--border-color); font-size:0.85rem; display:flex; align-items:center; justify-content:space-between; transition:background 0.2s;"
+                onmouseover="this.style.background='rgba(var(--primary-rgb), 0.05)'"
+                onmouseout="this.style.background='transparent'">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    ${s.type === 'system' ? Icons.navClients(16) : Icons.addPerson()}
+                    <span>${s.name}</span>
+                </div>
+                ${s.type === 'system' ? `
+                    <span style="font-size:0.65rem; background:rgba(var(--primary-rgb),0.1); color:var(--primary); padding:2px 8px; border-radius:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">
+                        En Sistema
+                    </span>
+                ` : ''}
+            </li>
+        `).join('');
+        listEl.style.display = 'block';
+    },
+
+    selectClientSuggestion(type, name, id) {
+        const inputId = type === 'cobrar' ? 'cobrar-cliente' : 'pagar-proveedor';
+        const idInputId = type === 'cobrar' ? 'cobrar-cliente-id' : 'pagar-proveedor-id';
+        const listId = type === 'cobrar' ? 'cobrar-client-list' : 'pagar-client-list';
+        
+        const inputEl = document.getElementById(inputId);
+        const idInputEl = document.getElementById(idInputId);
+        const listEl = document.getElementById(listId);
+        
+        if (inputEl) inputEl.value = name;
+        if (idInputEl) idInputEl.value = id || '';
+        if (listEl) listEl.style.display = 'none';
+
+        if (id) {
+            this.showToast(`Cliente '${name}' vinculado`, 'info');
+        }
     },
 
     openDetalleModal(type, id) {
@@ -2539,21 +2841,64 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             return;
         }
         
-        const clients = Store.get('clientes').filter(c => 
-            c.name.toLowerCase().includes(query.toLowerCase()) || 
-            c.ruc.includes(query)
-        ).slice(0, 5);
+        const q = query.toLowerCase();
+        const type = State.reportType || 'cobrar';
+        let clients = [];
+        
+        if (type === 'cobrar') {
+            // 1. Clientes de sistema
+            const systemClients = (Store.clientes || [])
+                .filter(c => {
+                    const name = (c.name || c.nombre || '').toLowerCase();
+                    const ruc = (c.ruc || '').toLowerCase();
+                    return name.includes(q) || ruc.includes(q);
+                })
+                .map(c => ({ 
+                    id: c.id, 
+                    name: c.name || c.nombre, 
+                    ruc: c.ruc,
+                    type: 'system' 
+                }));
+
+            // 2. Nombres independientes ya usados
+            const usedNames = [...new Set(State.cuentasCobrarData.map(p => p.cliente))]
+                .filter(n => n && n.toLowerCase().includes(q) && !systemClients.some(sc => sc.name.toLowerCase() === n.toLowerCase()))
+                .map(n => ({ id: `independent_${n}`, name: n, ruc: 'S/N', type: 'independent' }));
+
+            clients = [...systemClients, ...usedNames].slice(0, 8);
+        } else {
+            // Proveedores
+            const systemProviders = (Store.get('proveedores') || [])
+                .filter(p => (p.name || p.nombre || '').toLowerCase().includes(q))
+                .map(p => ({ id: p.id, name: p.name || p.nombre, ruc: p.ruc || 'S/N', type: 'system' }));
+
+            const usedNames = [...new Set(State.cuentasPagarData.map(p => p.proveedor))]
+                .filter(n => n && n.toLowerCase().includes(q) && !systemProviders.some(sp => sp.name.toLowerCase() === n.toLowerCase()))
+                .map(n => ({ id: `independent_${n}`, name: n, ruc: 'S/N', type: 'independent' }));
+
+            clients = [...systemProviders, ...usedNames].slice(0, 8);
+        }
         
         if (clients.length === 0) {
-            list.innerHTML = `<li style="text-align:center; color:var(--text-secondary); pointer-events:none;">No se encontraron clientes</li>`;
+            list.innerHTML = `<li style="text-align:center; padding:15px; color:var(--text-secondary); pointer-events:none;">No se encontraron resultados</li>`;
             list.style.display = 'block';
             return;
         }
         
         list.innerHTML = clients.map(c => `
-            <li onclick="App.selectReportClient('${c.id}', '${c.name.replace(/'/g, "\\'")}')">
-                <div style="font-weight:600;">${c.name}</div>
-                <div style="font-size:0.75rem; color:var(--text-secondary);">${c.ruc}</div>
+            <li onclick="App.selectReportClient('${c.id}', '${c.name.replace(/'/g, "\\'")}')"
+                style="padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; transition:background 0.2s;"
+                onmouseover="this.style.background='rgba(var(--primary-rgb), 0.05)'"
+                onmouseout="this.style.background='transparent'">
+                <div style="display:flex; flex-direction:column;">
+                    <span style="font-weight:600; font-size:0.9rem;">${this.escapeHTML(c.name)}</span>
+                    <span style="font-size:0.75rem; color:var(--text-secondary);">${c.ruc}</span>
+                </div>
+                ${c.type === 'system' ? `
+                    <span style="font-size:0.6rem; background:rgba(var(--primary-rgb),0.1); color:var(--primary); padding:2px 8px; border-radius:10px; font-weight:700; text-transform:uppercase;">
+                        En Sistema
+                    </span>
+                ` : ''}
             </li>
         `).join('');
         list.style.display = 'block';
@@ -2569,7 +2914,35 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         nameSpan.textContent = name;
         badge.style.display = 'flex';
         
-        document.getElementById('report-client-search').parentElement.style.display = 'none';
+        // Hide search field
+        const searchGroup = document.getElementById('report-client-search').closest('.form-group');
+        if (searchGroup) searchGroup.style.display = 'none';
+    },
+
+    clearReportClient() {
+        State.reportSelectedClientId = null;
+        document.getElementById('report-selected-badge').style.display = 'none';
+        const searchGroup = document.getElementById('report-client-search').closest('.form-group');
+        if (searchGroup) searchGroup.style.display = 'block';
+        document.getElementById('report-client-search').value = '';
+        document.getElementById('report-client-search').focus();
+    },
+
+    setReportType(type) {
+        State.reportType = type; // We should add this to state
+        // Re-filter if search has text
+        const search = document.getElementById('report-client-search');
+        if (search && search.value) {
+            this.filterReportClients(search.value);
+        }
+        this.clearReportClient();
+        
+        // Update UI of chips
+        const chips = document.querySelectorAll('.report-type-chip');
+        chips.forEach(c => {
+            if (c.dataset.type === type) c.classList.add('active');
+            else c.classList.remove('active');
+        });
     },
 
     clearReportClient() {
@@ -2608,32 +2981,58 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         endInput.value = end.toISOString().split('T')[0];
     },
 
-    async generatePremiumReport(targetName = null) {
-        let clientId = State.reportSelectedClientId;
+    async generatePremiumReport(targetName = null, typeParam = null) {
+        // If typeParam is provided (from tables), use it. Otherwise use state or default to cobrar.
+        const type = typeParam || State.reportType || 'cobrar';
+        let clientId = targetName ? null : State.reportSelectedClientId;
         let client = null;
 
         if (targetName) {
-            client = Store.get('clientes').find(c => c.name.toLowerCase() === targetName.toLowerCase());
+            // Try to find in system (robust search)
+            client = Store.get('clientes').find(c => {
+                const name = (c.name || c.nombre || '').toLowerCase().trim();
+                return name === targetName.toLowerCase().trim();
+            });
+
             if (!client) {
-                this.showToast(`No se encontró ficha técnica para ${targetName}`, 'warning');
-                return;
+                // Independent record
+                client = { 
+                    name: targetName, 
+                    ruc: 'S/N', 
+                    id: `independent_${targetName}`,
+                    isIndependent: true 
+                };
             }
             clientId = client.id;
         }
 
-        if (!clientId) {
-            this.showToast('⚠️ Por favor selecciona un cliente', 'warning');
+        if (!clientId && !client) {
+            this.showToast('⚠️ Por favor selecciona un contacto', 'warning');
             return;
         }
 
-        // Use default dates if not in modal
+        if (!client) {
+            if (clientId && clientId.startsWith('independent_')) {
+                const name = clientId.replace('independent_', '');
+                client = { name, ruc: 'S/N', id: clientId, isIndependent: true };
+            } else if (clientId) {
+                client = Store.get('clientes').find(c => c.id === clientId);
+            }
+        }
+
+        if (!client) {
+            this.showToast('Error: No se pudo identificar al contacto', 'danger');
+            return;
+        }
+
+        // Use dates from modal or defaults
         let start = document.getElementById('report-date-start')?.value;
         let end = document.getElementById('report-date-end')?.value;
         
         if (!start || !end) {
             const now = new Date();
-            start = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0]; // Year start
-            end = now.toISOString().split('T')[0]; // Today
+            start = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
+            end = now.toISOString().split('T')[0];
         }
 
         const opts = {
@@ -2651,36 +3050,48 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         }
 
         try {
-            this.showToast(`🚀 Compilando datos para ${targetName || 'cliente'}...`, 'info');
+            this.showToast(`🚀 Compilando datos para ${targetName || (client ? client.name : 'cliente')}...`, 'info');
             
-            if (!client) client = Store.get('clientes').find(c => c.id === clientId);
-            if (!client) throw new Error('Cliente no encontrado en la base de datos');
-            
-            // 1. Obtener Cuentas por Cobrar (donde el cliente es el deudor)
-            const cuentas = State.cuentasCobrarData.filter(r => 
-                r.cliente.toLowerCase() === client.name.toLowerCase() && 
-                r.fecha >= start && r.fecha <= end
-            );
+            if (!client && clientId) {
+                if (clientId.startsWith('independent_')) {
+                    const name = clientId.replace('independent_', '');
+                    client = { name, ruc: 'S/N', id: clientId, isIndependent: true };
+                } else {
+                    client = Store.get('clientes').find(c => c.id === clientId);
+                }
+            }
 
-            // 2. Obtener Historial SRI (si tenemos acceso o cache)
-            // Nota: El sistema carga SRI por cliente bajo demanda.
-            // Para el reporte, intentaremos cargarlo si no está.
+            if (!client) throw new Error('No se pudo determinar el contacto para el reporte');
+            
+            // 1. Obtener Cuentas basadas en el tipo
+            const dataSource = type === 'cobrar' ? State.cuentasCobrarData : State.cuentasPagarData;
+            const cuentas = dataSource.filter(r => {
+                const rName = (type === 'cobrar' ? r.cliente : r.proveedor) || '';
+                return rName.toLowerCase().trim() === client.name.toLowerCase().trim() && 
+                       r.fecha >= start && r.fecha <= end;
+            });
+
+            // 2. Obtener Historial SRI (solo si es cliente y no un proveedor temporal)
             let sriData = [];
-            try {
-                const snapshot = await firebase.firestore().collection("clientes").doc(clientId).collection("sri_registros")
-                    .where("fecha", ">=", start)
-                    .where("fecha", "<=", end)
-                    .orderBy("fecha", "desc")
-                    .get();
-                sriData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            } catch (e) {
-                console.warn("No se pudo obtener datos SRI detallados:", e);
+            if (clientId && !clientId.startsWith('independent_')) {
+                try {
+                    // Correct path: SRI records are in top-level collection filtered by clientId
+                    const snapshot = await firebase.firestore().collection("sri_registros")
+                        .where("clientId", "==", clientId)
+                        .where("fecha", ">=", start)
+                        .where("fecha", "<=", end)
+                        .orderBy("fecha", "desc")
+                        .get();
+                    sriData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                } catch (e) {
+                    console.warn("No se pudo obtener datos SRI detallados:", e);
+                }
             }
 
             if (cuentas.length === 0 && sriData.length === 0) {
                 const ok = await this.confirmDialog({
                     title: 'Sin datos encontrados',
-                    message: 'No existen registros de cuentas o SRI para este cliente en el rango seleccionado. ¿Deseas generar un reporte vacío con solo los datos generales?',
+                    message: 'No existen registros de cuentas o SRI para este contacto en el rango seleccionado. ¿Deseas generar un reporte vacío?',
                     confirmText: 'Generar igual',
                     cancelText: 'Cancelar'
                 });
@@ -2688,15 +3099,17 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             }
 
             // 3. Construir el HTML del reporte premium
-            const reportHTML = this.buildPremiumReportHTML(client, cuentas, sriData, opts, start, end);
+            const reportHTML = this.buildPremiumReportHTML(client, cuentas, sriData, opts, start, end, type);
             
             // 4. Generar PDF con html2pdf
+            const filename = `Reporte_${type.toUpperCase()}_${client.name.replace(/\s+/g, '_')}_${start}.pdf`;
+            
             const worker = html2pdf().from(reportHTML).set({
-                margin: [5, 5, 5, 5], // Reduce margins to 5mm all around for better space usage
-                filename: `Reporte_${client.name.replace(/\s+/g, '_')}_${start}_${end}.pdf`,
+                margin: [5, 5, 5, 5],
+                filename: filename,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { 
-                    scale: 3, // Higher scale for crisper text
+                    scale: 2.5, // Slightly lower scale for better compatibility/speed
                     useCORS: true, 
                     letterRendering: true,
                     scrollY: 0
@@ -2707,19 +3120,29 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             await worker.save();
             
             this.showToast('✅ Reporte generado y descargado', 'success');
-            this.closeReportModal();
+            
+            if (document.getElementById('report-modal-overlay')) {
+                this.closeReportModal();
+            }
 
         } catch (err) {
             if (err.message !== 'Operación cancelada') {
+                console.error("Error en generación de reporte:", err);
                 this.showToast('Error: ' + err.message, 'danger');
             }
         } finally {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
+            if (btn) {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
         }
     },
 
-    buildPremiumReportHTML(client, accounts, sri, opts, start, end) {
+    buildPremiumReportHTML(client, accounts, sri, opts, start, end, type = 'cobrar') {
+        const titleLabel = type === 'cobrar' ? 'Estado de Cuentas por Cobrar' : 'Estado de Cuentas por Pagar';
+        const contactLabel = type === 'cobrar' ? 'CLIENTE' : 'PROVEEDOR';
+        const movementLabel = type === 'cobrar' ? 'Movimientos de Caja (Pagos/Abonos)' : 'Movimientos de Caja (Pagos Realizados)';
+        
         const now = new Date();
         const fgen = now.toLocaleDateString('es-EC', { day:'2-digit', month:'long', year:'numeric' });
         
@@ -2773,24 +3196,28 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 </div>
 
                 <!-- Resumen de Saldos -->
-                <div style="background:#f8fafc; border-radius:10px; padding:15px; margin-bottom:20px; display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; border:1px solid #f1f5f9;">
-                    <div style="text-align:center; border-right:1px solid #e2e8f0;">
-                        <p style="margin:0; font-size:9px; color:#64748b; text-transform:uppercase; font-weight:600;">Total Facturado</p>
-                        <h3 style="margin:4px 0 0 0; font-size:16px; color:#1e293b; font-weight:800;">$${totalDeuda.toFixed(2)}</h3>
-                    </div>
-                    <div style="text-align:center; border-right:1px solid #e2e8f0;">
-                        <p style="margin:0; font-size:9px; color:#64748b; text-transform:uppercase; font-weight:600;">Total Pagado</p>
-                        <h3 style="margin:4px 0 0 0; font-size:16px; color:#059669; font-weight:800;">$${totalPagado.toFixed(2)}</h3>
-                    </div>
-                    <div style="text-align:center;">
-                        <p style="margin:0; font-size:9px; color:#64748b; text-transform:uppercase; font-weight:600;">Saldo Pendiente</p>
-                        <h3 style="margin:4px 0 0 0; font-size:16px; color:#dc2626; font-weight:800;">$${totalPendiente.toFixed(2)}</h3>
-                    </div>
+                <div style="background:#f8fafc; border-radius:10px; padding:15px; margin-bottom:20px; border:1px solid #f1f5f9; overflow:hidden;">
+                    <table style="width:100%; border-collapse:collapse;">
+                        <tr>
+                            <td style="width:33%; text-align:center; border-right:1px solid #e2e8f0;">
+                                <p style="margin:0; font-size:9px; color:#64748b; text-transform:uppercase; font-weight:600;">Total Facturado</p>
+                                <h3 style="margin:4px 0 0 0; font-size:16px; color:#1e293b; font-weight:800;">$${totalDeuda.toFixed(2)}</h3>
+                            </td>
+                            <td style="width:33%; text-align:center; border-right:1px solid #e2e8f0;">
+                                <p style="margin:0; font-size:9px; color:#64748b; text-transform:uppercase; font-weight:600;">Total Pagado</p>
+                                <h3 style="margin:4px 0 0 0; font-size:16px; color:#059669; font-weight:800;">$${totalPagado.toFixed(2)}</h3>
+                            </td>
+                            <td style="width:33%; text-align:center;">
+                                <p style="margin:0; font-size:9px; color:#64748b; text-transform:uppercase; font-weight:600;">Saldo Pendiente</p>
+                                <h3 style="margin:4px 0 0 0; font-size:16px; color:#dc2626; font-weight:800;">$${totalPendiente.toFixed(2)}</h3>
+                            </td>
+                        </tr>
+                    </table>
                 </div>
 
                 <!-- Historial de Movimientos Detallado -->
                 <div style="margin-bottom:20px;">
-                    <h4 style="margin:0 0 10px 0; font-size:12px; color:#334155; text-transform:uppercase; border-left:3px solid #10b981; padding-left:8px; font-weight:700;">Movimientos de Caja (Pagos/Abonos)</h4>
+                    <h4 style="margin:0 0 10px 0; font-size:12px; color:#334155; text-transform:uppercase; border-left:3px solid #10b981; padding-left:8px; font-weight:700;">${movementLabel}</h4>
                     <table style="width:100%; border-collapse:collapse; font-size:10px;">
                         <thead>
                             <tr style="background:#f1f5f9;">
@@ -2820,25 +3247,53 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
 
                 <!-- Estado de Facturas / Deudas -->
                 <div style="margin-bottom:20px;">
-                    <h4 style="margin:0 0 10px 0; font-size:12px; color:#334155; text-transform:uppercase; border-left:3px solid #8b5cf6; padding-left:8px; font-weight:700;">Estado de Cuentas por Cobrar</h4>
+                    <h4 style="margin:0 0 10px 0; font-size:12px; color:#334155; text-transform:uppercase; border-left:3px solid #8b5cf6; padding-left:8px; font-weight:700;">${titleLabel}</h4>
                     <table style="width:100%; border-collapse:collapse; font-size:10px;">
                         <thead>
                             <tr style="background:#f1f5f9;">
                                 <th style="padding:8px; text-align:left; border-bottom:1px solid #e2e8f0;">Fecha Registro</th>
-                                <th style="padding:8px; text-align:left; border-bottom:1px solid #e2e8f0;">Concepto</th>
-                                <th style="padding:8px; text-align:right; border-bottom:1px solid #e2e8f0;">Total</th>
-                                <th style="padding:8px; text-align:right; border-bottom:1px solid #e2e8f0;">Saldo</th>
+                                <th style="padding:8px; text-align:left; border-bottom:1px solid #e2e8f0;">Concepto / Referencia</th>
+                                <th style="padding:8px; text-align:right; border-bottom:1px solid #e2e8f0;">Monto Inicial</th>
+                                <th style="padding:8px; text-align:right; border-bottom:1px solid #e2e8f0;">Abonos</th>
+                                <th style="padding:8px; text-align:right; border-bottom:1px solid #e2e8f0;">Saldo Pendiente</th>
+                                <th style="padding:8px; text-align:center; border-bottom:1px solid #e2e8f0;">Estado</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${accounts.length ? accounts.map(a => `
-                                <tr>
-                                    <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${a.fecha}</td>
-                                    <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${a.concepto || '—'}</td>
-                                    <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">$${(a.montoTotal||0).toFixed(2)}</td>
-                                    <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700; color:${a.pendiente > 0 ? '#dc2626' : '#059669'};">$${(a.pendiente||0).toFixed(2)}</td>
-                                </tr>
-                            `).join('') : '<tr><td colspan="4" style="padding:20px; text-align:center; color:#94a3b8;">No hay registros de cuentas</td></tr>'}
+                            ${accounts.length ? accounts.map(a => {
+                                const total = a.montoTotal || 0;
+                                const pend = a.pendiente || 0;
+                                const abonado = total - pend;
+                                
+                                let statusLabel = 'Pendiente';
+                                let statusColor = '#dc2626'; // Rojo
+                                let statusBg = 'rgba(220, 38, 38, 0.1)';
+                                
+                                if (pend <= 0) {
+                                    statusLabel = 'Cancelado';
+                                    statusColor = '#059669'; // Verde
+                                    statusBg = 'rgba(5, 150, 105, 0.1)';
+                                } else if (abonado > 0) {
+                                    statusLabel = 'Pago Parcial';
+                                    statusColor = '#d97706'; // Naranja
+                                    statusBg = 'rgba(217, 119, 6, 0.1)';
+                                }
+
+                                return `
+                                    <tr>
+                                        <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${a.fecha}</td>
+                                        <td style="padding:8px; border-bottom:1px solid #f1f5f9; font-weight:500;">${a.concepto || '—'}</td>
+                                        <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; color:#64748b;">$${total.toFixed(2)}</td>
+                                        <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; color:#059669;">$${abonado.toFixed(2)}</td>
+                                        <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700; color:${pend > 0 ? '#dc2626' : '#059669'};">$${pend.toFixed(2)}</td>
+                                        <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:center;">
+                                            <span style="font-size:8px; font-weight:800; text-transform:uppercase; padding:2px 6px; border-radius:4px; color:${statusColor}; background:${statusBg}; border:1px solid ${statusColor}33;">
+                                                ${statusLabel}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('') : '<tr><td colspan="6" style="padding:20px; text-align:center; color:#94a3b8;">No hay registros de cuentas</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -2897,6 +3352,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             const idx = list.indexOf(id);
             if (idx > -1) list.splice(idx, 1);
         }
+        this.render();
     },
 
     toggleAllCuentas(type, checked) {
@@ -2909,6 +3365,34 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             State[listName] = [];
         }
         this.render();
+    },
+
+    async deleteSelectedCuentas(type) {
+        const list = type === 'cobrar' ? State.selectedCuentasCobrar : State.selectedCuentasPagar;
+        if (list.length === 0) return;
+
+        const count = list.length;
+        const label = type === 'cobrar' ? 'Cuentas por Cobrar' : 'Cuentas por Pagar';
+        
+        if (!(await this.confirmDialog({ 
+            title: `¿Eliminar ${count} registros?`, 
+            message: `Esta acción eliminará permanentemente ${count} registros de ${label}. Esta operación no se puede deshacer.` 
+        }))) return;
+
+        try {
+            this.showToast(`Eliminando ${count} registros...`, 'info');
+            await Store.deleteCuentasBatch(type, list);
+            
+            // Limpiar selección
+            if (type === 'cobrar') State.selectedCuentasCobrar = [];
+            else State.selectedCuentasPagar = [];
+            
+            this.showToast('Registros eliminados con éxito', 'success');
+            this.render();
+        } catch (e) {
+            console.error(e);
+            this.showToast('Error al eliminar registros', 'danger');
+        }
     },
 
     exportSelectedReports(type) {
@@ -2933,7 +3417,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         const processNext = async () => {
             if (i < uniqueNames.length) {
                 try {
-                    await this.generatePremiumReport(uniqueNames[i]);
+                    await this.generatePremiumReport(uniqueNames[i], type);
                 } catch (e) {
                     console.error(`Error generating report for ${uniqueNames[i]}`, e);
                 }
@@ -2949,10 +3433,10 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         processNext();
     },
 
-    exportSingleClientReport(name) {
+    exportSingleClientReport(name, type = 'cobrar') {
         if (!name) return;
         this.showToast(`Generando reporte para ${name}...`, 'info');
-        this.generatePremiumReport(name);
+        this.generatePremiumReport(name, type);
     },
 
     // ─── BANCOS ─────────────────────────────────────────────────────────────
@@ -3496,6 +3980,54 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             }
         } catch (error) {
             console.error("Error loading bancos:", error);
+        }
+    },
+    async linkHistoricalRecords(name, type) {
+        const idField = type === 'cobrar' ? 'clienteId' : 'proveedorId';
+        const nameField = type === 'cobrar' ? 'cliente' : 'proveedor';
+        
+        let systemEntity = null;
+        if (type === 'cobrar') {
+            systemEntity = (Store.clientes || []).find(c => (c.name || c.nombre || '').toLowerCase().trim() === name.toLowerCase().trim());
+        } else {
+            systemEntity = (Store.get('proveedores') || []).find(p => (p.name || p.nombre || '').toLowerCase().trim() === name.toLowerCase().trim());
+        }
+
+        if (!systemEntity) {
+            this.showToast('No se encontró una entidad de sistema para vincular.', 'warning');
+            return;
+        }
+
+        const ok = await this.confirmDialog({
+            title: 'Vincular Historial',
+            message: `¿Deseas vincular todos los registros de "${name}" al perfil de sistema de "${systemEntity.name || systemEntity.nombre}"? Esto permitirá ver sus reportes SRI consolidados.`,
+            confirmText: 'Vincular ahora',
+            cancelText: 'Más tarde'
+        });
+
+        if (!ok) return;
+
+        this.showToast('Vinculando registros...', 'info');
+
+        const data = type === 'cobrar' ? State.cuentasCobrarData : State.cuentasPagarData;
+        const toUpdate = data.filter(r => (r[nameField] || '').toLowerCase().trim() === name.toLowerCase().trim() && !r[idField]);
+
+        try {
+            for (const record of toUpdate) {
+                const updateData = { id: record.id };
+                updateData[idField] = systemEntity.id;
+                
+                if (type === 'cobrar') {
+                    await Store.saveCuentaCobrar(updateData);
+                } else {
+                    await Store.saveCuentaPagar(updateData);
+                }
+            }
+            this.showToast(`¡Éxito! ${toUpdate.length} registros vinculados correctamente.`, 'success');
+            this.render();
+        } catch (e) {
+            console.error(e);
+            this.showToast('Error al vincular registros.', 'danger');
         }
     }
 };

@@ -57,6 +57,11 @@ const State = {
     cobrarPage: 1,
     pagarPage: 1,
     pageSize: 8,
+    showCobrarForm: false,
+    showPagarForm: false,
+    hasCobrarAbono: false,
+    hasPagarAbono: false,
+    expandedCuentas: new Set(), // Nombres de clientes/proveedores expandidos en la tabla
 
     // Modal de Detalles
     showDetalleModal: false,
@@ -67,6 +72,7 @@ const State = {
     reportSelectedClientId: null,
     selectedCuentasCobrar: [],
     selectedCuentasPagar: [],
+    reportType: 'cobrar', // 'cobrar' | 'pagar'
 
     // Bancos
     showBancoModal: false,
