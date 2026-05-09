@@ -2996,7 +2996,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         endInput.value = end.toISOString().split('T')[0];
     },
 
-    async generatePremiumReport(targetName = null, typeParam = null) {
+    async generatePremiumReport(targetName = null, typeParam = null, targetIds = null) {
         // If typeParam is provided (from tables), use it. Otherwise use state or default to cobrar.
         const type = typeParam || State.reportType || 'cobrar';
         let clientId = targetName ? null : State.reportSelectedClientId;
@@ -3046,8 +3046,14 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         
         if (!start || !end) {
             const now = new Date();
-            start = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
-            end = now.toISOString().split('T')[0];
+            // Si venimos de la tabla (targetName o targetIds), usamos un rango amplio por defecto
+            if (targetName || targetIds) {
+                start = (now.getFullYear() - 1) + '-01-01'; // Desde el año pasado
+                end = now.toISOString().split('T')[0];
+            } else {
+                start = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
+                end = now.toISOString().split('T')[0];
+            }
         }
 
         const opts = {
@@ -3080,11 +3086,19 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             
             // 1. Obtener Cuentas basadas en el tipo
             const dataSource = type === 'cobrar' ? State.cuentasCobrarData : State.cuentasPagarData;
-            const cuentas = dataSource.filter(r => {
-                const rName = (type === 'cobrar' ? r.cliente : r.proveedor) || '';
-                return rName.toLowerCase().trim() === client.name.toLowerCase().trim() && 
-                       r.fecha >= start && r.fecha <= end;
-            });
+            let cuentas = [];
+
+            if (targetIds && targetIds.length > 0) {
+                // Prioridad 1: Usar IDs específicos seleccionados
+                cuentas = dataSource.filter(r => targetIds.includes(r.id));
+            } else {
+                // Prioridad 2: Filtrar por nombre y rango (flujo normal del modal)
+                cuentas = dataSource.filter(r => {
+                    const rName = (type === 'cobrar' ? r.cliente : r.proveedor) || '';
+                    return rName.toLowerCase().trim() === client.name.toLowerCase().trim() && 
+                           r.fecha >= start && r.fecha <= end;
+                });
+            }
 
             // 2. Obtener Historial SRI (solo si es cliente y no un proveedor temporal)
             let sriData = [];
@@ -3417,13 +3431,18 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         }
 
         const data = type === 'cobrar' ? State.cuentasCobrarData : State.cuentasPagarData;
-        const selectedNames = data
-            .filter(c => ids.includes(c.id))
-            .map(c => type === 'cobrar' ? c.cliente : c.proveedor);
+        const nameField = type === 'cobrar' ? 'cliente' : 'proveedor';
+        
+        // Agrupar IDs seleccionados por nombre de cliente/proveedor
+        const groups = {};
+        data.filter(c => ids.includes(c.id)).forEach(c => {
+            const name = (c[nameField] || '').trim();
+            if (!name) return;
+            if (!groups[name]) groups[name] = [];
+            groups[name].push(c.id);
+        });
 
-        // Remove duplicates
-        const uniqueNames = [...new Set(selectedNames.filter(n => n))];
-
+        const uniqueNames = Object.keys(groups);
         if (uniqueNames.length === 0) return;
 
         this.showToast(`Generando ${uniqueNames.length} reporte(s)...`, 'info');
@@ -3431,13 +3450,15 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         let i = 0;
         const processNext = async () => {
             if (i < uniqueNames.length) {
+                const name = uniqueNames[i];
+                const clientIds = groups[name];
                 try {
-                    await this.generatePremiumReport(uniqueNames[i], type);
+                    await this.generatePremiumReport(name, type, clientIds);
                 } catch (e) {
-                    console.error(`Error generating report for ${uniqueNames[i]}`, e);
+                    console.error(`Error generating report for ${name}`, e);
                 }
                 i++;
-                setTimeout(processNext, 800); // 800ms delay to ensure stability
+                setTimeout(processNext, 1200); // Aumentado a 1.2s para evitar saturar el navegador
             } else {
                 this.showToast('Exportación masiva completada.', 'success');
                 if (type === 'cobrar') State.selectedCuentasCobrar = [];
@@ -3450,8 +3471,16 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
 
     exportSingleClientReport(name, type = 'cobrar') {
         if (!name) return;
+        const data = type === 'cobrar' ? State.cuentasCobrarData : State.cuentasPagarData;
+        const nameField = type === 'cobrar' ? 'cliente' : 'proveedor';
+        
+        // Buscamos todos los IDs de este cliente para incluirlos todos en el reporte
+        const ids = data
+            .filter(c => (c[nameField] || '').trim().toLowerCase() === name.trim().toLowerCase())
+            .map(c => c.id);
+
         this.showToast(`Generando reporte para ${name}...`, 'info');
-        this.generatePremiumReport(name, type);
+        this.generatePremiumReport(name, type, ids);
     },
 
     // ─── BANCOS ─────────────────────────────────────────────────────────────
