@@ -382,7 +382,7 @@ const App = {
 
         if (filtered.length > 0) {
             list.innerHTML = filtered.map(c => `
-                <li onclick="App.selectClient('${c.id}')">
+                <li onmousedown="event.preventDefault(); App.selectClient('${c.id}')">
                     <div class="suggestion-item">
                         <div class="s-name">${App.escapeHTML(c.name)}</div>
                         <div class="s-ruc">${App.escapeHTML(c.ruc || 'Sin RUC')}</div>
