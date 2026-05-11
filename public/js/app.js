@@ -353,9 +353,48 @@ const App = {
         const a = document.getElementById('sri-anio-sel');
         if (m) State.sriMes  = parseInt(m.value);
         if (a) State.sriAnio = parseInt(a.value);
-        this.renderVentasTable();
-        this.renderComprasTable();
-        this.updateSRISummary();
+        
+        if (!State.currentClientId) {
+            // If on dashboard, re-render whole view to update global stats
+            this.render();
+        } else {
+            // If on specific client, just update data parts
+            this.renderVentasTable();
+            this.renderComprasTable();
+            this.updateSRISummary();
+        }
+    },
+
+    filterSriClients(query) {
+        const list = document.getElementById('sri-client-suggestions');
+        if (!list) return;
+
+        if (!query || query.length < 1) {
+            list.style.display = 'none';
+            return;
+        }
+
+        const clients = Store.get('clientes') || [];
+        const filtered = clients.filter(c => 
+            (c.name || '').toLowerCase().includes(query.toLowerCase()) ||
+            (c.ruc || '').includes(query)
+        ).slice(0, 8);
+
+        if (filtered.length > 0) {
+            list.innerHTML = filtered.map(c => `
+                <li onclick="App.selectClient('${c.id}')">
+                    <div class="suggestion-item">
+                        <div class="s-name">${App.escapeHTML(c.name)}</div>
+                        <div class="s-ruc">${App.escapeHTML(c.ruc || 'Sin RUC')}</div>
+                    </div>
+                    ${c.id ? `<span class="sri-badge-sistema">✓ En Sistema</span>` : ''}
+                </li>
+            `).join('');
+            list.style.display = 'block';
+        } else {
+            list.innerHTML = '<li style="padding:12px; color:var(--text-secondary); font-size:0.8rem; text-align:center;">No se encontraron resultados</li>';
+            list.style.display = 'block';
+        }
     },
 
     switchSRITab(tab) {

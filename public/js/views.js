@@ -656,28 +656,99 @@ const Views = {
     },
 
     sri() {
+        const MESES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        const now = new Date();
         const clients = Store.get('clientes') || [];
         const selectedClient = clients.find(c => c.id === State.currentClientId);
         const isAdmin = Store.getUserRole() === 'admin';
 
         if (!State.currentClientId) {
+            // Calculate global stats for selected month from Store.dashboardMeta
+            const meta = Store.get('dashboardMeta') || { mensual: {} };
+            const key = `${State.sriAnio}-${String(State.sriMes).padStart(2, '0')}`;
+            const monthMeta = meta.mensual?.[key] || { sales: 0, purchases: 0 };
+            const balance = (monthMeta.sales || 0) - (monthMeta.purchases || 0);
+
             return `
-                <div class="glass-card" style="text-align: center; padding: 60px;">
-                    <div style="margin-bottom: 20px;">${Icons.sriPlaceholder()}</div>
-                    <h2>Seleccione un cliente</h2>
-                    <p style="color: var(--text-secondary); margin-bottom: 30px;">Para registrar compras y ventas, primero elija un cliente de su cartera.</p>
-                    <div style="max-width: 400px; margin: 0 auto;">
-                        <select onchange="App.selectClient(this.value)">
-                            <option value="">-- Seleccionar Cliente --</option>
-                            ${clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-                        </select>
+                <div class="sri-dashboard-welcome">
+                    <!-- Global Monthly Summary -->
+                    <div class="sri-welcome-header animate-fadeIn">
+                        <div class="welcome-text">
+                            <h1>Gestión de Compra y Venta</h1>
+                            <p style="color: var(--text-secondary); font-size: 0.9rem;">Resumen global del sistema para el período seleccionado.</p>
+                        </div>
+                        <div class="welcome-period-selector">
+                            <select id="sri-mes-sel" class="premium-select" onchange="App.setSRIPeriod()">
+                                ${MESES.map((m, i) => i > 0 ? `<option value="${i}" ${State.sriMes === i ? 'selected' : ''}>${m}</option>` : '').join('')}
+                            </select>
+                            <select id="sri-anio-sel" class="premium-select" onchange="App.setSRIPeriod()">
+                                ${[...Array(5)].map((_, i) => {
+                                    const y = now.getFullYear() - i;
+                                    return `<option value="${y}" ${State.sriAnio === y ? 'selected' : ''}>${y}</option>`;
+                                }).join('')}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="sri-stats-grid animate-slideInUp">
+                        <div class="stat-card glass-card">
+                            <div class="stat-icon sales">${Icons.trendingUp(24)}</div>
+                            <div class="stat-info">
+                                <span class="stat-label">Ventas Globales</span>
+                                <span class="stat-value">${App.formatMoney(monthMeta.sales)}</span>
+                            </div>
+                        </div>
+                        <div class="stat-card glass-card">
+                            <div class="stat-icon purchases">${Icons.trendingDown(24)}</div>
+                            <div class="stat-info">
+                                <span class="stat-label">Compras Globales</span>
+                                <span class="stat-value">${App.formatMoney(monthMeta.purchases)}</span>
+                            </div>
+                        </div>
+                        <div class="stat-card glass-card">
+                            <div class="stat-icon balance">${Icons.wallet(24)}</div>
+                            <div class="stat-info">
+                                <span class="stat-label">Balance Neto</span>
+                                <span class="stat-value" style="color: ${balance >= 0 ? 'var(--success)' : 'var(--danger)'}">${App.formatMoney(balance)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Search Container -->
+                    <div class="sri-search-section glass-card animate-fadeIn" style="animation-delay: 0.1s;">
+                        <div class="search-header">
+                            <div class="search-icon">${Icons.search(28)}</div>
+                            <div class="search-header-text">
+                                <h2>Selección de Cliente</h2>
+                                <p>Busca por nombre o RUC para gestionar contabilidad y registros del SRI.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="sri-autocomplete-container">
+                            <div class="search-box-wrapper">
+                                <span class="search-main-icon">${Icons.search(18)}</span>
+                                <input type="text" 
+                                    id="sri-client-search" 
+                                    placeholder="Nombre del cliente o RUC..." 
+                                    autocomplete="off"
+                                    oninput="App.filterSriClients(this.value)"
+                                    onfocus="App.filterSriClients(this.value)"
+                                    onblur="setTimeout(() => { const el = document.getElementById('sri-client-suggestions'); if(el) el.style.display = 'none'; }, 200)">
+                                <ul id="sri-client-suggestions" class="autocomplete-list"></ul>
+                            </div>
+                        </div>
+
+                        <div class="recent-clients-section">
+                            <h3>Clientes Registrados</h3>
+                            <div class="recent-grid">
+                                ${this.renderRecentSriClients()}
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
         }
 
-        const MESES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-        const now = new Date();
         const mesOpts  = MESES.slice(1).map((m,i) => `<option value="${i+1}" ${State.sriMes===i+1?'selected':''}>${m}</option>`).join('');
         const anioOpts = [now.getFullYear(), now.getFullYear()-1, now.getFullYear()-2].map(y => `<option value="${y}" ${State.sriAnio===y?'selected':''}>${y}</option>`).join('');
 
@@ -1682,6 +1753,29 @@ const Views = {
                 </div>
             </div>
         `;
+    },
+
+    renderRecentSriClients() {
+        const clients = Store.get('clientes') || [];
+        // Sort alphabetically and show up to 6 clients
+        const recent = [...clients]
+            .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+            .slice(0, 6);
+
+        if (recent.length === 0) {
+            return `<div style="grid-column: 1/-1; text-align: center; color: var(--text-secondary); padding: 20px; font-size: 0.85rem;">No hay clientes registrados aún.</div>`;
+        }
+
+        return recent.map(c => {
+            const initials = (c.name || '?').charAt(0).toUpperCase();
+            const hasRUC = c.ruc && c.ruc.length > 0;
+            return `
+                <div class="recent-client-card" onclick="App.selectClient('${c.id}')">
+                    <div class="recent-name" title="${App.escapeHTML(c.name)}">${App.escapeHTML(c.name)}</div>
+                    <div class="recent-ruc">${hasRUC ? App.escapeHTML(c.ruc) : '<em style="opacity:0.5;">Sin RUC</em>'}</div>
+                </div>
+            `;
+        }).join('');
     }
 };
 
