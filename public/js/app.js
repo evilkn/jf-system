@@ -42,6 +42,13 @@ const App = {
         this.render();
     },
 
+    toggleSidebar() {
+        const layout = document.querySelector('.dashboard-layout');
+        if (!layout) return;
+        const isNowCollapsed = layout.classList.toggle('sidebar-collapsed');
+        localStorage.setItem('sidebar-collapsed', isNowCollapsed);
+    },
+
     // Función de seguridad para prevenir XSS
     escapeHTML(str) {
         if (!str) return '';

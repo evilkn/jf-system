@@ -61,52 +61,78 @@ const Views = {
 
     layout(content) {
         const user = State.currentUser;
+        const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
         return `
-            <div class="dashboard-layout">
-                <aside class="sidebar">
+            <div class="dashboard-layout${isCollapsed ? ' sidebar-collapsed' : ''}">
+                <aside class="sidebar" id="main-sidebar">
+
+                    <!-- Toggle button -->
+                    <button class="sidebar-toggle-btn" id="sidebar-toggle" onclick="App.toggleSidebar()" title="Colapsar menú">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="3" y1="6"  x2="21" y2="6"/>
+                            <line x1="3" y1="12" x2="21" y2="12"/>
+                            <line x1="3" y1="18" x2="21" y2="18"/>
+                        </svg>
+                    </button>
+
+                    <!-- Brand -->
                     <div class="sidebar-brand">
-                        <img src="logo.png" alt="Logo" class="logo-glow" style="height: 60px; margin-bottom: 16px;">
-                        <div>JF <span>SYSTEM</span></div>
+                        <img src="logo.png" alt="Logo" class="logo-glow sidebar-logo" style="height: 60px;">
+                        <div class="sidebar-brand-text">JF <span>SYSTEM</span></div>
                     </div>
+
+                    <!-- Nav -->
                     <nav class="sidebar-nav">
-                        <a href="#" class="nav-item ${State.currentRoute === 'dashboard' ? 'active' : ''}" onclick="App.navigate('dashboard', true); return false;">${Icons.navDashboard()} Dashboard</a>
-                        <a href="#" class="nav-item ${State.currentRoute === 'clients' ? 'active' : ''}" onclick="App.navigate('clients', true); return false;">${Icons.navClients()} Clientes</a>
-                        <a href="#" class="nav-item ${State.currentRoute === 'sri' ? 'active' : ''}" onclick="App.navigate('sri', true); return false;">${Icons.navSRI()} Compra y Venta</a>
-                        <a href="#" class="nav-item ${State.currentRoute === 'cuentas' ? 'active' : ''}" onclick="App.navigate('cuentas', true); return false;">${Icons.navCuentas()} Gestión de Cuentas</a>
-                        <a href="#" class="nav-item ${State.currentRoute === 'matriz' ? 'active' : ''}" onclick="App.navigate('matriz', true); return false;">${Icons.navMatriz()} Matriz de Control</a>
-                        <a href="#" class="nav-item ${State.currentRoute === 'bancos' ? 'active' : ''}" onclick="App.navigate('bancos', true); return false;">${Icons.navBancos()} Bancos</a>
-                        <a href="#" class="nav-item ${State.currentRoute === 'reports' ? 'active' : ''}" onclick="App.navigate('reports', true); return false;">${Icons.navReports()} Reportes</a>
+                        <a href="#" class="nav-item ${State.currentRoute === 'dashboard' ? 'active' : ''}" onclick="App.navigate('dashboard', true); return false;" data-tooltip="Dashboard">
+                            <span class="nav-icon">${Icons.navDashboard()}</span>
+                            <span class="nav-label">Dashboard</span>
+                        </a>
+                        <a href="#" class="nav-item ${State.currentRoute === 'clients' ? 'active' : ''}" onclick="App.navigate('clients', true); return false;" data-tooltip="Clientes">
+                            <span class="nav-icon">${Icons.navClients()}</span>
+                            <span class="nav-label">Clientes</span>
+                        </a>
+                        <a href="#" class="nav-item ${State.currentRoute === 'sri' ? 'active' : ''}" onclick="App.navigate('sri', true); return false;" data-tooltip="Compra y Venta">
+                            <span class="nav-icon">${Icons.navSRI()}</span>
+                            <span class="nav-label">Compra y Venta</span>
+                        </a>
+                        <a href="#" class="nav-item ${State.currentRoute === 'cuentas' ? 'active' : ''}" onclick="App.navigate('cuentas', true); return false;" data-tooltip="Gestión de Cuentas">
+                            <span class="nav-icon">${Icons.navCuentas()}</span>
+                            <span class="nav-label">Gestión de Cuentas</span>
+                        </a>
+                        <a href="#" class="nav-item ${State.currentRoute === 'matriz' ? 'active' : ''}" onclick="App.navigate('matriz', true); return false;" data-tooltip="Matriz de Control">
+                            <span class="nav-icon">${Icons.navMatriz()}</span>
+                            <span class="nav-label">Matriz de Control</span>
+                        </a>
+                        <a href="#" class="nav-item ${State.currentRoute === 'bancos' ? 'active' : ''}" onclick="App.navigate('bancos', true); return false;" data-tooltip="Bancos">
+                            <span class="nav-icon">${Icons.navBancos()}</span>
+                            <span class="nav-label">Bancos</span>
+                        </a>
+                        <a href="#" class="nav-item ${State.currentRoute === 'reports' ? 'active' : ''}" onclick="App.navigate('reports', true); return false;" data-tooltip="Reportes">
+                            <span class="nav-icon">${Icons.navReports()}</span>
+                            <span class="nav-label">Reportes</span>
+                        </a>
                     </nav>
+
+                    <!-- Footer -->
                     <div class="sidebar-footer">
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
-                            <div style="
-                                width: 42px; height: 42px; border-radius: 50%;
-                                background: linear-gradient(135deg, #7e22ce, #c026d3);
-                                display: flex; align-items: center; justify-content: center;
-                                color: white; font-weight: 700; overflow: hidden;
-                                border: 2px solid rgba(255,255,255,0.6);
-                                box-shadow:
-                                    0 0 0 3px #c026d3,
-                                    0 0 10px #c026d3,
-                                    0 0 22px rgba(192, 38, 211, 0.8),
-                                    0 0 45px rgba(192, 38, 211, 0.45),
-                                    0 0 70px rgba(192, 38, 211, 0.2);
-                                flex-shrink: 0;
-                            ">
+                        <div class="sidebar-user" data-tooltip="${user.username || user.email.split('@')[0]}">
+                            <div class="sidebar-avatar">
                                 ${user.photoURL ? 
-                                    `<img src="${user.photoURL}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">` : 
+                                    `<img src="${user.photoURL}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;">` : 
                                     (user.username || user.email).charAt(0).toUpperCase()
                                 }
                             </div>
-                            <div>
-                                <div style="font-weight: 600; color: white;">${user.username || user.email.split('@')[0]}</div>
-                                <div style="font-size: 0.7rem; opacity: 0.6; text-transform: uppercase;">${user.role}</div>
+                            <div class="sidebar-user-info">
+                                <div class="sidebar-user-name">${user.username || user.email.split('@')[0]}</div>
+                                <div class="sidebar-user-role">${user.role}</div>
                             </div>
                         </div>
-                        <button class="btn btn-logout" onclick="App.handleLogout()" style="width: 100%; justify-content: center; gap:8px;">
-                            ${Icons.logout()} Cerrar Sesión
+                        <button class="btn btn-logout sidebar-logout-btn" onclick="App.handleLogout()" data-tooltip="Cerrar Sesión">
+                            <span class="nav-icon">${Icons.logout()}</span>
+                            <span class="nav-label">Cerrar Sesión</span>
                         </button>
                     </div>
+
                 </aside>
                 <main class="main-content-wrapper">
                     <header class="header">
