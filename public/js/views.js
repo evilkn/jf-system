@@ -157,6 +157,7 @@ const Views = {
             ${this.abonoModal()}
             ${this.detalleModal()}
             ${this.bancoModal()}
+            ${this.transferModal ? this.transferModal() : ''}
             <div id="toast-container"></div>
         `;
     },
@@ -268,6 +269,7 @@ const Views = {
 
     getBankInfo(nombre) {
         const n = nombre.toLowerCase();
+        if (n.includes('caja')) return { icon: Icons.cash(24), themeClass: 'bank-theme-generic' };
         if (n.includes('pichincha')) return { icon: '<img src="Bancos/banco_pichincha.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-pichincha' };
         if (n.includes('guayaquil')) return { icon: '<img src="Bancos/banco_guayaquil.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-guayaquil' };
         if (n.includes('jep')) return { icon: '<img src="Bancos/cooperativa_jep.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-jep' };
@@ -314,6 +316,13 @@ const Views = {
                                     </div>
                                 </label>
                                 <label class="bank-option">
+                                    <input type="radio" name="banco_seleccion" value="Caja Chica" onchange="App.toggleOtroBanco()">
+                                    <div class="bank-option-content">
+                                        <div class="otro-icon" style="color: #14b8a6;">${Icons.cash(24)}</div>
+                                        <span>Caja Chica</span>
+                                    </div>
+                                </label>
+                                <label class="bank-option">
                                     <input type="radio" name="banco_seleccion" value="Otro" onchange="App.toggleOtroBanco()">
                                     <div class="bank-option-content">
                                         <div class="otro-icon">${Icons.bank(24)}</div>
@@ -340,11 +349,61 @@ const Views = {
         `;
     },
 
+    transferModal() {
+        const bancos = State.bancosData || [];
+        const options = bancos.map(b => `<option value="${b.id}">${b.nombre} (${App.formatMoney(b.saldo_actual)})</option>`).join('');
+        return `
+            <div id="transfer-modal" class="modal-overlay ${State.showTransferModal ? 'active' : ''}">
+                <div class="modal-content glass-card animate-fadeInUp" style="max-width: 500px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
+                        <h3 style="margin: 0; display:flex; align-items:center; gap:8px;">${Icons.transfer ? Icons.transfer() : '⇄'} Transferencia Interna</h3>
+                        <button class="icon-btn" onclick="App.closeTransferModal()">${Icons.close()}</button>
+                    </div>
+                    <form onsubmit="App.transferirEntreCuentas(event)">
+                        <div class="form-group">
+                            <label>Cuenta Origen</label>
+                            <select id="transfer-origen" required style="width:100%; padding:8px; border-radius:6px; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border);">
+                                <option value="">Seleccione origen...</option>
+                                ${options}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Cuenta Destino</label>
+                            <select id="transfer-destino" required style="width:100%; padding:8px; border-radius:6px; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border);">
+                                <option value="">Seleccione destino...</option>
+                                ${options}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Monto a Transferir ($)</label>
+                            <input type="number" step="0.01" id="transfer-monto" required min="0.01" placeholder="0.00" style="width:100%; padding:8px; border-radius:6px; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border);">
+                        </div>
+                        <div class="form-group">
+                            <label>Descripción / Motivo</label>
+                            <input type="text" id="transfer-desc" placeholder="Ej. Reposición Caja Chica" required style="width:100%; padding:8px; border-radius:6px; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border);">
+                        </div>
+                        <div style="display:flex; justify-content:flex-end; gap: 12px; margin-top: 24px;">
+                            <button type="button" class="btn btn-secondary" onclick="App.closeTransferModal()">Cancelar</button>
+                            <button type="submit" class="btn btn-primary" id="transfer-submit-btn">Realizar Transferencia</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+    },
+
     bancos() {
         const totalLiquidez = (State.bancosData || []).reduce((acc, b) => acc + (b.saldo_actual || 0), 0);
         let cardsHtml = '';
         if (State.bancosData && State.bancosData.length > 0) {
-            cardsHtml = State.bancosData.map(banco => {
+            let sortedBancos = [...State.bancosData].sort((a, b) => {
+                const isCajaA = a.nombre.toLowerCase().includes('caja');
+                const isCajaB = b.nombre.toLowerCase().includes('caja');
+                if (isCajaA && !isCajaB) return -1;
+                if (!isCajaA && isCajaB) return 1;
+                return a.nombre.localeCompare(b.nombre);
+            });
+            cardsHtml = sortedBancos.map(banco => {
                 const bankInfo = Views.getBankInfo(banco.nombre);
                 return `
                 <div class="glass-card bank-card ${bankInfo.themeClass}" style="cursor: pointer;" onclick="App.openBancoDetail('${banco.id}')">
@@ -376,7 +435,7 @@ const Views = {
         return `
             <div class="bancos-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; gap: 24px; flex-wrap: wrap;">
                 <div class="header-info">
-                    <h1 style="margin: 0; font-size: 2.2rem; font-weight: 800; background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px;">Control de Bancos</h1>
+                    <h1 style="margin: 0; font-size: 2.2rem; font-weight: 800; background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px;">Control de Liquidez</h1>
                     <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 1rem; font-weight: 400;">Gestión independiente de activos líquidos y conciliación bancaria.</p>
                 </div>
                 
@@ -398,8 +457,11 @@ const Views = {
                             </div>
                         </div>
                     </div>
+                    <button class="btn btn-secondary" onclick="App.showTransferModal()" style="display:flex;align-items:center;gap:10px; height: 48px; padding: 0 24px; font-weight: 600; border-radius: 14px; box-shadow: 0 10px 20px -5px rgba(0,0,0, 0.1);">
+                        ${Icons.transfer ? Icons.transfer(20) : '⇄'} Transferir
+                    </button>
                     <button class="btn btn-primary" onclick="App.showAddBancoModal()" style="display:flex;align-items:center;gap:10px; height: 48px; padding: 0 24px; font-weight: 600; border-radius: 14px; box-shadow: 0 10px 20px -5px rgba(var(--primary-rgb), 0.3);">
-                        ${Icons.plus(20)} Nuevo Banco
+                        ${Icons.plus(20)} Nuevo Banco / Caja
                     </button>
                 </div>
             </div>
@@ -506,7 +568,7 @@ const Views = {
             'cuentas': 'GESTIÓN DE CUENTAS',
             'reports': 'CONCILIACIÓN Y REPORTES',
             'matriz': 'MATRIZ DE CONTROL TRIBUTARIO',
-            'bancos': 'CONTROL DE BANCOS'
+            'bancos': 'CONTROL DE LIQUIDEZ'
         };
         return titles[State.currentRoute] || 'JF SYSTEM';
     },
@@ -1310,20 +1372,40 @@ const Views = {
                     ${Store.getUserRole() === 'admin' ? `<button class="btn btn-primary" onclick="App.toggleClientForm(true)" style="display:inline-flex;align-items:center;gap:8px;">${Icons.addPerson()} Nuevo Cliente</button>` : ''}
                 </div>
 
-                <!-- Buscador Premium -->
-                <div style="position: relative; margin-bottom: 20px; max-width: 420px;">
-                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; display:flex;align-items:center;">${Icons.search()}</span>
-                    <input
-                        id="client-search-input"
-                        type="text"
-                        placeholder="Buscar por nombre o RUC..."
-                        value="${App.escapeHTML(State.clientSearch)}"
-                        oninput="App.setClientSearch(this.value)"
-                        style="padding-left: 42px; width: 100%; box-sizing: border-box; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.9rem; height: 42px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;"
-                        onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 3px rgba(var(--primary-rgb),0.15)';"
-                        onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none';"
-                    >
-                    ${State.clientSearch ? `<button onclick="App.setClientSearch('')" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; opacity:0.5; color:var(--text-primary);display:flex;align-items:center;">${Icons.close()}</button>` : ''}
+                <!-- Controles: Buscador y Leyenda -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
+                    <!-- Buscador Premium -->
+                    <div style="position: relative; width: 100%; max-width: 420px;">
+                        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; display:flex;align-items:center;">${Icons.search()}</span>
+                        <input
+                            id="client-search-input"
+                            type="text"
+                            placeholder="Buscar por nombre o RUC..."
+                            value="${App.escapeHTML(State.clientSearch)}"
+                            oninput="App.setClientSearch(this.value)"
+                            style="padding-left: 42px; width: 100%; box-sizing: border-box; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.9rem; height: 42px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;"
+                            onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 3px rgba(var(--primary-rgb),0.15)';"
+                            onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none';"
+                        >
+                        ${State.clientSearch ? `<button onclick="App.setClientSearch('')" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; opacity:0.5; color:var(--text-primary);display:flex;align-items:center;">${Icons.close()}</button>` : ''}
+                    </div>
+
+                    <!-- Leyenda de Estados -->
+                    <div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.8rem; background: rgba(255,255,255,0.03); padding: 10px 16px; border-radius: var(--radius-md); align-items: center; border: 1px solid rgba(255,255,255,0.05); min-height: 42px; box-sizing: border-box;">
+                        <span style="color: var(--text-secondary); font-weight: 600; margin-right: 4px;">Estados (Firma/Fact.):</span>
+                        <span style="display: flex; align-items: center; gap: 6px;" title="Más de 30 días restantes">
+                            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);"></span> Vigente
+                        </span>
+                        <span style="display: flex; align-items: center; gap: 6px;" title="30 días o menos restantes">
+                            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--warning);box-shadow:0 0 6px var(--warning);"></span> Por Vencer
+                        </span>
+                        <span style="display: flex; align-items: center; gap: 6px;" title="La fecha ya pasó">
+                            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--danger);box-shadow:0 0 6px var(--danger);"></span> Vencido
+                        </span>
+                        <span style="display: flex; align-items: center; gap: 6px;" title="No hay fecha registrada">
+                            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgba(150,150,150,0.4);"></span> Sin Datos
+                        </span>
+                    </div>
                 </div>
 
                 ${State.showClientForm ? this.clientForm() : ''}

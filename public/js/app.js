@@ -4120,6 +4120,100 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             console.error(e);
             this.showToast('Error al vincular registros.', 'danger');
         }
+    },
+
+    showTransferModal() {
+        State.showTransferModal = true;
+        this.render();
+    },
+
+    closeTransferModal() {
+        State.showTransferModal = false;
+        this.render();
+    },
+
+    async transferirEntreCuentas(event) {
+        event.preventDefault();
+        const origenId = document.getElementById('transfer-origen').value;
+        const destinoId = document.getElementById('transfer-destino').value;
+        const monto = parseFloat(document.getElementById('transfer-monto').value);
+        const desc = document.getElementById('transfer-desc').value.trim();
+
+        if (!origenId || !destinoId) {
+            this.showToast('Seleccione la cuenta origen y destino.', 'warning');
+            return;
+        }
+
+        if (origenId === destinoId) {
+            this.showToast('La cuenta de origen y destino deben ser diferentes.', 'warning');
+            return;
+        }
+
+        if (monto <= 0 || isNaN(monto)) {
+            this.showToast('El monto debe ser mayor a 0.', 'warning');
+            return;
+        }
+
+        const btn = document.getElementById('transfer-submit-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `${Icons.loading ? Icons.loading() : '⌛'} Procesando...`;
+        }
+
+        try {
+            const batch = db.batch();
+            
+            // Referencias a cuentas
+            const origenRef = db.collection('cuentas_bancarias').doc(origenId);
+            const destinoRef = db.collection('cuentas_bancarias').doc(destinoId);
+            
+            // Buscar datos para la descripción
+            const bancos = State.bancosData || [];
+            const origen = bancos.find(b => b.id === origenId);
+            const destino = bancos.find(b => b.id === destinoId);
+            
+            // Movimiento de salida (origen)
+            const movOrigenRef = origenRef.collection('movimientos').doc();
+            batch.set(movOrigenRef, {
+                tipo: 'egreso',
+                monto: monto,
+                descripcion: desc + ` (Transferencia a ${destino?.nombre || 'otra cuenta'})`,
+                etiqueta: 'Transferencia',
+                fecha: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            batch.update(origenRef, {
+                saldo_actual: firebase.firestore.FieldValue.increment(-monto),
+                ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            // Movimiento de entrada (destino)
+            const movDestinoRef = destinoRef.collection('movimientos').doc();
+            batch.set(movDestinoRef, {
+                tipo: 'ingreso',
+                monto: monto,
+                descripcion: desc + ` (Transferencia desde ${origen?.nombre || 'otra cuenta'})`,
+                etiqueta: 'Transferencia',
+                fecha: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            batch.update(destinoRef, {
+                saldo_actual: firebase.firestore.FieldValue.increment(monto),
+                ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            await batch.commit();
+
+            this.showToast('Transferencia realizada con éxito', 'success');
+            State.showTransferModal = false;
+            await this.loadBancos();
+            this.render();
+        } catch (error) {
+            console.error("Error en transferencia:", error);
+            this.showToast('Error al procesar transferencia', 'error');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = 'Realizar Transferencia';
+            }
+        }
     }
 };
 
