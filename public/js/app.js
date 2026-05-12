@@ -2118,7 +2118,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
   </tfoot>
 </table>
 <div class="ftr">
-  <div><div class="lbl">Crédito Tributario (arrastre)</div><div class="cval">$ ${fmt(credito)}</div></div>
+  <div><div class="lbl">Crédito Tributario (arrastre)</div><div class="cval">$ ${fmt(arrastre)}</div></div>
   <div><div class="lbl">Balance IVA del Período</div>
        <span class="pill" style="${bCls}">${bLbl}: ${this.formatMoney(Math.abs(bal))}</span></div>
   <div style="text-align:right;"><div class="lbl">IVA Ventas</div><div class="cval">$ ${fmt(sumVIva)}</div></div>
