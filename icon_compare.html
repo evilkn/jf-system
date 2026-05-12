@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Icon Styles — Comparativa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0c0c18; font-family: 'Inter', sans-serif; color: #e2e8f0; padding: 40px 48px; }
+
+  h1 { font-size: 1.5rem; font-weight: 800; color: #fff; margin-bottom: 4px; }
+  .subtitle { font-size: 0.8rem; color: #475569; margin-bottom: 48px; }
+
+  .row { display: grid; grid-template-columns: 140px repeat(4, 1fr); gap: 16px; margin-bottom: 20px; align-items: center; }
+  .row-header { display: grid; grid-template-columns: 140px repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+
+  .lib-header { text-align: center; }
+  .lib-name { font-size: 0.85rem; font-weight: 700; color: #fff; }
+  .lib-desc { font-size: 0.65rem; color: #64748b; margin-top: 2px; }
+  .lib-badge { display: inline-block; font-size: 0.58rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; margin-top: 4px; }
+  .badge-current { background: rgba(139,92,246,0.2); color: #8b5cf6; border: 1px solid rgba(139,92,246,0.4); }
+  .badge-lucide  { background: rgba(20,184,166,0.2); color: #14b8a6; border: 1px solid rgba(20,184,166,0.4); }
+  .badge-hero    { background: rgba(59,130,246,0.2); color: #3b82f6; border: 1px solid rgba(59,130,246,0.4); }
+  .badge-phosphor{ background: rgba(249,115,22,0.2); color: #f97316; border: 1px solid rgba(249,115,22,0.4); }
+
+  .action-label { font-size: 0.75rem; font-weight: 600; color: #64748b; padding-right: 12px; text-align: right; }
+
+  .icon-cell { display: flex; justify-content: center; }
+  .icon-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: 10px;
+    background: #1a1a2e; border: 1px solid #2d2d44;
+    cursor: default; transition: all 0.2s;
+  }
+  .icon-btn:hover { border-color: #8b5cf6; background: #1f1f35; transform: scale(1.08); }
+
+  hr { border: none; border-top: 1px solid #1e1e30; margin: 24px 0; }
+
+  .footer-note { font-size: 0.72rem; color: #334155; margin-top: 32px; text-align: center; }
+  .highlight { color: #8b5cf6; }
+</style>
+</head>
+<body>
+
+<h1>Comparativa de Estilos de Íconos</h1>
+<p class="subtitle">Los mismos íconos de acción bajo 4 estilos de iconografía distintos</p>
+
+<div class="row-header">
+  <div></div>
+
+  <!-- Actual -->
+  <div class="lib-header">
+    <div class="lib-name">🎨 Actual</div>
+    <div class="lib-desc">SVG inline personalizado<br>Multicolor, stroke 1.5</div>
+    <span class="lib-badge badge-current">En uso</span>
+  </div>
+
+  <!-- Lucide -->
+  <div class="lib-header">
+    <div class="lib-name">✦ Lucide</div>
+    <div class="lib-desc">Sucesor de Feather<br>Línea fina uniforme</div>
+    <span class="lib-badge badge-lucide">Recomendado</span>
+  </div>
+
+  <!-- Heroicons -->
+  <div class="lib-header">
+    <div class="lib-name">⬡ Heroicons</div>
+    <div class="lib-desc">By Tailwind CSS<br>Outline / Solid</div>
+    <span class="lib-badge badge-hero">Popular</span>
+  </div>
+
+  <!-- Phosphor -->
+  <div class="lib-header">
+    <div class="lib-name">☁ Phosphor</div>
+    <div class="lib-desc">6 pesos por ícono<br>Más expresivo</div>
+    <span class="lib-badge badge-phosphor">Versátil</span>
+  </div>
+</div>
+
+<hr>
+
+<!-- 👁 VER -->
+<div class="row">
+  <div class="action-label">👁 Ver / Detalle</div>
+
+  <!-- Actual: eye -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#8b5cf6" stroke-width="1.5" fill="none"/>
+      <circle cx="12" cy="12" r="3" fill="#8b5cf6"/>
+      <circle cx="12" cy="12" r="1.2" fill="white"/>
+    </svg>
+  </div></div>
+
+  <!-- Lucide: eye -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 12s3.636-7 10-7 10 7 10 7-3.636 7-10 7-10-7-10-7z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  </div></div>
+
+  <!-- Heroicons: eye -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+      <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+    </svg>
+  </div></div>
+
+  <!-- Phosphor: eye (duotone feel) -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <ellipse cx="12" cy="12" rx="10" ry="7" fill="#f97316" opacity="0.15" stroke="#f97316" stroke-width="1.5"/>
+      <circle cx="12" cy="12" r="3.5" fill="#f97316" opacity="0.3" stroke="#f97316" stroke-width="1.5"/>
+      <circle cx="12" cy="12" r="1.5" fill="#f97316"/>
+    </svg>
+  </div></div>
+</div>
+
+<!-- ✚ AGREGAR -->
+<div class="row">
+  <div class="action-label">✚ Agregar</div>
+
+  <!-- Actual: plus -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+  </div></div>
+
+  <!-- Lucide: plus-circle -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="1.5" stroke-linecap="round">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M12 8v8M8 12h8"/>
+    </svg>
+  </div></div>
+
+  <!-- Heroicons: plus-circle -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round">
+      <path d="M12 9v6m-3-3h6m6 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
+    </svg>
+  </div></div>
+
+  <!-- Phosphor: plus-square -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="3" width="18" height="18" rx="3" fill="#f97316" opacity="0.12" stroke="#f97316" stroke-width="1.5"/>
+      <path d="M12 8v8M8 12h8" stroke="#f97316" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </div></div>
+</div>
+
+<!-- ✏️ EDITAR -->
+<div class="row">
+  <div class="action-label">✏️ Editar</div>
+
+  <!-- Actual: edit -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" fill="#f97316" opacity="0.2" stroke="#f97316" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M15 5L19 9" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  </div></div>
+
+  <!-- Lucide: pen-line -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20h9"/>
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+    </svg>
+  </div></div>
+
+  <!-- Heroicons: pencil-square -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931z"/>
+      <path d="M19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/>
+    </svg>
+  </div></div>
+
+  <!-- Phosphor: note-pencil -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="4" width="13" height="16" rx="2" fill="#f97316" opacity="0.12" stroke="#f97316" stroke-width="1.5"/>
+      <path d="M14 3l4 4-7 7H7v-4l7-7z" fill="#f97316" opacity="0.2" stroke="#f97316" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div></div>
+</div>
+
+<!-- 🗑 ELIMINAR -->
+<div class="row">
+  <div class="action-label">🗑 Eliminar</div>
+
+  <!-- Actual: trash -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M10 11v6M14 11v6" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  </div></div>
+
+  <!-- Lucide: trash-2 -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="3 6 5 6 21 6"/>
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+      <path d="M10 11v6M14 11v6"/>
+      <path d="M9 6V4h6v2"/>
+    </svg>
+  </div></div>
+
+  <!-- Heroicons: trash -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/>
+    </svg>
+  </div></div>
+
+  <!-- Phosphor: trash-simple -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M4 6h16l-1.5 13a2 2 0 0 1-2 1.5H7.5a2 2 0 0 1-2-1.5L4 6z" fill="#ef4444" opacity="0.12" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M2 6h20M9 3h6" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  </div></div>
+</div>
+
+<!-- ⬇️ EXPORTAR -->
+<div class="row">
+  <div class="action-label">⬇️ Exportar</div>
+
+  <!-- Actual -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="17" width="18" height="4" rx="1.5" fill="#14b8a6" opacity="0.3"/>
+      <path d="M12 3v12M7 11l5 5 5-5" stroke="#14b8a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div></div>
+
+  <!-- Lucide: download -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7 10 12 15 17 10"/>
+      <line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+  </div></div>
+
+  <!-- Heroicons: arrow-down-tray -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+    </svg>
+  </div></div>
+
+  <!-- Phosphor -->
+  <div class="icon-cell"><div class="icon-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="16" width="18" height="5" rx="1.5" fill="#f97316" opacity="0.15" stroke="#f97316" stroke-width="1.5"/>
+      <path d="M12 3v11M8 11l4 4 4-4" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div></div>
+</div>
+
+<hr>
+
+<p class="footer-note">
+  Los íconos de <span class="highlight">Lucide</span> son los más compatibles con el estilo actual del sistema (mismo stroke-width, linecap y viewBox 24×24).
+</p>
+
+</body>
+</html>

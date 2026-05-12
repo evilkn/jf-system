@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>JF SYSTEM — Icon Showcase</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f0f1a; font-family: 'Segoe UI', sans-serif; color: #e2e8f0; padding: 40px; }
+  h1 { font-size: 1.4rem; font-weight: 800; letter-spacing: 2px; color: #8b5cf6; margin-bottom: 6px; }
+  p { font-size: 0.8rem; color: #64748b; margin-bottom: 36px; }
+  .section { margin-bottom: 40px; }
+  .section-title { font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; color: #475569; text-transform: uppercase; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #1e1e2e; }
+  .grid { display: flex; flex-wrap: wrap; gap: 12px; }
+  .icon-card {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 12px;
+    padding: 20px 16px 14px; width: 100px; cursor: default;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .icon-card:hover { border-color: #8b5cf6; transform: translateY(-2px); }
+  .icon-card svg { display: block; }
+  .icon-name { font-size: 0.68rem; color: #94a3b8; text-align: center; font-family: 'Courier New', monospace; }
+</style>
+</head>
+<body>
+
+<h1>JF SYSTEM — Icons</h1>
+<p>Todos los íconos del sistema (icons.js) con sus nombres de función</p>
+
+<div class="section">
+  <div class="section-title">🧭 Navegación</div>
+  <div class="grid" id="nav-icons"></div>
+</div>
+
+<div class="section">
+  <div class="section-title">⚙️ Acciones de cabecera</div>
+  <div class="grid" id="header-icons"></div>
+</div>
+
+<div class="section">
+  <div class="section-title">🔧 Utilidades / Inline</div>
+  <div class="grid" id="util-icons"></div>
+</div>
+
+<div class="section">
+  <div class="section-title">📭 Estados vacíos</div>
+  <div class="grid" id="empty-icons"></div>
+</div>
+
+<div class="section">
+  <div class="section-title">🏦 Bancos</div>
+  <div class="grid" id="bank-icons"></div>
+</div>
+
+<script src="public/js/icons.js"></script>
+<script>
+  function card(svgHtml, name) {
+    return `<div class="icon-card">${svgHtml}<span class="icon-name">${name}()</span></div>`;
+  }
+
+  document.getElementById('nav-icons').innerHTML = [
+    card(Icons.navDashboard(), 'navDashboard'),
+    card(Icons.navClients(), 'navClients'),
+    card(Icons.navSRI(), 'navSRI'),
+    card(Icons.navMatriz(), 'navMatriz'),
+    card(Icons.navReports(), 'navReports'),
+    card(Icons.navBancos(), 'navBancos'),
+    card(Icons.navCuentas(), 'navCuentas'),
+  ].join('');
+
+  document.getElementById('header-icons').innerHTML = [
+    card(Icons.settings(), 'settings'),
+    card(Icons.sun(), 'sun'),
+    card(Icons.moon(), 'moon'),
+    card(Icons.logout(), 'logout'),
+  ].join('');
+
+  document.getElementById('util-icons').innerHTML = [
+    card(Icons.search(22), 'search'),
+    card(Icons.close(), 'close'),
+    card(Icons.edit(22), 'edit'),
+    card(Icons.trash(22), 'trash'),
+    card(Icons.copy(22), 'copy'),
+    card(Icons.eye(22), 'eye'),
+    card(Icons.export(), 'export'),
+    card(Icons.ficha(22), 'ficha'),
+    card(Icons.addPerson(), 'addPerson'),
+    card(Icons.warn(), 'warn'),
+    card(Icons.plus(22), 'plus'),
+    card(Icons.delete(22), 'delete'),
+    card(Icons.info(22), 'info'),
+    card(Icons.report(22), 'report'),
+    card(Icons.arrowRight(22), 'arrowRight'),
+    card(Icons.loading(22), 'loading'),
+    card(Icons.calendar(22), 'calendar'),
+    card(Icons.pdf(22), 'pdf'),
+    card(Icons.docList(22), 'docList'),
+    card(Icons.chart(22), 'chart'),
+    card(Icons.tag(22), 'tag'),
+    card(Icons.externalLink(22), 'externalLink'),
+    card(Icons.chevronRight(22), 'chevronRight'),
+    card(Icons.chevronDown(22), 'chevronDown'),
+    card(Icons.check(22), 'check'),
+    card(Icons.trendingUp(22), 'trendingUp'),
+    card(Icons.trendingDown(22), 'trendingDown'),
+    card(Icons.wallet(22), 'wallet'),
+    card(Icons.cash(22), 'cash'),
+    card(Icons.transfer(22), 'transfer'),
+    card(Icons.bank(22), 'bank'),
+  ].join('');
+
+  document.getElementById('empty-icons').innerHTML = [
+    card(Icons.emptyDocument(), 'emptyDocument'),
+    card(Icons.emptyClients(), 'emptyClients'),
+    card(Icons.emptySearch(), 'emptySearch'),
+    card(Icons.emptyUsers(), 'emptyUsers'),
+    card(Icons.emptyMatriz(), 'emptyMatriz'),
+    card(Icons.sriPlaceholder(), 'sriPlaceholder'),
+  ].join('');
+
+  document.getElementById('bank-icons').innerHTML = [
+    card(Icons.bankGuayaquil(32), 'bankGuayaquil'),
+    card(Icons.bankPichincha(32), 'bankPichincha'),
+    card(Icons.bankJEP(32), 'bankJEP'),
+    card(Icons.bankJardinAzuayo(32), 'bankJardinAzuayo'),
+    card(Icons.bankProdubanco(32), 'bankProdubanco'),
+    card(Icons.bankPacifico(32), 'bankPacifico'),
+  ].join('');
+</script>
+</body>
+</html>
