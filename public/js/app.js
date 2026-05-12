@@ -1965,33 +1965,32 @@ const App = {
         const absTotal = Math.abs(total);
         const fmt = n => this.formatMoney(Math.abs(n));
         
-        // Colores y Etiquetas según requerimiento UI/UX
-        const bgColor = isFavor ? '#F8F9FA' : '#FFFFFF';
-        const borderColor = isFavor ? '#CED4DA' : '#E5E7EB';
-        const accentColor = isFavor ? '#6B7280' : 'var(--danger)'; 
+        // Colores y Etiquetas adaptables a modo oscuro/claro
+        const accentColor = isFavor ? 'var(--success)' : 'var(--danger)';
+        const accentBg = isFavor ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)';
         const labelText = isFavor ? 'SALDO A FAVOR' : 'A PAGAR';
         
         // Ecuación Visible HTML
         const html = `
-            <div style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 16px; transition: all 0.3s ease;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #D1D5DB; padding-bottom: 12px;">
+            <div class="glass-card" style="display: flex; flex-direction: column; gap: 16px; padding: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border-color); padding-bottom: 12px;">
                     <span style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600;">(+) IVA en Ventas</span>
-                    <span style="font-family: var(--font-mono); font-size: 1.1rem; font-weight: 600;">${fmt(ivaVentas)}</span>
+                    <span style="font-family: var(--font-mono); font-size: 1.1rem; font-weight: 600; color: var(--text-primary);">${fmt(ivaVentas)}</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #D1D5DB; padding-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border-color); padding-bottom: 12px;">
                     <span style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600;">(-) IVA en Compras</span>
-                    <span style="font-family: var(--font-mono); font-size: 1.1rem; font-weight: 600;">${fmt(ivaCompras)}</span>
+                    <span style="font-family: var(--font-mono); font-size: 1.1rem; font-weight: 600; color: var(--text-primary);">${fmt(ivaCompras)}</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid ${borderColor}; padding-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 16px;">
                     <span style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600;">(-) Crédito Mes Anterior (Arrastre)</span>
-                    <span style="font-family: var(--font-mono); font-size: 1.1rem; font-weight: 600;">${fmt(arrastre)}</span>
+                    <span style="font-family: var(--font-mono); font-size: 1.1rem; font-weight: 600; color: var(--text-primary);">${fmt(arrastre)}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px;">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <span style="font-size: 1.1rem; font-weight: 800; color: var(--text-primary);">RESULTADO FINAL</span>
-                        <span style="background-color: ${isFavor ? 'rgba(107, 114, 128, 0.1)' : 'rgba(239, 68, 68, 0.1)'}; color: ${accentColor}; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.5px;">${labelText}</span>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <span style="font-size: 1rem; font-weight: 800; color: var(--text-primary); letter-spacing: 0.5px;">RESULTADO FINAL</span>
+                        <span style="background-color: ${accentBg}; color: ${accentColor}; border: 1px solid ${accentColor}; padding: 3px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.5px; width: fit-content;">${labelText}</span>
                     </div>
-                    <span style="font-family: var(--font-mono); font-size: 1.5rem; font-weight: 800; color: ${accentColor};">${fmt(absTotal)} USD</span>
+                    <span style="font-family: var(--font-mono); font-size: 1.6rem; font-weight: 800; color: ${accentColor};">${fmt(absTotal)} USD</span>
                 </div>
             </div>
         `;
