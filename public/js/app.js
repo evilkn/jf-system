@@ -1718,6 +1718,37 @@ const App = {
     // CONCILIADO — Resumen Mensual de Compra/Venta
     // ─────────────────────────────────────────────
 
+    calculateArrastre(clientId, anio, mes) {
+        const records = Store.get('sri_registros').filter(r => r.clientId === clientId);
+        if (records.length === 0) return 0;
+        
+        let minYear = Math.min(...records.map(r => r.anio));
+        let carryover = 0;
+        
+        for (let y = minYear; y <= anio; y++) {
+            const endMonth = (y === anio) ? (mes === 0 ? 0 : mes - 1) : 12;
+            for (let m = 1; m <= endMonth; m++) {
+                const v = records.filter(r => r.tipo === 'venta' && !r.anulada && r.mes === m && r.anio === y);
+                const c = records.filter(r => r.tipo === 'compra' && r.mes === m && r.anio === y);
+                
+                const vIva = v.reduce((s, r) => s + (r.iva || 0), 0);
+                const cS15 = c.reduce((s, r) => s + (r.subt15 || 0), 0);
+                const cS5 = c.reduce((s, r) => s + (r.subt5 || 0), 0);
+                const cIva = (cS15 * 0.15) + (cS5 * 0.05);
+                
+                const balanceMensual = vIva - cIva;
+                const totalConArrastre = balanceMensual - carryover;
+                
+                if (totalConArrastre > 0) {
+                    carryover = 0; // Se paga al estado, se agota el arrastre
+                } else {
+                    carryover = Math.abs(totalConArrastre); // A favor, se arrastra
+                }
+            }
+        }
+        return carryover;
+    },
+
     setConciliadoPeriod() {
         const a = document.getElementById('con-anio-sel');
         const m = document.getElementById('con-mes-sel');
@@ -1732,12 +1763,6 @@ const App = {
 
         const now   = new Date();
         const client = (Store.get('clientes') || []).find(c => c.id === State.currentClientId);
-        // Fallback: si no hay crédito para el mes específico, buscar el anual (mes=0) o usar 0
-        let credito = Store.getConciliadoCredito(State.currentClientId, State.conciliadoAnio, State.conciliadoPeriodo);
-        if (!credito && State.conciliadoPeriodo !== 0) {
-             const fallbackCredito = Store.getConciliadoCredito(State.currentClientId, State.conciliadoAnio, 0);
-             if (fallbackCredito) credito = fallbackCredito;
-        }
 
         const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
         const MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -1817,23 +1842,9 @@ const App = {
                     </table>
                 </div>
 
-                <!-- ── CRÉDITO TRIBUTARIO ────────────────────────── -->
-                <div class="credito-tributario-card print-no-print" style="margin-top:20px;">
-                    <div style="flex:1;">
-                        <div style="font-size:0.72rem;font-weight:800;letter-spacing:1px;color:var(--text-secondary);margin-bottom:6px;">CRÉDITO TRIBUTARIO (arrastre período anterior)</div>
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <input type="number" id="con-credito" step="0.01" min="0"
-                                value="${credito}"
-                                placeholder="0.00"
-                                onchange="App.saveCreditoTributario()"
-                                style="width:160px;font-family:var(--font-mono);font-size:1rem;font-weight:700;text-align:right;">
-                            <span style="font-size:0.8rem;color:var(--text-secondary);">USD</span>
-                        </div>
-                    </div>
-                    <div style="flex:1;text-align:right;">
-                        <div style="font-size:0.72rem;font-weight:800;letter-spacing:1px;color:var(--text-secondary);margin-bottom:6px;">BALANCE IVA</div>
-                        <div id="con-balance-chip"></div>
-                    </div>
+                <!-- ── BALANCE IVA (Ecuación Visible) ────────────────────────── -->
+                <div id="balance-iva-container" class="print-no-print" style="margin-top:20px; max-width:500px; margin-left:auto;">
+                    <!-- Se llenará automáticamente por _updateConciliadoBalance -->
                 </div>
 
                 <!-- Balance para impresión -->
@@ -1928,7 +1939,8 @@ const App = {
         </tr>`;
 
         // Balance IVA
-        this._updateConciliadoBalance(sumVIva, sumCIva15 + sumCIva5);
+        const arrastre = this.calculateArrastre(State.currentClientId, State.conciliadoAnio, State.conciliadoPeriodo);
+        this._updateConciliadoBalance(sumVIva, sumCIva15 + sumCIva5, arrastre);
 
         // Actualizar período para impresión
         const pEl = document.getElementById('print-periodo');
@@ -1941,30 +1953,60 @@ const App = {
         }
     },
 
-    _updateConciliadoBalance(ivaVentas, ivaCompras) {
-        const credito  = parseFloat(document.getElementById('con-credito')?.value) || 0;
-        const balance  = ivaVentas - ivaCompras - credito;
-        const chip     = document.getElementById('con-balance-chip');
+    _updateConciliadoBalance(ivaVentas, ivaCompras, arrastre) {
+        const balanceMensual = ivaVentas - ivaCompras;
+        const total = balanceMensual - arrastre;
+        
+        const container = document.getElementById('balance-iva-container');
         const printBal = document.getElementById('print-balance-area');
-        const fmt      = n => this.formatMoney(Math.abs(n));
-        const label    = balance >= 0 ? 'A FAVOR' : 'A PAGAR';
-        const cls      = balance >= 0 ? 'a-favor' : 'a-pagar';
-        const html     = `<span class="balance-chip ${cls}">${label}: ${fmt(balance)}</span>`;
-        if (chip)     chip.innerHTML     = html;
-        if (printBal) printBal.innerHTML = html;
-    },
-
-    async saveCreditoTributario() {
-        const credito = parseFloat(document.getElementById('con-credito')?.value) || 0;
-        await Store.saveConciliadoCredito(State.currentClientId, State.conciliadoAnio, State.conciliadoPeriodo, credito);
-        this.renderConciliadoTable();
-        this.showToast('Crédito tributario guardado', 'success');
+        if (!container) return;
+        
+        const isFavor = total <= 0;
+        const absTotal = Math.abs(total);
+        const fmt = n => this.formatMoney(Math.abs(n));
+        
+        // Colores y Etiquetas según requerimiento UI/UX
+        const bgColor = isFavor ? '#F8F9FA' : '#FFFFFF';
+        const borderColor = isFavor ? '#CED4DA' : '#E5E7EB';
+        const accentColor = isFavor ? '#6B7280' : 'var(--danger)'; 
+        const labelText = isFavor ? 'SALDO A FAVOR' : 'A PAGAR';
+        
+        // Ecuación Visible HTML
+        const html = `
+            <div style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 16px; transition: all 0.3s ease;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #D1D5DB; padding-bottom: 12px;">
+                    <span style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600;">(+) IVA en Ventas</span>
+                    <span style="font-family: var(--font-mono); font-size: 1.1rem; font-weight: 600;">${fmt(ivaVentas)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #D1D5DB; padding-bottom: 12px;">
+                    <span style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600;">(-) IVA en Compras</span>
+                    <span style="font-family: var(--font-mono); font-size: 1.1rem; font-weight: 600;">${fmt(ivaCompras)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid ${borderColor}; padding-bottom: 16px;">
+                    <span style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600;">(-) Crédito Mes Anterior (Arrastre)</span>
+                    <span style="font-family: var(--font-mono); font-size: 1.1rem; font-weight: 600;">${fmt(arrastre)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 1.1rem; font-weight: 800; color: var(--text-primary);">RESULTADO FINAL</span>
+                        <span style="background-color: ${isFavor ? 'rgba(107, 114, 128, 0.1)' : 'rgba(239, 68, 68, 0.1)'}; color: ${accentColor}; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.5px;">${labelText}</span>
+                    </div>
+                    <span style="font-family: var(--font-mono); font-size: 1.5rem; font-weight: 800; color: ${accentColor};">${fmt(absTotal)} USD</span>
+                </div>
+            </div>
+        `;
+        
+        container.innerHTML = html;
+        
+        if (printBal) {
+            printBal.innerHTML = `<strong>${labelText}:</strong> ${fmt(absTotal)} USD <br> <span style="font-size:0.7rem;">(Arrastre aplicado: ${fmt(arrastre)})</span>`;
+        }
     },
 
     exportConciliadoPDF() {
         const now    = new Date();
         const client = (Store.get('clientes') || []).find(c => c.id === State.currentClientId);
-        const credito = parseFloat(document.getElementById('con-credito')?.value) || 0;
+        const arrastre = this.calculateArrastre(State.currentClientId, State.conciliadoAnio, State.conciliadoPeriodo);
 
         // Recalcular datos iguales a renderConciliadoTable
         const MESES  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -1999,9 +2041,11 @@ const App = {
             </tr>`;
         }).join('');
 
-        const bal   = sumVIva - (sumCIva15+sumCIva5) - credito;
-        const bLbl  = bal >= 0 ? 'A FAVOR' : 'A PAGAR';
-        const bCls  = bal >= 0 ? 'color:#065f46;background:#d1fae5;border:1.5px solid #10b981;' : 'color:#991b1b;background:#fee2e2;border:1.5px solid #ef4444;';
+        const balanceMensual = sumVIva - (sumCIva15+sumCIva5);
+        const bal   = balanceMensual - arrastre;
+        const isFavor = bal <= 0;
+        const bLbl  = isFavor ? 'SALDO A FAVOR' : 'A PAGAR';
+        const bCls  = isFavor ? 'color:#4b5563;background:#f8f9fa;border:1.5px solid #ced4da;' : 'color:#991b1b;background:#fee2e2;border:1.5px solid #ef4444;';
         
         let per = `Año ${State.conciliadoAnio}`;
         if (State.conciliadoPeriodo !== 0) {
