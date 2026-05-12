@@ -1582,7 +1582,8 @@ const App = {
             <td style="text-align:right;">${fmt(totS0)}</td>
             <td style="text-align:right;color:var(--primary);">${fmt(totIva)}</td>
             <td style="text-align:right;">${fmt(totTotal)}</td>
-            <td>${isAdmin?'<td></td>':''}</td>
+            <td></td>
+            ${isAdmin ? '<td></td>' : ''}
         </tr>`;
     },
 

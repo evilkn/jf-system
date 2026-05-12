@@ -170,23 +170,28 @@ const Store = {
         console.log("Reconstruyendo metadatos del dashboard desde cero...");
         const snapshot = await db.collection("sri_registros").get();
         let meta = { totalRegistros: 0, mensual: {}, clientes: {} };
-        
+
         snapshot.docs.forEach(doc => {
             const data = doc.data();
+            if (!data.fecha || !data.clientId || !data.tipo) return; // saltar registros corruptos
             meta.totalRegistros++;
-            
+
             const ym = data.fecha.substring(0, 7);
-            const y = data.fecha.substring(0, 4);
-            
+            const y  = data.fecha.substring(0, 4);
+
             if (!meta.mensual[ym]) meta.mensual[ym] = { sales: 0, purchases: 0 };
-            meta.mensual[ym].sales += (data.v_sub15 || 0) + (data.v_sub5 || 0) + (data.v_sub0 || 0);
-            meta.mensual[ym].purchases += (data.c_sub15 || 0) + (data.c_sub5 || 0) + (data.c_sub0 || 0);
-            
-            if (!meta.clientes[data.clientId]) meta.clientes[data.clientId] = {};
-            if (!meta.clientes[data.clientId][y]) meta.clientes[data.clientId][y] = { sales: 0 };
-            meta.clientes[data.clientId][y].sales += (data.v_sub15 || 0) + (data.v_sub5 || 0) + (data.v_sub0 || 0);
+
+            if (data.tipo === 'venta' && !data.anulada) {
+                const ventaNeta = (data.subt15 || 0) + (data.subt0 || 0);
+                meta.mensual[ym].sales += ventaNeta;
+                if (!meta.clientes[data.clientId]) meta.clientes[data.clientId] = {};
+                if (!meta.clientes[data.clientId][y]) meta.clientes[data.clientId][y] = { sales: 0 };
+                meta.clientes[data.clientId][y].sales += ventaNeta;
+            } else if (data.tipo === 'compra') {
+                meta.mensual[ym].purchases += (data.subt15 || 0) + (data.subt0 || 0) + (data.subt5 || 0);
+            }
         });
-        
+
         await db.collection("metadata").doc("dashboard").set(meta);
         console.log("Metadatos reconstruidos con éxito.");
     },
@@ -384,17 +389,6 @@ const Store = {
         } catch (e) {
             console.warn('loadConciliadoCreditos:', e);
         }
-    },
-    async deleteCuentasBatch(type, ids) {
-        const batch = db.batch();
-        const collection = type === 'cobrar' ? 'cuentas_cobrar' : 'cuentas_pagar';
-        
-        ids.forEach(id => {
-            const ref = db.collection(collection).doc(id);
-            batch.delete(ref);
-        });
-
-        await batch.commit();
     }
 };
 
