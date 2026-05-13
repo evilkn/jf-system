@@ -923,6 +923,11 @@ input:focus, select:focus {
         0 0 0 1px rgba(var(--accent-rgb), 0.35);
 }
 
+select option {
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+}
+
 .form-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
