@@ -3832,6 +3832,153 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
 
     async exportBankHistoryPDF(bancoId) {
         const banco = State.bancosData.find(b => b.id === bancoId);
+        if (!banco) {
+            this.showToast('No se encontró el banco', 'error');
+            return;
+        }
+
+        this.showToast('Generando reporte PDF...', 'info');
+
+        try {
+            const [pagosSnapshot, movsSnapshot] = await Promise.all([
+                db.collection('pagos')
+                    .where('banco_destino', '==', banco.nombre)
+                    .orderBy('fecha_pago', 'desc')
+                    .limit(100)
+                    .get(),
+                db.collection('cuentas_bancarias').doc(bancoId).collection('movimientos')
+                    .orderBy('fecha', 'desc')
+                    .limit(100)
+                    .get()
+            ]);
+
+            let transacciones = [];
+            
+            pagosSnapshot.forEach(doc => {
+                const p = doc.data();
+                transacciones.push({
+                    tipo: 'ingreso',
+                    categoria: \`Pago: \${p.cliente || 'S/N'}\`,
+                    monto: p.monto || 0,
+                    fecha: p.fecha_pago,
+                    metodo: p.metodo_pago,
+                    isPago: true
+                });
+            });
+
+            movsSnapshot.forEach(doc => {
+                const m = doc.data();
+                transacciones.push({
+                    tipo: m.tipo,
+                    categoria: m.descripcion,
+                    monto: m.monto || 0,
+                    fecha: m.fecha,
+                    metodo: 'Manual',
+                    isPago: false,
+                    isAjuste: m.isAjuste
+                });
+            });
+
+            transacciones.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+            const fmt = n => this.formatMoney(n);
+            const rowsHTML = transacciones.map(t => {
+                const fecha = t.fecha ? new Date(t.fecha).toLocaleDateString() : 'N/A';
+                const color = t.tipo === 'ingreso' ? 'color:#065f46;' : (t.isAjuste ? 'color:#1e3a8a;' : 'color:#991b1b;');
+                const signo = (t.tipo === 'ingreso' || t.monto > 0) ? '+' : '-';
+                return \`
+                <tr>
+                    <td style="text-align:left;">\${fecha}</td>
+                    <td style="text-align:left; font-weight:600;">\${t.categoria}</td>
+                    <td style="text-align:left;">\${t.metodo}</td>
+                    <td style="font-family:'Courier New',monospace; font-weight:bold; text-align:right; \${color}">\${signo}\${fmt(Math.abs(t.monto))}</td>
+                </tr>\`;
+            }).join('');
+
+            const now = new Date();
+            const fgen = now.toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric'});
+            const hora = now.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'});
+
+            const html = \`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Historial - \${banco.nombre}</title>
+<style>
+@page { size: A4 portrait; margin: 15mm; }
+body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; background: #fff; color: #1a1a2e; }
+.hdr { background: linear-gradient(135deg, #1e0533 0%, #3b0764 100%); color: #fff; padding: 20px; border-radius: 8px 8px 0 0; display:flex; justify-content:space-between; align-items:center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.hdr-title { font-size: 18pt; font-weight: 800; }
+.hdr-sub { font-size: 9pt; opacity: 0.8; margin-top: 4px; }
+.info-band { background: #f3f4f6; padding: 12px 20px; border-bottom: 2px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.balance-lbl { font-size: 9pt; color: #6b7280; text-transform: uppercase; font-weight: 700; }
+.balance-val { font-size: 16pt; font-family: 'Courier New', monospace; font-weight: 900; color: #111827; }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+th { background: #f9fafb; padding: 10px; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; text-align:left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
+.ftr { margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 15px; font-size: 8pt; color: #9ca3af; display:flex; justify-content:space-between; }
+</style>
+</head>
+<body>
+    <div class="hdr">
+        <div>
+            <div class="hdr-title">\${banco.nombre}</div>
+            <div class="hdr-sub">Historial de Movimientos y Conciliación</div>
+        </div>
+        <div style="text-align:right;">
+            <div style="font-weight:700;">JF SYSTEM</div>
+            <div style="font-size:8pt; opacity:0.8;">Gestión de Liquidez</div>
+        </div>
+    </div>
+    <div class="info-band">
+        <div>
+            <div class="balance-lbl">Fecha de Generación</div>
+            <div style="font-weight:600; color:#374151;">\${fgen} - \${hora}</div>
+        </div>
+        <div style="text-align:right;">
+            <div class="balance-lbl">Saldo Actual en Sistema</div>
+            <div class="balance-val">\${fmt(banco.saldo_actual || 0)}</div>
+        </div>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 15%;">Fecha</th>
+                <th style="width: 45%;">Descripción</th>
+                <th style="width: 20%;">Método</th>
+                <th style="width: 20%; text-align:right;">Monto</th>
+            </tr>
+        </thead>
+        <tbody>
+            \${rowsHTML || '<tr><td colspan="4" style="text-align:center; padding:30px; color:#6b7280;">No hay movimientos registrados.</td></tr>'}
+        </tbody>
+    </table>
+    <div class="ftr">
+        <span>Documento generado por JF System</span>
+        <span>Página 1 de 1</span>
+    </div>
+</body>
+</html>\`;
+
+            const pw = window.open('', '_blank', 'width=900,height=700');
+            if (!pw) { 
+                this.showToast('Permite ventanas emergentes para exportar PDF', 'warning'); 
+                return; 
+            }
+            pw.document.write(html);
+            pw.document.close();
+            pw.focus();
+            pw.addEventListener('afterprint', () => pw.close());
+            setTimeout(() => pw.print(), 350);
+
+        } catch (error) {
+            console.error('Error exportando historial:', error);
+            this.showToast('Error al generar el reporte', 'error');
+        }
+    },
+
+    async exportBankHistoryPDF(bancoId) {
+        const banco = State.bancosData.find(b => b.id === bancoId);
         if (!banco) return;
 
         this.showToast('Preparando reporte...', 'info');
