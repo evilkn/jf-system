@@ -1745,21 +1745,24 @@ const App = {
 
     calculateArrastre(clientId, anio, mes) {
         const records = Store.get('sri_registros').filter(r => r.clientId === clientId);
-        if (records.length === 0) return 0;
         
-        let minYear = Math.min(...records.map(r => r.anio));
-        let carryover = 0;
+        const client = (Store.get('clientes') || []).find(c => c.id === clientId);
+        let carryover = client && client.arrastreInicial ? parseFloat(client.arrastreInicial) : 0;
+        
+        if (records.length === 0) return carryover;
+        
+        const validYears = records.map(r => parseInt(r.anio)).filter(y => !isNaN(y));
+        if (validYears.length === 0) return carryover;
+        let minYear = Math.min(...validYears);
         
         for (let y = minYear; y <= anio; y++) {
             const endMonth = (y === anio) ? (mes === 0 ? 0 : mes - 1) : 12;
             for (let m = 1; m <= endMonth; m++) {
-                const v = records.filter(r => r.tipo === 'venta' && !r.anulada && r.mes === m && r.anio === y);
-                const c = records.filter(r => r.tipo === 'compra' && r.mes === m && r.anio === y);
+                const v = records.filter(r => r.tipo === 'venta' && !r.anulada && parseInt(r.mes) === m && parseInt(r.anio) === y);
+                const c = records.filter(r => r.tipo === 'compra' && parseInt(r.mes) === m && parseInt(r.anio) === y);
                 
                 const vIva = v.reduce((s, r) => s + (r.iva || 0), 0);
-                const cS15 = c.reduce((s, r) => s + (r.subt15 || 0), 0);
-                const cS5 = c.reduce((s, r) => s + (r.subt5 || 0), 0);
-                const cIva = (cS15 * 0.15) + (cS5 * 0.05);
+                const cIva = c.reduce((s, r) => s + (r.iva || 0), 0); // IVA real de compra almacenado
                 
                 const balanceMensual = vIva - cIva;
                 const totalConArrastre = balanceMensual - carryover;
@@ -1923,8 +1926,20 @@ const App = {
             const cS15  = comprasMes.reduce((s,r) => s+(r.subt15||0), 0);
             const cS5   = comprasMes.reduce((s,r) => s+(r.subt5||0),  0);
             const cS0   = comprasMes.reduce((s,r) => s+(r.subt0||0),  0);
-            const cIva15 = comprasMes.reduce((s,r)=> s+(r.subt15||0)*0.15, 0);
-            const cIva5  = comprasMes.reduce((s,r)=> s+(r.subt5||0)*0.05,  0);
+            
+            let cIva15 = 0;
+            let cIva5  = 0;
+            comprasMes.forEach(r => {
+                const calc15 = (r.subt15 || 0) * 0.15;
+                const calc5 = (r.subt5 || 0) * 0.05;
+                const calcTotal = calc15 + calc5;
+                if (calcTotal > 0) {
+                    cIva15 += (r.iva || 0) * (calc15 / calcTotal);
+                    cIva5  += (r.iva || 0) * (calc5 / calcTotal);
+                } else if (r.iva > 0) {
+                    cIva15 += r.iva;
+                }
+            });
             const cTot   = comprasMes.reduce((s,r)=> s+(r.total||0),  0);
 
             sumVS15  += vS15;  sumVIva += vIva;  sumVTot += vTot;
@@ -2053,7 +2068,21 @@ const App = {
             const C = all.filter(r => r.tipo==='compra' && r.mes===mes && r.anio===anio);
             const vS15=V.reduce((s,r)=>s+(r.subt15||0),0), vIva=V.reduce((s,r)=>s+(r.iva||0),0), vTot=V.reduce((s,r)=>s+(r.total||0),0);
             const cS15=C.reduce((s,r)=>s+(r.subt15||0),0), cS5=C.reduce((s,r)=>s+(r.subt5||0),0), cS0=C.reduce((s,r)=>s+(r.subt0||0),0);
-            const cIva15=cS15*0.15, cIva5=cS5*0.05, cTot=C.reduce((s,r)=>s+(r.total||0),0);
+            
+            let cIva15 = 0;
+            let cIva5  = 0;
+            C.forEach(r => {
+                const calc15 = (r.subt15 || 0) * 0.15;
+                const calc5 = (r.subt5 || 0) * 0.05;
+                const calcTotal = calc15 + calc5;
+                if (calcTotal > 0) {
+                    cIva15 += (r.iva || 0) * (calc15 / calcTotal);
+                    cIva5  += (r.iva || 0) * (calc5 / calcTotal);
+                } else if (r.iva > 0) {
+                    cIva15 += r.iva;
+                }
+            });
+            const cTot=C.reduce((s,r)=>s+(r.total||0),0);
             sumVS15+=vS15;sumVIva+=vIva;sumVTot+=vTot;
             sumCS15+=cS15;sumCS5+=cS5;sumCS0+=cS0;sumCIva15+=cIva15;sumCIva5+=cIva5;sumCTot+=cTot;
             const e = !vS15&&!vIva&&!vTot&&!cS15&&!cS5&&!cS0&&!cTot;
@@ -2271,6 +2300,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             regime: document.getElementById('client-regime').value,
             frecuencia: document.getElementById('client-frecuencia').value,
             claveSRI: document.getElementById('client-clave-sri').value,
+            arrastreInicial: parseFloat(document.getElementById('client-arrastre-inicial')?.value) || 0,
             novenoDigito: ruc.length >= 9 ? ruc.charAt(8) : null,
             diaMaximo: diaDeclaracion,
             // Obligaciones tributarias

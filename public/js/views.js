@@ -1823,6 +1823,7 @@ const Views = {
         const regime    = editingClient ? editingClient.regime : '';
         const frecuencia = editingClient && editingClient.frecuencia ? editingClient.frecuencia : 'Mensual';
         const claveSRI  = editingClient && editingClient.claveSRI ? editingClient.claveSRI : '';
+        const arrastreInicial = editingClient && editingClient.arrastreInicial ? editingClient.arrastreInicial : 0;
 
         // Obligaciones tributarias (Sí/No)
         const oblSuperCia = editingClient ? (editingClient.oblSuperCia || 'No') : 'No';
@@ -1877,6 +1878,10 @@ const Views = {
                                     <button type="button" class="btn-icon" style="width:34px;height:34px;opacity:0.6;display:flex;align-items:center;justify-content:center;" onclick="App.togglePasswordVis('client-clave-sri')" title="Mostrar/Ocultar">${Icons.eye(16)}</button>
                                 </div>
                             </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Arrastre IVA Inicial ($)</label>
+                            <input type="number" step="0.01" min="0" id="client-arrastre-inicial" value="${arrastreInicial}" placeholder="0.00">
                         </div>
                     </div>
 
