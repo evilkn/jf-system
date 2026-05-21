@@ -107,10 +107,12 @@ const Views = {
                             <span class="nav-icon">${Icons.navBancos()}</span>
                             <span class="nav-label">Bancos</span>
                         </a>
-                        <a href="#" class="nav-item ${State.currentRoute === 'reports' ? 'active' : ''}" onclick="App.navigate('reports', true); return false;" data-tooltip="Reportes">
-                            <span class="nav-icon">${Icons.navReports()}</span>
-                            <span class="nav-label">Reportes</span>
+                        ${user.role === 'admin' ? `
+                        <a href="#" class="nav-item ${State.currentRoute === 'audit' ? 'active' : ''}" onclick="App.navigate('audit', true); return false;" data-tooltip="Auditoría">
+                            <span class="nav-icon">${Icons.navAudit()}</span>
+                            <span class="nav-label">Auditoría</span>
                         </a>
+                        ` : ''}
                     </nav>
 
                     <!-- Footer -->
@@ -157,6 +159,7 @@ const Views = {
             ${this.abonoModal()}
             ${this.detalleModal()}
             ${this.bancoModal()}
+            ${this.editBancoModal()}
             ${this.transferModal ? this.transferModal() : ''}
             <div id="toast-container"></div>
         `;
@@ -349,6 +352,86 @@ const Views = {
         `;
     },
 
+    editBancoModal() {
+        const banco = State.editingBanco || null;
+        if (!banco) return `<div id="edit-banco-modal" class="modal-overlay"></div>`;
+        return `
+            <div id="edit-banco-modal" class="modal-overlay active">
+                <div class="modal-content glass-card animate-fadeInUp" style="max-width: 480px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
+                        <h3 style="margin: 0; display:flex; align-items:center; gap:8px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Editar Cuenta
+                        </h3>
+                        <button class="icon-btn" onclick="App.closeEditBancoModal()">${Icons.close()}</button>
+                    </div>
+                    <form onsubmit="App.handleEditBancoSubmit(event, '${banco.id}')">
+                        <div class="form-group">
+                            <label>Nombre del Banco / Cuenta</label>
+                            <input type="text" id="edit-banco-nombre" required placeholder="Ej. Banco Pichincha, Caja Chica..." value="${banco.nombre}" style="width:100%;">
+                        </div>
+                        <div class="form-group">
+                            <label>Número de Cuenta (Opcional)</label>
+                            <input type="text" id="edit-banco-numero" placeholder="Ej. 2200xxxxxx" value="${banco.numero || ''}" style="width:100%;">
+                        </div>
+                        <div class="form-group">
+                            <label>Saldo Actual ($)</label>
+                            <input type="number" step="0.01" id="edit-banco-saldo" required placeholder="0.00" value="${banco.saldo_actual || 0}" style="width:100%;">
+                            <small style="color: var(--text-secondary); font-size: 0.78rem; margin-top: 4px; display:block;">&#9888; Modificar el saldo directamente sobreescribe el valor en el sistema. Se recomienda usar Conciliación para ajustes.</small>
+                        </div>
+                        <div style="display:flex; justify-content:flex-end; gap: 12px; margin-top: 24px;">
+                            <button type="button" class="btn btn-secondary" onclick="App.closeEditBancoModal()">Cancelar</button>
+                            <button type="submit" class="btn btn-primary" id="edit-banco-submit-btn">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                Guardar Cambios
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+    },
+
+    modalEliminarBanco(banco) {
+        return `
+            <div id="confirm-delete-modal" class="modal-overlay active">
+                <div class="modal-content glass-card animate-fadeInUp" style="max-width: 450px; border: 1px solid rgba(255, 77, 77, 0.3);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                        <h3 style="margin: 0; color: #ff4d4d; display:flex; align-items:center; gap:8px;">
+                            ${Icons.trash ? Icons.trash(20) : '🗑'} Eliminar Cuenta
+                        </h3>
+                        <button class="icon-btn" onclick="App.closeDeleteBancoModal()">${Icons.close()}</button>
+                    </div>
+                    
+                    <div style="margin-bottom: 24px; text-align: center;">
+                        <div style="background: rgba(255, 77, 77, 0.1); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                            <p style="margin: 0; font-size: 0.95rem; line-height: 1.5;">
+                                ¿Estás seguro que deseas eliminar la cuenta <strong>"${banco.nombre}"</strong>?
+                            </p>
+                            <p style="margin: 8px 0 0 0; color: #ff4d4d; font-size: 0.85rem; font-weight: 600;">
+                                Esta acción no se puede deshacer y borrará todo el historial asociado.
+                            </p>
+                        </div>
+                        
+                        <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 12px;">
+                            Para confirmar, escribe la palabra <span style="color: var(--text-primary); font-weight: 700; letter-spacing: 1px;">ELIMINAR</span> abajo:
+                        </p>
+                        
+                        <input type="text" id="delete-confirm-input" autocomplete="off" 
+                            style="width: 100%; text-align: center; font-weight: 800; letter-spacing: 2px; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text-primary); font-size: 1.1rem;"
+                            placeholder="Escribe ELIMINAR aquí">
+                    </div>
+
+                    <div style="display:flex; gap: 12px;">
+                        <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="App.closeDeleteBancoModal()">Cancelar</button>
+                        <button type="button" class="btn btn-danger" id="btn-final-delete" style="flex: 1; background: #ff4d4d; color: white; border: none; border-radius: 8px; font-weight: 600;" 
+                            onclick="App.ejecutarEliminarBanco('${banco.id}')">Eliminar Definitivamente</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
     transferModal() {
         const bancos = State.bancosData || [];
         const options = bancos.map(b => `<option value="${b.id}">${b.nombre} (${App.formatMoney(b.saldo_actual)})</option>`).join('');
@@ -406,22 +489,35 @@ const Views = {
             cardsHtml = sortedBancos.map(banco => {
                 const bankInfo = Views.getBankInfo(banco.nombre);
                 return `
-                <div class="glass-card bank-card ${bankInfo.themeClass}" style="cursor: pointer;" onclick="App.openBancoDetail('${banco.id}')">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
-                        <h4 style="margin:0; font-size: 1.2rem; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.1); color: var(--text-primary);">${banco.nombre}</h4>
-                        <div class="bank-logo-container">
-                            ${bankInfo.icon}
+                <div class="glass-card bank-card ${bankInfo.themeClass}" style="cursor: pointer; position: relative; overflow: hidden;">
+                    <!-- Card action buttons overlay -->
+                    <div class="bank-card-actions" onclick="event.stopPropagation()">
+                        <button class="bank-action-btn bank-action-edit" onclick="App.showEditBancoModal('${banco.id}')" title="Editar">
+                            ${Icons.edit ? Icons.edit(14) : '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'}
+                        </button>
+                        <button class="bank-action-btn bank-action-delete" onclick="App.confirmarEliminarBanco('${banco.id}')" title="Eliminar">
+                            ${Icons.trash ? Icons.trash(14) : '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>'}
+                        </button>
+                    </div>
+                    <!-- Clickable area -->
+                    <div style="cursor: pointer;" onclick="App.openBancoDetail('${banco.id}')">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
+                            <h4 style="margin:0; font-size: 1.2rem; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.1); color: var(--text-primary);">${banco.nombre}</h4>
+                            <div class="bank-logo-container">
+                                ${bankInfo.icon}
+                            </div>
                         </div>
-                    </div>
-                    <div class="bank-balance" style="font-family: var(--font-mono); font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px;">
-                        ${App.formatMoney(banco.saldo_actual)}
-                    </div>
-                    <div style="font-size: 0.85rem; color: var(--text-secondary); display:flex; justify-content:space-between; align-items:center; padding-top: 16px; border-top: 1px solid var(--glass-border);">
-                        <span style="font-weight: 500;">Ver conciliación y transacciones</span>
-                        <div class="arrow-btn">${Icons.arrowRight()}</div>
+                        <div class="bank-balance" style="font-family: var(--font-mono); font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px;">
+                            ${State.hideAmounts ? '****' : App.formatMoney(banco.saldo_actual)}
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); display:flex; justify-content:space-between; align-items:center; padding-top: 16px; border-top: 1px solid var(--glass-border);">
+                            <span style="font-weight: 500;">Ver conciliación y transacciones</span>
+                            <div class="arrow-btn">${Icons.arrowRight()}</div>
+                        </div>
                     </div>
                 </div>
             `}).join('');
+
         } else {
             cardsHtml = `
                 <div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px; border: 1px dashed rgba(255,255,255,0.2); border-radius: 12px; background: rgba(0,0,0,0.1);">
@@ -447,9 +543,14 @@ const Views = {
                         </div>
                         
                         <div style="position: relative; z-index: 2;">
-                            <span style="color: var(--text-secondary); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; display: block; margin-bottom: 2px;">Saldo Disponible Total</span>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                                <span style="color: var(--text-secondary); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700;">Saldo Disponible Total</span>
+                                <button onclick="App.toggleHideAmounts()" title="Ocultar/Mostrar Saldos" style="background: none; border: none; padding: 4px; cursor: pointer; color: var(--text-secondary); opacity: 0.7; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center; border-radius: 4px;" onmouseover="this.style.opacity=1; this.style.background='rgba(0,0,0,0.05)'" onmouseout="this.style.opacity=0.7; this.style.background='none'">
+                                    ${State.hideAmounts ? Icons.eyeOff(16) : Icons.eye(16)}
+                                </button>
+                            </div>
                             <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono); letter-spacing: -1px;">
-                                ${App.formatMoney(totalLiquidez)}
+                                ${State.hideAmounts ? '****' : App.formatMoney(totalLiquidez)}
                             </div>
                             <div style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.75rem; color: var(--text-secondary); font-weight: 500;">
                                 <span style="width: 7px; height: 7px; background: #4cd137; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px rgba(76, 209, 55, 0.4); animation: pulse 2s infinite;"></span>
@@ -476,31 +577,7 @@ const Views = {
         `;
     },
 
-    reports() {
-        return `
-            <div class="glass-card">
-                <h3 style="margin-bottom: 24px;">Reportes Globales y Consolidación</h3>
-                <p style="color: var(--text-secondary); margin-bottom: 32px;">Exporte la información consolidada de todos sus clientes y sus respectivos registros contables.</p>
-                
-                <div class="form-grid" style="max-width: 600px; margin-bottom: 32px;">
-                    <div class="form-group">
-                        <label>Desde</label>
-                        <input type="date" id="report-start">
-                    </div>
-                    <div class="form-group">
-                        <label>Hasta</label>
-                        <input type="date" id="report-end">
-                    </div>
-                </div>
 
-                <div style="display: flex; gap: 16px;">
-                    <button class="btn btn-primary" onclick="App.exportMasterExcel()" style="display:inline-flex;align-items:center;gap:8px;">
-                        ${Icons.export()} Exportar Reporte Maestro (Excel)
-                    </button>
-                </div>
-            </div>
-        `;
-    },
 
     matriz() {
         return `
@@ -566,7 +643,7 @@ const Views = {
             'clients': 'CARTERA DE CLIENTES',
             'sri': 'REGISTRO DE COMPRA Y VENTA',
             'cuentas': 'GESTIÓN DE CUENTAS',
-            'reports': 'CONCILIACIÓN Y REPORTES',
+
             'matriz': 'MATRIZ DE CONTROL TRIBUTARIO',
             'bancos': 'CONTROL DE LIQUIDEZ'
         };
@@ -576,100 +653,388 @@ const Views = {
     dashboard() {
         const meta = Store.get('dashboardMeta') || { totalRegistros: 0, mensual: {}, clientes: {} };
         const clients = Store.get('clientes') || [];
-        
+
         const today = new Date();
         const currentDay = today.getDate();
-        
-        // Alertas de firmas por vencer
-        const expiringCount = clients.filter(c => {
+        const currentMonth = today.getMonth() + 1;
+        const currentYear = today.getFullYear();
+        const prevMonthKey = currentMonth === 1
+            ? `${currentYear - 1}-12`
+            : `${currentYear}-${String(currentMonth - 1).padStart(2, '0')}`;
+        const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+
+        const curMonthMeta  = meta.mensual?.[currentMonthKey]  || { sales: 0, purchases: 0 };
+        const prevMonthMeta = meta.mensual?.[prevMonthKey] || { sales: 0, purchases: 0 };
+
+        // Trend helpers
+        const trendBadge = (cur, prev, invertGood = false) => {
+            if (!prev || prev === 0) return '';
+            const pct = ((cur - prev) / prev * 100).toFixed(1);
+            const isUp = cur >= prev;
+            const isGood = invertGood ? !isUp : isUp;
+            const color = isGood ? 'var(--success)' : 'var(--danger)';
+            const arrow = isUp ? '↑' : '↓';
+            return `<span style="font-size:0.78rem; font-weight:600; color:${color}; background:${isGood ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)'}; padding:2px 8px; border-radius:20px;">${arrow} ${Math.abs(pct)}% vs mes ant.</span>`;
+        };
+
+        // Firmas por vencer (próximos 30 días)
+        const expiringClients = clients.filter(c => {
             if (!c.firmaExpira) return false;
             const parts = c.firmaExpira.split('-');
             if (parts.length !== 3) return false;
             const exp = new Date(parts[0], parts[1] - 1, parts[2]);
-            return (exp - today) / (1000 * 60 * 60 * 24) <= 30;
-        }).length;
+            const diff = (exp - today) / (1000 * 60 * 60 * 24);
+            return diff >= 0 && diff <= 30;
+        });
+        const expiringCount = expiringClients.length;
 
-        // Alertas de vencimientos de declaración (<= 5 días o ya vencido)
-        const pendingDeadlinesCount = clients.filter(c => {
+        // Obligaciones pendientes (<= 5 días)
+        const pendingClients = clients.filter(c => {
             const diaMax = parseInt(c.diaMaximo) || 0;
-            if (diaMax > 0) {
-                const diff = diaMax - currentDay;
-                return diff <= 5;
-            }
+            if (diaMax > 0) return (diaMax - currentDay) <= 5;
             return false;
-        }).length;
+        });
+        const pendingDeadlinesCount = pendingClients.length;
+
+        // Saldo total bancos
+        const saldoTotal = (State.bancosData || []).reduce((a, b) => a + (b.saldo_actual || 0), 0);
+
+        // Ventas y compras del mes
+        const ventasMes = curMonthMeta.sales || 0;
+        const comprasMes = curMonthMeta.purchases || 0;
+        const prevVentas = prevMonthMeta.sales || 0;
+        const prevCompras = prevMonthMeta.purchases || 0;
+
+        // Próximos vencimientos (firmas + obligaciones, ordenados por urgencia)
+        const proximosItems = [];
+        expiringClients.forEach(c => {
+            const parts = c.firmaExpira.split('-');
+            const exp = new Date(parts[0], parts[1] - 1, parts[2]);
+            const diff = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+            proximosItems.push({ nombre: c.name, tipo: 'Firma', dias: diff, urgente: diff <= 7 });
+        });
+        pendingClients.forEach(c => {
+            const diaMax = parseInt(c.diaMaximo);
+            const diff = diaMax - currentDay;
+            proximosItems.push({ nombre: c.name, tipo: 'Declaración', dias: diff, urgente: diff <= 2 });
+        });
+        proximosItems.sort((a, b) => a.dias - b.dias);
 
         return `
-            <div class="form-grid" style="margin-bottom: 32px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+            <!-- ── SMART BANNER ─────────────────────────────────────────── -->
+            ${this.renderDashboardBanner()}
 
-                <!-- Card 1: Total Registros — Glass + Purple stripe -->
-                <div class="stat-card animate-stagger" style="animation-delay: 0.1s;">
-                    <div class="stat-bar" style="background: linear-gradient(90deg, #7e22ce, #c026d3);"></div>
+            <!-- ── QUICK ACTIONS ─────────────────────────────────────────── -->
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <div style="font-size:0.78rem; font-weight:600; letter-spacing:0.08em; color:var(--text-secondary); text-transform:uppercase;">Acciones rápidas</div>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="btn btn-primary dash-quick-btn" onclick="App.navigate('sri')" title="Ir a SRI">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Nueva Transacción
+                    </button>
+                    <button class="btn btn-secondary dash-quick-btn" onclick="App.showTransferModal()" title="Transferencia bancaria">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                        Transferencia
+                    </button>
+                    <button class="btn btn-secondary dash-quick-btn" onclick="App.showAddBancoModal()" title="Agregar banco">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/><path d="M8 7V5a2 2 0 0 0-4 0v2"/></svg>
+                        Agregar Banco
+                    </button>
+                    <button class="btn btn-secondary dash-quick-btn" onclick="App.navigate('clients')" title="Clientes">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        Clientes
+                    </button>
+                </div>
+            </div>
+
+            <!-- ── KPI CARDS ─────────────────────────────────────────────── -->
+            <div class="dashboard-kpi-grid" style="margin-bottom: 28px;">
+
+                <!-- Saldo Total Bancos -->
+                <div class="stat-card animate-stagger" style="animation-delay: 0.05s;">
+                    <div class="stat-bar" style="background: linear-gradient(90deg, #0ea5e9, #6366f1);"></div>
                     <div class="stat-body">
                         <div class="stat-head">
-                            <div class="stat-icon" style="background: rgba(147,51,234,0.12);">${Icons.navDashboard()}</div>
-                            <span class="stat-label">TOTAL REGISTROS</span>
+                            <div class="stat-icon" style="background: rgba(99,102,241,0.12);">${Icons.bank ? Icons.bank(18) : Icons.navBancos()}</div>
+                            <span class="stat-label">SALDO TOTAL BANCOS</span>
                         </div>
-                        <div class="stat-num" style="background: linear-gradient(135deg, #9333ea, #c026d3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${meta.totalRegistros}</div>
-                        <div style="font-size: 0.8rem; color: var(--success); font-weight: 500; margin-top: 6px;">Actualizado en tiempo real</div>
+                        <div class="stat-num" data-counter="${saldoTotal}" data-counter-type="money" style="background: linear-gradient(135deg, #0ea5e9, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                            ${State.hideAmounts ? '****' : App.formatMoney(saldoTotal)}
+                        </div>
+                        <div style="margin-top:6px;">${(State.bancosData||[]).length} cuenta${(State.bancosData||[]).length !== 1 ? 's' : ''} registrada${(State.bancosData||[]).length !== 1 ? 's' : ''}</div>
                     </div>
                 </div>
 
-                <!-- Card 2: Firmas por Vencer — Glass + Red/Orange stripe -->
-                <div class="stat-card animate-stagger" style="animation-delay: 0.2s;">
-                    <div class="stat-bar" style="background: linear-gradient(90deg, #ef4444, #f97316);"></div>
+                <!-- Ventas del Mes -->
+                <div class="stat-card animate-stagger" style="animation-delay: 0.1s;">
+                    <div class="stat-bar" style="background: linear-gradient(90deg, #22c55e, #16a34a);"></div>
                     <div class="stat-body">
                         <div class="stat-head">
-                            <div class="stat-icon" style="background: rgba(239,68,68,0.1);">${Icons.navMatriz()}</div>
+                            <div class="stat-icon" style="background: rgba(34,197,94,0.12);">${Icons.trendingUp ? Icons.trendingUp(18) : Icons.navSRI()}</div>
+                            <span class="stat-label">VENTAS DEL MES</span>
+                        </div>
+                        <div class="stat-num" data-counter="${ventasMes}" data-counter-type="money" style="color: var(--success);">${State.hideAmounts ? '****' : App.formatMoney(ventasMes)}</div>
+                        <div style="margin-top:6px;">${trendBadge(ventasMes, prevVentas)}</div>
+                    </div>
+                </div>
+
+                <!-- Compras del Mes -->
+                <div class="stat-card animate-stagger" style="animation-delay: 0.15s;">
+                    <div class="stat-bar" style="background: linear-gradient(90deg, #f97316, #ef4444);"></div>
+                    <div class="stat-body">
+                        <div class="stat-head">
+                            <div class="stat-icon" style="background: rgba(249,115,22,0.12);">${Icons.trendingDown ? Icons.trendingDown(18) : Icons.navSRI()}</div>
+                            <span class="stat-label">COMPRAS DEL MES</span>
+                        </div>
+                        <div class="stat-num" data-counter="${comprasMes}" data-counter-type="money" style="color: var(--danger);">${State.hideAmounts ? '****' : App.formatMoney(comprasMes)}</div>
+                        <div style="margin-top:6px;">${trendBadge(comprasMes, prevCompras, true)}</div>
+                    </div>
+                </div>
+
+                <!-- Firmas por Vencer -->
+                <div class="stat-card animate-stagger" style="animation-delay: 0.2s;">
+                    <div class="stat-bar" style="background: linear-gradient(90deg, #a855f7, #ec4899);"></div>
+                    <div class="stat-body">
+                        <div class="stat-head">
+                            <div class="stat-icon" style="background: rgba(168,85,247,0.12);">${Icons.navMatriz()}</div>
                             <span class="stat-label">FIRMAS POR VENCER</span>
                         </div>
-                        <div class="stat-num" style="color: ${expiringCount > 0 ? 'var(--danger)' : 'var(--text-primary)'};">${expiringCount}</div>
-                        <button class="btn btn-secondary" onclick="App.navigate('matriz')" style="font-size: 0.75rem; padding: 6px 12px; width: 100%; margin-top: 10px;">Revisar Matriz</button>
+                        ${expiringCount === 0
+                            ? `<div class="stat-num" style="color: var(--success); font-size: 1.6rem;">✓</div>
+                               <div style="margin-top:6px; font-size:0.8rem; color:var(--success); font-weight:600;">Todo al día</div>`
+                            : `<div class="stat-num" data-counter="${expiringCount}" data-counter-type="integer" style="color: var(--danger);">${expiringCount}</div>
+                               <button class="btn btn-secondary" onclick="App.navigate('matriz')" style="font-size:0.75rem; padding:5px 10px; width:100%; margin-top:8px;">Revisar Matriz</button>`
+                        }
                     </div>
                 </div>
 
-                <!-- Card 3: Obligaciones Pendientes — Glass + Orange/Red stripe -->
-                <div class="stat-card animate-stagger" style="animation-delay: 0.3s;">
-                    <div class="stat-bar" style="background: linear-gradient(90deg, #f59e0b, #ef4444);"></div>
+                <!-- Clientes Activos -->
+                <div class="stat-card stat-card-hero animate-stagger" style="animation-delay: 0.25s;">
                     <div class="stat-body">
                         <div class="stat-head">
-                            <div class="stat-icon" style="background: rgba(245,158,11,0.1);">${Icons.navSRI()}</div>
-                            <span class="stat-label">OBLIGACIONES PENDIENTES</span>
+                            <div class="stat-icon" style="background:rgba(255,255,255,0.18); filter:brightness(0) invert(1);">${Icons.navClients()}</div>
+                            <span class="stat-label" style="color:rgba(255,255,255,0.72);">CLIENTES ACTIVOS</span>
                         </div>
-                        <div class="stat-num" style="color: ${pendingDeadlinesCount > 0 ? 'var(--warning)' : 'var(--text-primary)'};">${pendingDeadlinesCount}</div>
-                        <div style="font-size: 0.8rem; color: var(--warning); font-weight: 500; margin-top: 6px;">Vencen pronto o excedidas</div>
-                    </div>
-                </div>
-
-                <!-- Card 4: Clientes Activos — HERO Gradient Fill -->
-                <div class="stat-card stat-card-hero animate-stagger" style="animation-delay: 0.4s;">
-                    <div class="stat-body">
-                        <div class="stat-head">
-                            <div class="stat-icon" style="background: rgba(255,255,255,0.18); filter: brightness(0) invert(1);">${Icons.navClients()}</div>
-                            <span class="stat-label" style="color: rgba(255,255,255,0.72);">CLIENTES ACTIVOS</span>
-                        </div>
-                        <div class="stat-num" style="color: white; text-shadow: 0 0 20px rgba(255,255,255,0.3);">${clients.length}</div>
-                        <button class="btn" onclick="App.navigate('clients')" style="background: rgba(255,255,255,0.16); color: white; border: 1.5px solid rgba(255,255,255,0.42); width: 100%; margin-top: 10px; font-size: 0.75rem; padding: 6px 12px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">Gestionar</button>
+                        <div class="stat-num" data-counter="${clients.length}" data-counter-type="integer" style="color:white; text-shadow:0 0 20px rgba(255,255,255,0.3);">${clients.length}</div>
+                        <button class="btn" onclick="App.navigate('clients')" style="background:rgba(255,255,255,0.16); color:white; border:1.5px solid rgba(255,255,255,0.42); width:100%; margin-top:10px; font-size:0.75rem; padding:6px 12px; backdrop-filter:blur(8px);">Gestionar</button>
                     </div>
                 </div>
 
             </div>
 
-            <div class="form-grid" style="grid-template-columns: 2fr 1fr; gap: 24px;">
-                <div class="glass-card animate-stagger" style="animation-delay: 0.4s;">
-                    <h3 style="margin-bottom: 20px; font-family: var(--font-heading); font-size: 1rem;">EVOLUCIÓN MENSUAL (VENTAS VS COMPRAS)</h3>
-                    <div style="height: 300px; position: relative;">
+            <!-- ── MAIN CONTENT AREA ──────────────────────────────────────── -->
+            <div class="form-grid" style="grid-template-columns: 2fr 1fr; gap: 24px; align-items: start;">
+
+                <!-- CHART con filtro de período -->
+                <div class="glass-card animate-stagger" style="animation-delay: 0.3s;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+                        <h3 style="margin:0; font-family:var(--font-heading); font-size:1rem;">EVOLUCIÓN MENSUAL (VENTAS VS COMPRAS)</h3>
+                        <div style="display:flex; gap:6px;">
+                            ${['3M','6M','1A'].map(p => `
+                                <button id="chart-period-${p}" onclick="App.setChartPeriod('${p}')"
+                                    class="btn btn-secondary"
+                                    style="padding:4px 12px; font-size:0.75rem; font-weight:600; ${(State.chartPeriod||'6M') === p ? 'background:var(--primary); color:white; border-color:var(--primary);' : ''}">
+                                    ${p}
+                                </button>`).join('')}
+                        </div>
+                    </div>
+                    <div style="height:300px; position:relative;">
                         <canvas id="dashboardChart"></canvas>
                     </div>
                 </div>
-                <div class="glass-card animate-stagger" style="animation-delay: 0.5s;">
-                    <h3 style="margin-bottom: 20px; font-family: var(--font-heading); font-size: 1rem;">LÍMITES RIMPE</h3>
-                    <div style="display: flex; flex-direction: column; gap: 16px;">
-                        ${this.renderLimitAlerts()}
+
+                <!-- PANEL DERECHO -->
+                <div style="display:flex; flex-direction:column; gap:20px;">
+
+                    <!-- Widget: Límites RIMPE -->
+                    <div class="glass-card animate-stagger" style="animation-delay:0.35s;">
+                        <h3 style="margin:0 0 16px; font-family:var(--font-heading); font-size:0.95rem;">LÍMITES RIMPE</h3>
+                        <div style="display:flex; flex-direction:column; gap:12px; max-height:220px; overflow-y:auto;">
+                            ${this.renderLimitAlerts()}
+                        </div>
                     </div>
+
+                    <!-- Widget: Próximos Vencimientos -->
+                    <div class="glass-card animate-stagger" style="animation-delay:0.4s;">
+                        <h3 style="margin:0 0 16px; font-family:var(--font-heading); font-size:0.95rem; display:flex; align-items:center; gap:8px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            PRÓXIMOS VENCIMIENTOS
+                        </h3>
+                        ${proximosItems.length === 0
+                            ? `<div style="text-align:center; padding:20px 0; color:var(--success);">
+                                   <div style="font-size:1.8rem; margin-bottom:6px;">✓</div>
+                                   <div style="font-size:0.85rem; font-weight:600;">Sin vencimientos próximos</div>
+                               </div>`
+                            : `<div style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto;">
+                                ${proximosItems.slice(0, 6).map(item => `
+                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:${item.urgente ? 'rgba(239,68,68,0.08)' : 'rgba(var(--primary-rgb),0.05)'}; border-left:3px solid ${item.urgente ? 'var(--danger)' : 'var(--primary)'};">
+                                        <div>
+                                            <div style="font-weight:600; font-size:0.82rem;">${item.nombre}</div>
+                                            <div style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px;">${item.tipo}</div>
+                                        </div>
+                                        <span style="font-size:0.75rem; font-weight:700; padding:3px 8px; border-radius:12px; background:${item.urgente ? 'rgba(239,68,68,0.15)' : 'rgba(var(--primary-rgb),0.12)'}; color:${item.urgente ? 'var(--danger)' : 'var(--primary)'}; white-space:nowrap;">
+                                            ${item.dias <= 0 ? 'Hoy' : item.dias === 1 ? 'Mañana' : `${item.dias}d`}
+                                        </span>
+                                    </div>
+                                `).join('')}
+                               </div>`
+                        }
+                    </div>
+
                 </div>
             </div>
+
+            <!-- ── ACTIVIDAD RECIENTE ──────────────────────────────────── -->
+            <div class="glass-card animate-stagger" style="margin-top:24px; animation-delay:0.45s;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+                    <h3 style="margin:0; font-family:var(--font-heading); font-size:1rem; display:flex; align-items:center; gap:8px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        ACTIVIDAD RECIENTE
+                    </h3>
+                    <button class="btn btn-secondary" onclick="App.navigate('sri')" style="font-size:0.75rem; padding:5px 12px;">Ver todo →</button>
+                </div>
+                <div id="recent-activity-list">${this.renderRecentActivity()}</div>
+            </div>
         `;
+    },
+
+    renderDashboardBanner() {
+        const clients   = Store.get('clientes') || [];
+        const meta      = Store.get('dashboardMeta') || {};
+        const today     = new Date();
+        const currentDay   = today.getDate();
+        const currentMonth = today.getMonth() + 1;
+        const currentYear  = today.getFullYear();
+        const monthKey     = `${currentYear}-${String(currentMonth).padStart(2,'0')}`;
+        const prevMonthKey = currentMonth === 1
+            ? `${currentYear - 1}-12`
+            : `${currentYear}-${String(currentMonth - 1).padStart(2,'0')}`;
+
+        // ─ Priority 1: Firma vence hoy o mañana ─────────────────────────────
+        const criticalFirmas = clients.filter(c => {
+            if (!c.firmaExpira) return false;
+            const [y, m, d] = c.firmaExpira.split('-');
+            const diff = Math.ceil((new Date(y, m-1, d) - today) / 864e5);
+            return diff >= 0 && diff <= 1;
+        });
+        if (criticalFirmas.length > 0) {
+            const isToday = criticalFirmas[0].firmaExpira === today.toISOString().split('T')[0];
+            const txt = criticalFirmas.length === 1
+                ? `La firma de <strong>${criticalFirmas[0].name}</strong> vence <strong>${isToday ? 'hoy' : 'mañana'}</strong>. Acción inmediata requerida.`
+                : `<strong>${criticalFirmas.length} firmas</strong> vencen hoy o mañana. Revisión urgente.`;
+            return this._banner('danger', '🔴', txt, 'matriz');
+        }
+
+        // ─ Priority 2: 2+ firmas vencen esta semana ─────────────────────────
+        const weekFirmas = clients.filter(c => {
+            if (!c.firmaExpira) return false;
+            const [y, m, d] = c.firmaExpira.split('-');
+            const diff = Math.ceil((new Date(y, m-1, d) - today) / 864e5);
+            return diff >= 2 && diff <= 7;
+        });
+        if (weekFirmas.length >= 2) {
+            return this._banner('warning', '⚠️',
+                `<strong>${weekFirmas.length} firmas</strong> vencen esta semana. Revisa la matriz de control.`, 'matriz');
+        }
+
+        // ─ Priority 3: Declaración en los próximos 2 días ───────────────────
+        const urgentDecl = clients.filter(c => {
+            const diaMax = parseInt(c.diaMaximo) || 0;
+            if (!diaMax) return false;
+            const diff = diaMax - currentDay;
+            return diff >= 0 && diff <= 2;
+        });
+        if (urgentDecl.length > 0) {
+            const names = urgentDecl.map(c => c.name).slice(0, 2).join(', ');
+            const extra = urgentDecl.length > 2 ? ` y ${urgentDecl.length - 2} más` : '';
+            return this._banner('warning', '📋',
+                `Declaración próxima: <strong>${names}${extra}</strong>. Fecha límite en los próximos 2 días.`, 'sri');
+        }
+
+        // ─ Priority 4: Ventas positivas vs mes anterior ──────────────────────
+        const curSales  = meta.mensual?.[monthKey]?.sales || 0;
+        const prevSales = meta.mensual?.[prevMonthKey]?.sales || 0;
+        if (curSales > 0 && prevSales > 0 && curSales > prevSales) {
+            const pct = ((curSales - prevSales) / prevSales * 100).toFixed(1);
+            return this._banner('success', '📈',
+                `¡Buen ritmo! Las ventas de este mes superan al anterior en <strong>${pct}%</strong>. Sigue así.`, null);
+        }
+
+        // ─ Priority 5: Todo al día ───────────────────────────────────────────
+        const mNames = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        return this._banner('info', '✅',
+            `Todo al día en <strong>${mNames[currentMonth]} ${currentYear}</strong>. Sin alertas pendientes.`, null);
+    },
+
+    _banner(type, emoji, message, navTarget) {
+        const s = {
+            danger:  { bg: 'rgba(239,68,68,0.08)',  border: 'rgba(239,68,68,0.3)',  accent: '#ef4444' },
+            warning: { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.3)', accent: '#f59e0b' },
+            success: { bg: 'rgba(34,197,94,0.08)',  border: 'rgba(34,197,94,0.3)',  accent: '#22c55e' },
+            info:    { bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.3)', accent: '#3b82f6' },
+        }[type] || {};
+        const actionBtn = navTarget
+            ? `<button class="btn btn-secondary" onclick="App.navigate('${navTarget}')" style="font-size:0.74rem; padding:4px 12px; flex-shrink:0; white-space:nowrap;">Ver &rarr;</button>`
+            : '';
+        return `<div class="dashboard-banner" style="background:${s.bg}; border:1px solid ${s.border}; border-left:4px solid ${s.accent}; border-radius:12px; padding:13px 18px; margin-bottom:20px; display:flex; align-items:center; gap:12px;">
+            <span style="font-size:1.15rem; flex-shrink:0;">${emoji}</span>
+            <p style="margin:0; flex:1; font-size:0.87rem; line-height:1.55; color:var(--text-primary);">${message}</p>
+            ${actionBtn}
+            <button onclick="this.closest('.dashboard-banner').style.display='none'" title="Cerrar" style="background:none; border:none; cursor:pointer; color:var(--text-secondary); font-size:1rem; flex-shrink:0; padding:0 4px; line-height:1; opacity:0.6; transition:opacity 0.15s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">✕</button>
+        </div>`;
+    },
+
+    renderRecentActivity() {
+        const registros = Store.get('sri_registros') || [];
+        const clients = Store.get('clientes') || [];
+        const meses = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+        const sorted = [...registros]
+            .filter(r => !r.anulada)
+            .sort((a, b) => {
+                if (a.fecha && b.fecha) return new Date(b.fecha) - new Date(a.fecha);
+                if (b.anio !== a.anio) return (b.anio || 0) - (a.anio || 0);
+                return (b.mes || 0) - (a.mes || 0);
+            })
+            .slice(0, 8);
+
+        if (sorted.length === 0) {
+            return `<div style="text-align:center; padding:24px 0; color:var(--text-secondary); font-size:0.88rem;">Sin transacciones recientes registradas.</div>`;
+        }
+
+        const rows = sorted.map(r => {
+            const client = clients.find(c => c.id === r.clientId);
+            const name = r.tipo === 'compra'
+                ? (r.proveedor || client?.name || 'Proveedor')
+                : (client?.name || 'Cliente');
+            const isVenta = r.tipo === 'venta';
+            const amount = (r.subt15 || 0) + (r.subt0 || 0) + (r.subt5 || 0) + (r.iva || 0);
+            const fecha = r.fecha
+                ? new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'short' })
+                : (r.mes ? `${meses[r.mes]} ${r.anio || ''}` : '—');
+            const iconColor = isVenta ? 'var(--success)' : 'var(--danger)';
+            const iconBg   = isVenta ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)';
+            const icon     = isVenta
+                ? `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`
+                : `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>`;
+
+            return `
+            <div class="activity-row" style="display:flex; align-items:center; gap:14px; padding:11px 0; border-bottom:1px solid var(--glass-border);">
+                <div style="width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:${iconBg}; color:${iconColor};">${icon}</div>
+                <div style="flex:1; min-width:0;">
+                    <div style="font-weight:600; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</div>
+                    <div style="font-size:0.73rem; color:var(--text-secondary); margin-top:2px;">${isVenta ? 'Venta' : 'Compra'}${r.numero ? ' &bull; Fact. #' + r.numero : ''}</div>
+                </div>
+                <div style="text-align:right; flex-shrink:0;">
+                    <div style="font-weight:700; font-size:0.9rem; color:${iconColor};">${isVenta ? '+' : '-'}${State.hideAmounts ? '****' : App.formatMoney(amount)}</div>
+                    <div style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px;">${fecha}</div>
+                </div>
+            </div>`;
+        }).join('');
+
+        return `<div style="display:grid; grid-template-columns:1fr 1fr; gap:0 32px;">${rows}</div>`;
     },
 
     renderLimitAlerts() {
@@ -1372,6 +1737,24 @@ const Views = {
                     ${Store.getUserRole() === 'admin' ? `<button class="btn btn-primary" onclick="App.toggleClientForm(true)" style="display:inline-flex;align-items:center;gap:8px;">${Icons.addPerson()} Nuevo Cliente</button>` : ''}
                 </div>
 
+                <!-- Tabs de Navegación -->
+                <div style="display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 2px;">
+                    <button 
+                        id="tab-client-active" 
+                        class="sri-tab ${State.clientTab === 'active' ? 'sri-tab-active' : ''}" 
+                        onclick="App.switchClientsTab('active')"
+                    >
+                        <span style="display:inline-flex;align-items:center;gap:8px;">${Icons.user(16)} Activos</span>
+                    </button>
+                    <button 
+                        id="tab-client-archived" 
+                        class="sri-tab ${State.clientTab === 'archived' ? 'sri-tab-active' : ''}" 
+                        onclick="App.switchClientsTab('archived')"
+                    >
+                        <span style="display:inline-flex;align-items:center;gap:8px;">${Icons.archive(16)} Archivados</span>
+                    </button>
+                </div>
+
                 <!-- Controles: Buscador y Leyenda -->
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
                     <!-- Buscador Premium -->
@@ -1881,6 +2264,103 @@ const Views = {
                 <div class="recent-client-card" onclick="App.selectClient('${c.id}')">
                     <div class="recent-name" title="${App.escapeHTML(c.name)}">${App.escapeHTML(c.name)}</div>
                     <div class="recent-ruc">${hasRUC ? App.escapeHTML(c.ruc) : '<em style="opacity:0.5;">Sin RUC</em>'}</div>
+                </div>
+            `;
+        }).join('');
+    },
+
+    auditLogs() {
+        return `
+            <div class="audit-container animate-fadeIn">
+                <div class="audit-filters">
+                    <div class="audit-filter-group">
+                        <label>Desde</label>
+                        <input type="date" id="audit-filter-start" onchange="App.handleAuditFilterChange()">
+                    </div>
+                    <div class="audit-filter-group">
+                        <label>Hasta</label>
+                        <input type="date" id="audit-filter-end" onchange="App.handleAuditFilterChange()">
+                    </div>
+                    <div class="audit-filter-group">
+                        <label>Módulo</label>
+                        <select id="audit-filter-module" onchange="App.handleAuditFilterChange()">
+                            <option value="all">Todos los Módulos</option>
+                            <option value="SRI">Compra y Venta (SRI)</option>
+                            <option value="CLIENTES">Clientes</option>
+                            <option value="CUENTAS">Gestión de Cuentas</option>
+                            <option value="ROLES">Seguridad / Roles</option>
+                        </select>
+                    </div>
+                    <div class="audit-filter-group" style="flex: 0.5; min-width: 120px;">
+                        <button class="btn btn-secondary" style="width: 100%; height: 42px;" onclick="App.resetAuditFilters()">
+                            Reiniciar
+                        </button>
+                    </div>
+                </div>
+
+                <div id="audit-logs-timeline" class="audit-timeline">
+                    <!-- Logs will be rendered here by App.renderAuditLogs -->
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        ${Icons.loading(32)}
+                        <p style="margin-top: 12px;">Cargando registros de auditoría...</p>
+                    </div>
+                </div>
+
+                <div id="audit-load-more" style="text-align: center; margin-top: 30px; display: none;">
+                    <button class="btn btn-secondary" onclick="App.loadMoreAuditLogs()">
+                        Cargar más registros
+                    </button>
+                </div>
+            </div>
+        `;
+    },
+
+    auditLogList(logs) {
+        if (!logs || logs.length === 0) {
+            return `
+                <div style="text-align: center; padding: 60px; background: var(--bg-card); border-radius: 16px; border: 1px dashed var(--border-color); margin-top: 20px;">
+                    <div style="opacity: 0.3; margin-bottom: 16px;">${Icons.navAudit ? Icons.navAudit(48) : '📋'}</div>
+                    <h3 style="color: var(--text-secondary);">No se encontraron registros</h3>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Prueba ajustando los filtros de búsqueda.</p>
+                </div>
+            `;
+        }
+
+        return logs.map(log => {
+            const date = log.timestamp?.toDate ? log.timestamp.toDate() : (log.timestamp instanceof Date ? log.timestamp : new Date());
+            const timeStr = date.toLocaleString('es-EC', { 
+                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+            });
+            const actionClass = `action-${(log.action || 'default').toLowerCase()}`;
+            const detailsJson = log.details ? JSON.stringify(log.details, null, 2) : null;
+            const logId = log.id ? log.id.substring(0, 8) : '---';
+
+            return `
+                <div class="audit-card ${actionClass}">
+                    <div class="audit-header">
+                        <div class="audit-user">
+                            <div class="audit-avatar" style="background: var(--primary-gradient); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; border: none; box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);">
+                                ${log.userName ? log.userName.charAt(0).toUpperCase() : '?'}
+                            </div>
+                            <div>
+                                <div class="audit-username">${App.escapeHTML(log.userName || log.userId || 'Sistema')}</div>
+                                <div class="audit-time">${timeStr}</div>
+                            </div>
+                        </div>
+                        <div class="audit-module-badge">${log.module}</div>
+                    </div>
+                    <div class="audit-body">
+                        <div class="audit-description">${App.escapeHTML(log.description || 'Sin descripción')}</div>
+                        <div class="audit-meta">
+                            <span class="audit-id-badge">LOG: ${logId}</span>
+                        </div>
+                        ${detailsJson ? `
+                            <button class="audit-details-btn" onclick="App.toggleAuditDetails(this)">
+                                ${Icons.chevronDown ? Icons.chevronDown(12) : '▼'} Ver detalles técnicos
+                            </button>
+                            <pre class="audit-details-json">${App.escapeHTML(detailsJson)}</pre>
+                        ` : ''}
+                    </div>
                 </div>
             `;
         }).join('');

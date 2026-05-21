@@ -139,6 +139,12 @@ const Store = {
             State.cuentasPagarData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             onUpdate('cuentas');
         }, (error) => console.error("Error en Pagar listener:", error));
+
+        // Firestore Listener: Bancos
+        db.collection("cuentas_bancarias").orderBy("createdAt", "asc").onSnapshot((snapshot) => {
+            State.bancosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            onUpdate('bancos');
+        }, (error) => console.error("Error en Bancos listener:", error));
     },
 
     currentSriListener: null,
@@ -205,32 +211,98 @@ const Store = {
         return firebase.auth().signOut();
     },
 
+    // ─────────────────────────────────────────────
+    // SISTEMA DE AUDITORÍA (LOGS)
+    // ─────────────────────────────────────────────
+    
+    async logAction(action, module, description, details = null) {
+        if (!State.currentUser) return;
+        try {
+            const log = {
+                userId: State.currentUser.email,
+                userName: State.currentUser.displayName || State.currentUser.email,
+                userPhoto: State.currentUser.photoURL || '',
+                action, // 'create', 'update', 'delete'
+                module, // 'sri', 'clientes', 'bancos', etc.
+                description,
+                details, 
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            await db.collection("audit_logs").add(log);
+        } catch (err) {
+            console.error("Error al registrar log:", err);
+        }
+    },
+
+    async getAuditLogs(filters = {}, lastDoc = null) {
+        let query = db.collection("audit_logs").orderBy("timestamp", "desc");
+        
+        if (filters.module && filters.module !== 'all') {
+            query = query.where("module", "==", filters.module);
+        }
+        if (filters.startDate) {
+            query = query.where("timestamp", ">=", filters.startDate);
+        }
+        if (filters.endDate) {
+            query = query.where("timestamp", "<=", filters.endDate);
+        }
+        
+        const limitCount = 20; // Paginación de 20 en 20 para no saturar el plan Spark
+        query = query.limit(limitCount + 1); // +1 para saber si hay más
+
+        if (lastDoc) {
+            query = query.startAfter(lastDoc);
+        }
+
+        const snap = await query.get();
+        const hasMore = snap.docs.length > limitCount;
+        const docs = hasMore ? snap.docs.slice(0, limitCount) : snap.docs;
+        
+        const logs = docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+
+        return {
+            logs,
+            lastDoc: docs.length > 0 ? docs[docs.length - 1] : null,
+            hasMore
+        };
+    },
+
     async saveCuentaCobrar(data) {
-        if (data.id) {
+        const isUpdate = !!data.id;
+        if (isUpdate) {
             await db.collection("cuentas_cobrar").doc(data.id).set(data, { merge: true });
+            this.logAction('update', 'CUENTAS', `Actualizada cuenta por cobrar de ${data.cliente}`, { id: data.id, monto: data.total });
         } else {
             const docRef = db.collection("cuentas_cobrar").doc();
             data.id = docRef.id;
             await docRef.set(data);
+            this.logAction('create', 'CUENTAS', `Nueva cuenta por cobrar de ${data.cliente}`, { id: data.id, monto: data.total });
         }
     },
 
     async deleteCuentaCobrar(id) {
         await db.collection("cuentas_cobrar").doc(id).delete();
+        this.logAction('delete', 'CUENTAS', `Eliminada cuenta por cobrar`, { id });
     },
 
     async saveCuentaPagar(data) {
         if (data.id) {
             await db.collection("cuentas_pagar").doc(data.id).set(data, { merge: true });
+            this.logAction('update', 'CUENTAS', `Actualizada cuenta por pagar de ${data.proveedor}`, { id: data.id, monto: data.total });
         } else {
             const docRef = db.collection("cuentas_pagar").doc();
             data.id = docRef.id;
             await docRef.set(data);
+            this.logAction('create', 'CUENTAS', `Nueva cuenta por pagar de ${data.proveedor}`, { id: data.id, monto: data.total });
         }
     },
 
     async deleteCuentaPagar(id) {
         await db.collection("cuentas_pagar").doc(id).delete();
+        this.logAction('delete', 'CUENTAS', `Eliminada cuenta por pagar`, { id });
     },
 
     async deleteCuentasBatch(type, ids) {
@@ -244,17 +316,28 @@ const Store = {
     },
 
     async saveClient(data, isEditing = false) {
-        console.log('[Store.saveClient] Guardando doc ID:', data.id, '| isEditing:', isEditing);
+        if (!isEditing && !data.status) data.status = 'active';
         if (isEditing) {
-            // merge:true preserva campos de Firestore que no están en el formulario (ej. createdAt)
             await db.collection("clientes").doc(data.id).set(data, { merge: true });
+            this.logAction('update', 'CLIENTES', `Editado cliente: ${data.name || 'S/N'}`, { id: data.id });
         } else {
             await db.collection("clientes").doc(data.id).set(data);
+            this.logAction('create', 'CLIENTES', `Creado cliente: ${data.name || 'S/N'}`, { id: data.id });
         }
+    },
+
+    async setClientStatus(id, status) {
+        const client = (this.clientes || []).find(c => c.id === id);
+        const name = client ? client.name : 'S/N';
+        const action = status === 'archived' ? 'Archivado' : 'Restaurado';
+        
+        await db.collection("clientes").doc(id).update({ status });
+        this.logAction('update', 'CLIENTES', `${action} cliente: ${name}`, { id, status });
     },
 
     async deleteClient(id) {
         await db.collection("clientes").doc(id).delete();
+        this.logAction('delete', 'CLIENTES', `Eliminado permanentemente cliente`, { id });
     },
 
     async saveSRI(data) {
@@ -300,6 +383,14 @@ const Store = {
 
             transaction.set(metaRef, meta);
             transaction.set(docRef, data);
+
+            // Registrar log (fuera de la transacción para no bloquearla)
+            this.logAction(
+                oldDoc.exists ? 'update' : 'create', 
+                'SRI', 
+                `${oldDoc.exists ? 'Editado' : 'Nuevo'} registro SRI: ${data.comprobante || 'S/N'}`,
+                { id: data.id, total: (data.subt15||0)+(data.subt0||0), tipo: data.tipo }
+            );
         });
     },
 
@@ -332,6 +423,7 @@ const Store = {
                 transaction.set(metaRef, meta);
             }
             transaction.delete(docRef);
+            this.logAction('delete', 'SRI', `Eliminado registro SRI`, { id });
         });
     },
 
@@ -345,6 +437,7 @@ const Store = {
 
     async updateUserRole(id, newRole) {
         await db.collection("usuarios").doc(id).update({ role: newRole });
+        this.logAction('update', 'ROLES', `Cambio de rol a ${newRole} para ${id}`, { target: id, newRole });
     },
 
     async updateUserTheme(theme) {
@@ -352,6 +445,7 @@ const Store = {
         localStorage.setItem('theme', theme);
         await db.collection("usuarios").doc(State.currentUser.email).update({ theme: theme })
             .catch(err => console.warn("No se pudo guardar tema en la nube:", err));
+        // No logueamos cambios de tema para no saturar los logs
     },
 
     getUserRole() {

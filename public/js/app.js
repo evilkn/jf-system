@@ -174,7 +174,7 @@ const App = {
         }
 
         if (route === 'bancos') {
-            this.loadBancos();
+            // No longer needed: real-time listener in Store handles this
         }
 
         this.render();
@@ -187,6 +187,12 @@ const App = {
         if (State.currentUser) {
             Store.updateUserTheme(State.theme);
         }
+        this.render();
+    },
+
+    toggleHideAmounts() {
+        State.hideAmounts = !State.hideAmounts;
+        localStorage.setItem('hideAmounts', State.hideAmounts);
         this.render();
     },
 
@@ -220,10 +226,11 @@ const App = {
             case 'dashboard': return Views.dashboard();
             case 'clients': return Views.clients();
             case 'sri': return Views.sri();
-            case 'reports': return Views.reports();
+
             case 'matriz': return Views.matriz();
             case 'cuentas': return Views.cuentas();
             case 'bancos': return Views.bancos();
+            case 'audit': return Views.auditLogs();
             default: return Views.dashboard();
         }
     },
@@ -244,6 +251,9 @@ const App = {
         }
         if (State.showSettingsModal) {
             this.renderUsersList();
+        }
+        if (State.currentRoute === 'audit') {
+            this.renderAuditLogs();
         }
     },
 
@@ -422,6 +432,11 @@ const App = {
         const panelPagar = document.getElementById('cuentas-panel-pagar');
         if (panelCobrar) panelCobrar.style.display = tab === 'cobrar' ? 'block' : 'none';
         if (panelPagar) panelPagar.style.display = tab === 'pagar' ? 'block' : 'none';
+    },
+
+    switchClientsTab(tab) {
+        State.clientTab = tab;
+        this.render();
     },
 
     toggleCuentaForm(type) {
@@ -2155,6 +2170,24 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         this.render();
     },
 
+    async archiveClient(id, archive) {
+        const action = archive ? 'archivar' : 'restaurar';
+        const status = archive ? 'archived' : 'active';
+        
+        Views.confirmModal(
+            `¿${archive ? 'Archivar' : 'Restaurar'} cliente?`,
+            `El cliente ${archive ? 'dejará de aparecer en la lista principal' : 'volverá a aparecer en la lista de activos'}.`,
+            async () => {
+                try {
+                    await Store.setClientStatus(id, status);
+                    this.showToast(`Cliente ${archive ? 'archivado' : 'restaurado'} con éxito`, 'success');
+                } catch (err) {
+                    this.showToast('Error al procesar: ' + err.message, 'danger');
+                }
+            }
+        );
+    },
+
     setClientSearch(query) {
         State.clientSearch = query;
         this.renderClientsTable();
@@ -2263,36 +2296,49 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         if (!tbody) return;
         const allClients = Store.get('clientes') || [];
 
+        // Filtro por pestaña (Activos vs Archivados)
+        const tabFiltered = allClients.filter(c => {
+            if (State.clientTab === 'archived') return c.status === 'archived';
+            return c.status !== 'archived';
+        });
+
         // Filtro de búsqueda
         const q = (State.clientSearch || '').toLowerCase().trim();
         const clients = q
-            ? allClients.filter(c =>
+            ? tabFiltered.filter(c =>
                 (c.name || '').toLowerCase().includes(q) ||
                 (c.ruc  || '').toLowerCase().includes(q)
               )
-            : allClients;
+            : tabFiltered;
 
         // Actualizar contador
         const counter = document.getElementById('clients-search-count');
         if (counter) {
             counter.textContent = q
-                ? `Mostrando ${clients.length} de ${allClients.length} cliente${allClients.length !== 1 ? 's' : ''}`
-                : allClients.length > 0 ? `${allClients.length} cliente${allClients.length !== 1 ? 's' : ''} en total` : '';
+                ? `Mostrando ${clients.length} de ${tabFiltered.length} cliente${tabFiltered.length !== 1 ? 's' : ''}`
+                : tabFiltered.length > 0 ? `${tabFiltered.length} cliente${tabFiltered.length !== 1 ? 's' : ''} en total` : '';
         }
 
-        if (allClients.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="border: none; padding: 0;">
+        if (tabFiltered.length === 0) {
+            const emptyMsg = State.clientTab === 'archived' 
+                ? 'No tienes clientes archivados' 
+                : 'No tienes clientes registrados';
+            const emptyDesc = State.clientTab === 'archived'
+                ? 'Los clientes que archives aparecerán en esta sección.'
+                : 'Comienza agregando tu primer cliente para gestionar sus declaraciones y reportes.';
+                
+            tbody.innerHTML = `<tr><td colspan="8" style="border: none; padding: 0;">
                 <div class="empty-state">
                     <div class="empty-state-icon">${Icons.emptyClients()}</div>
-                    <div class="empty-state-title">No tienes clientes registrados</div>
-                    <div class="empty-state-desc">Comienza agregando tu primer cliente para gestionar sus declaraciones y reportes.</div>
+                    <div class="empty-state-title">${emptyMsg}</div>
+                    <div class="empty-state-desc">${emptyDesc}</div>
                 </div>
             </td></tr>`;
             return;
         }
 
         if (clients.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="border: none; padding: 0;">
+            tbody.innerHTML = `<tr><td colspan="8" style="border: none; padding: 0;">
                 <div class="empty-state">
                     <div class="empty-state-icon">${Icons.emptySearch()}</div>
                     <div class="empty-state-title">Sin coincidencias</div>
@@ -2311,25 +2357,31 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             return `<span title="${label}" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${color};box-shadow:0 0 5px ${color};"></span>`;
         };
 
+        const isAdmin = State.currentUser?.role === 'admin';
+
         tbody.innerHTML = clients.map(c => `
             <tr>
                 <td style="font-weight: 600;">${this.escapeHTML(c.name)}</td>
-                <td>${this.escapeHTML(c.ruc)}</td>
+                <td style="font-family:var(--font-mono);">${this.escapeHTML(c.ruc)}</td>
                 <td><span class="badge" style="background: rgba(var(--primary-rgb), 0.1); color: var(--primary); padding: 4px 8px; border-radius: 4px;">${this.escapeHTML(c.regime)}</span></td>
                 <td><span class="badge" style="background: rgba(100, 100, 100, 0.1); color: var(--text-secondary); padding: 4px 8px; border-radius: 4px;">${this.escapeHTML(c.frecuencia || 'Mensual')}</span></td>
                 <td style="font-weight: bold; font-family: var(--font-mono);">${c.diaMaximo || '-'}</td>
                 <td style="text-align:center;">${statusDot(c.firmaCaduca)}</td>
                 <td style="text-align:center;">${statusDot(c.factCaduca)}</td>
-                <td style="display: flex; gap: 8px;">
-                    <button class="btn btn-primary" style="padding: 4px 12px; font-size: 0.8rem; display:inline-flex;align-items:center;gap:6px;" onclick="App.openFicha('${c.id}')">${Icons.ficha()} Ver Ficha</button>
-                    <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.8rem;" onclick="App.selectClient('${c.id}')">Gestionar SRI</button>
-                    ${State.currentUser && State.currentUser.role === 'admin' ? `
-                    <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.8rem; display:inline-flex;align-items:center;justify-content:center;" onclick="App.editClient('${c.id}')">${Icons.edit()}</button>
-                    ` : ''}
+                <td>
+                    <div style="display: flex; gap: 4px; flex-wrap: nowrap;">
+                        <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.75rem; display:inline-flex;align-items:center;gap:6px; white-space:nowrap;" onclick="App.openFicha('${c.id}')">${Icons.ficha(14)} Ficha</button>
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; white-space:nowrap;" onclick="App.selectClient('${c.id}')">SRI</button>
+                        ${isAdmin ? `
+                        <button class="btn-icon" style="width:28px; height:28px; display:inline-flex;align-items:center;justify-content:center;" onclick="App.editClient('${c.id}')" title="Editar">${Icons.edit(14)}</button>
+                        <button class="btn-icon" style="width:28px; height:28px; display:inline-flex;align-items:center;justify-content:center; color:${c.status === 'archived' ? 'var(--success)' : 'var(--text-secondary)'}" onclick="App.archiveClient('${c.id}', ${c.status !== 'archived'})" title="${c.status === 'archived' ? 'Restaurar' : 'Archivar'}">
+                            ${c.status === 'archived' ? Icons.restore(14) : Icons.archive(14)}
+                        </button>
+                        ` : ''}
+                    </div>
                 </td>
             </tr>
         `).join('');
-
     },
 
     // Inicializa un listener de Firestore para los registros SRI del mes actual
@@ -2590,51 +2642,6 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         this.showToast('Usuario eliminado', 'warning');
     },
 
-    exportMasterExcel() {
-        const clients = Store.get('clientes') || [];
-        const registros = Store.get('sri_registros') || [];
-        const start = document.getElementById('report-start')?.value;
-        const end = document.getElementById('report-end')?.value;
-        
-        const data = clients.map(c => {
-            let clientRegs = registros.filter(r => r.clientId === c.id);
-            
-            if(start) clientRegs = clientRegs.filter(r => r.fecha >= start);
-            if(end) clientRegs = clientRegs.filter(r => r.fecha <= end);
-            
-            const totals = clientRegs.reduce((acc, r) => {
-                acc.sales += (r.v_sub15 || 0) + (r.v_sub5 || 0) + (r.v_sub0 || 0);
-                acc.purchases += (r.c_sub15 || 0) + (r.c_sub5 || 0) + (r.c_sub0 || 0);
-                acc.v_iva += (r.v_iva || 0);
-                acc.c_iva += (r.c_iva || 0);
-                return acc;
-            }, { sales: 0, purchases: 0, v_iva: 0, c_iva: 0 });
-
-            return {
-                'Cliente': c.name,
-                'RUC': c.ruc,
-                'Régimen': c.regime,
-                'Ventas Totales': totals.sales,
-                'IVA Ventas': totals.v_iva,
-                'Compras Totales': totals.purchases,
-                'IVA Compras': totals.c_iva,
-                'Registros en Periodo': clientRegs.length
-            };
-        });
-
-        if (data.length === 0) {
-            this.showToast('No hay datos para exportar', 'warning');
-            return;
-        }
-
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Reporte Global");
-        
-        const filename = `Reporte_Global_${new Date().toISOString().split('T')[0]}.xlsx`;
-        XLSX.writeFile(wb, filename);
-        this.showToast('Reporte generado correctamente', 'success');
-    },
 
     // --- Utilities ---
     async confirmDialog(options = {}) {
@@ -2732,24 +2739,22 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         if (!ctx) return;
 
         const meta = Store.get('dashboardMeta') || { totalRegistros: 0, mensual: {}, clientes: {} };
-        
-        // Group by month
         const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-        const dataMap = {};
 
-        // Last 6 months
-        for (let i = 5; i >= 0; i--) {
+        // Determine range from State.chartPeriod
+        const periodMap = { '3M': 3, '6M': 6, '1A': 12 };
+        const numMonths = periodMap[State.chartPeriod || '6M'] || 6;
+
+        const dataMap = {};
+        for (let i = numMonths - 1; i >= 0; i--) {
             const d = new Date();
             d.setMonth(d.getMonth() - i);
             const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            
-            // Extraemos los datos pre-calculados del metadata
             const monthMeta = meta.mensual[key] || { sales: 0, purchases: 0 };
-            
-            dataMap[key] = { 
-                label: `${months[d.getMonth()]}`, 
-                sales: monthMeta.sales || 0, 
-                purchases: monthMeta.purchases || 0 
+            dataMap[key] = {
+                label: `${months[d.getMonth()]}`,
+                sales: monthMeta.sales || 0,
+                purchases: monthMeta.purchases || 0
             };
         }
 
@@ -2757,17 +2762,16 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         const salesData = Object.values(dataMap).map(v => v.sales);
         const purchaseData = Object.values(dataMap).map(v => v.purchases);
 
-        // Theme-aware colors
         const isDark = State.theme === 'dark';
-        const primaryColor = '#3b82f6'; // Fallback
-        const dangerColor = '#ef4444'; // Fallback
+        const primaryColor = '#3b82f6';
+        const dangerColor = '#ef4444';
 
         if (this.currentChart) this.currentChart.destroy();
 
         this.currentChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: labels,
+                labels,
                 datasets: [
                     {
                         label: 'Ventas',
@@ -2799,7 +2803,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 plugins: {
                     legend: {
                         position: 'top',
-                        labels: { 
+                        labels: {
                             color: isDark ? '#ffffff' : '#1e293b',
                             font: { family: 'Inter', weight: '600' }
                         }
@@ -2809,13 +2813,14 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                         titleFont: { family: 'Inter' },
                         bodyFont: { family: 'Inter' },
                         padding: 12,
-                        cornerRadius: 8
+                        cornerRadius: 8,
+                        callbacks: { label: ctx => ' ' + this.formatMoney(ctx.parsed.y) }
                     }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        ticks: { 
+                        ticks: {
                             color: isDark ? 'rgba(255,255,255,0.6)' : '#64748b',
                             callback: (value) => this.formatMoney(value)
                         },
@@ -2827,6 +2832,62 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                     }
                 }
             }
+        });
+        // Animate KPI counters after chart paint
+        setTimeout(() => this.animateCounters(), 80);
+    },
+
+    setChartPeriod(period) {
+        State.chartPeriod = period;
+        this.initDashboardChart();
+        // Update button active states
+        ['3M','6M','1A'].forEach(p => {
+            const btn = document.getElementById(`chart-period-${p}`);
+            if (!btn) return;
+            if (p === period) {
+                btn.style.background = 'var(--primary)';
+                btn.style.color = 'white';
+                btn.style.borderColor = 'var(--primary)';
+            } else {
+                btn.style.background = '';
+                btn.style.color = '';
+                btn.style.borderColor = '';
+            }
+        });
+    },
+
+    animateCounters() {
+        if (State.hideAmounts) return; // skip in privacy mode
+        const duration = 950;
+        const easeOut  = t => 1 - Math.pow(1 - t, 3); // cubic ease-out
+
+        document.querySelectorAll('[data-counter]').forEach(el => {
+            const target = parseFloat(el.dataset.counter) || 0;
+            const type   = el.dataset.counterType || 'integer';
+            if (target === 0) return; // no animar ceros
+
+            const start = performance.now();
+
+            const tick = now => {
+                const elapsed  = now - start;
+                const progress = Math.min(elapsed / duration, 1);
+                const value    = target * easeOut(progress);
+
+                el.textContent = type === 'money'
+                    ? this.formatMoney(value)
+                    : String(Math.round(value));
+
+                if (progress < 1) {
+                    requestAnimationFrame(tick);
+                } else {
+                    // Pin final value exactly
+                    el.textContent = type === 'money'
+                        ? this.formatMoney(target)
+                        : String(Math.round(target));
+                }
+            };
+
+            requestAnimationFrame(tick);
         });
     },
 
@@ -3446,12 +3507,71 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 ` : ''}
 
                 ${opts.bank ? `
-                <div style="margin-top:40px; padding:20px; background:#f1f5f9; border-radius:12px; font-size:11px;">
-                    <h5 style="margin:0 0 10px 0; font-size:12px; color:#1e293b;">Información de Pago (JF SYSTEM)</h5>
-                    <p style="margin:2px 0;"><strong>Banco:</strong> Banco Pichincha (Ahorros)</p>
-                    <p style="margin:2px 0;"><strong>Titular:</strong> JESSICA FAREZ</p>
-                    <p style="margin:2px 0;"><strong>Número de Cuenta:</strong> 2200000000</p>
-                    <p style="margin:2px 0;"><strong>Correo:</strong> pagos@jfsystem.com</p>
+                <div style="margin-top:25px; page-break-inside: avoid; border-top: 1px solid #e2e8f0; padding-top:20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:15px;">
+                        <div>
+                            <h5 style="margin:0; font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:1px; font-weight:800;">Opciones de Pago</h5>
+                            <p style="margin:2px 0 0 0; font-size:12px; color:#1e293b; font-weight:700;">Jessica Mabel Farez Marca <span style="color:#94a3b8; font-weight:400; margin-left:5px;">| CI: 0706501608</span></p>
+                        </div>
+                        <div style="text-align:right;">
+                            <p style="margin:0; font-size:9px; color:#64748b; text-transform:uppercase;">Confirmar pago al:</p>
+                            <p style="margin:0; font-size:12px; color:#0d9488; font-weight:800;">0986633781</p>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;">
+                        
+                        <!-- Banco Pichincha -->
+                        <div style="display:flex; align-items:center; gap:5px; padding:5px; border:1px solid #e2e8f0; border-radius:6px; background:#fff;">
+                            <img src="/img/bancos/Banco-Pichincha.png" style="width:18px; height:18px; object-fit:contain;">
+                            <div>
+                                <div style="font-size:7px; font-weight:800; color:#854d0e; text-transform:uppercase; line-height:1;">Pichincha</div>
+                                <div style="font-size:9px; font-weight:700; color:#1e293b; margin-top:1px;">2204400912</div>
+                                <div style="font-size:6px; color:#a16207;">Ahorros</div>
+                            </div>
+                        </div>
+
+                        <!-- Banco Guayaquil -->
+                        <div style="display:flex; align-items:center; gap:5px; padding:5px; border:1px solid #e2e8f0; border-radius:6px; background:#fff;">
+                            <img src="/img/bancos/Banco-Guayaquil.png" style="width:18px; height:18px; object-fit:contain;">
+                            <div>
+                                <div style="font-size:7px; font-weight:800; color:#be123c; text-transform:uppercase; line-height:1;">Guayaquil</div>
+                                <div style="font-size:9px; font-weight:700; color:#1e293b; margin-top:1px;">0031431760</div>
+                                <div style="font-size:6px; color:#e11d48;">Corriente</div>
+                            </div>
+                        </div>
+
+                        <!-- Cooperativa JEP -->
+                        <div style="display:flex; align-items:center; gap:5px; padding:5px; border:1px solid #e2e8f0; border-radius:6px; background:#fff;">
+                            <img src="/img/bancos/Cooperativa-JEP.png" style="width:18px; height:18px; object-fit:contain;">
+                            <div>
+                                <div style="font-size:7px; font-weight:800; color:#15803d; text-transform:uppercase; line-height:1;">JEP</div>
+                                <div style="font-size:9px; font-weight:700; color:#1e293b; margin-top:1px;">406176636600</div>
+                                <div style="font-size:6px; color:#16a34a;">Ahorros</div>
+                            </div>
+                        </div>
+
+                        <!-- Jardín Azuayo -->
+                        <div style="display:flex; align-items:center; gap:5px; padding:5px; border:1px solid #e2e8f0; border-radius:6px; background:#fff;">
+                            <img src="/img/bancos/Cooperativa-JardinAzuayo.png" style="width:18px; height:18px; object-fit:contain;">
+                            <div>
+                                <div style="font-size:7px; font-weight:800; color:#334155; text-transform:uppercase; line-height:1;">J. Azuayo</div>
+                                <div style="font-size:9px; font-weight:700; color:#1e293b; margin-top:1px;">2830999</div>
+                                <div style="font-size:6px; color:#64748b;">Ahorros</div>
+                            </div>
+                        </div>
+
+                        <!-- Banco del Austro -->
+                        <div style="display:flex; align-items:center; gap:5px; padding:5px; border:1px solid #e2e8f0; border-radius:6px; background:#fff;">
+                            <img src="/img/bancos/Banco-DelAustro.png" style="width:18px; height:18px; object-fit:contain;">
+                            <div>
+                                <div style="font-size:7px; font-weight:800; color:#1e3a8a; text-transform:uppercase; line-height:1;">Austro</div>
+                                <div style="font-size:9px; font-weight:700; color:#1e293b; margin-top:1px;">4000564082</div>
+                                <div style="font-size:6px; color:#2563eb;">Ahorros</div>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
                 ` : ''}
 
@@ -3767,7 +3887,6 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             await batch.commit();
 
             this.showToast('Conciliación guardada y registrada', 'success');
-            await this.loadBancos();
             this.openBancoDetail(bancoId);
         } catch (error) {
             console.error('Error conciliando banco:', error);
@@ -3819,8 +3938,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             await batch.commit();
             this.showToast('Movimiento registrado correctamente', 'success');
             
-            // Re-render
-            await this.loadBancos();
+            // Re-render is handled by real-time listener
             this.openBancoDetail(bancoId);
         } catch (error) {
             console.error('Error recording movement:', error);
@@ -3858,7 +3976,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 const p = doc.data();
                 transacciones.push({
                     tipo: 'ingreso',
-                    categoria: \`Pago: \${p.cliente || 'S/N'}\`,
+                    categoria: `Pago: ${p.cliente || 'S/N'}`,
                     monto: p.monto || 0,
                     fecha: p.fecha_pago,
                     metodo: p.metodo_pago,
@@ -3886,24 +4004,24 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 const fecha = t.fecha ? new Date(t.fecha).toLocaleDateString() : 'N/A';
                 const color = t.tipo === 'ingreso' ? 'color:#065f46;' : (t.isAjuste ? 'color:#1e3a8a;' : 'color:#991b1b;');
                 const signo = (t.tipo === 'ingreso' || t.monto > 0) ? '+' : '-';
-                return \`
+                return `
                 <tr>
-                    <td style="text-align:left;">\${fecha}</td>
-                    <td style="text-align:left; font-weight:600;">\${t.categoria}</td>
-                    <td style="text-align:left;">\${t.metodo}</td>
-                    <td style="font-family:'Courier New',monospace; font-weight:bold; text-align:right; \${color}">\${signo}\${fmt(Math.abs(t.monto))}</td>
-                </tr>\`;
+                    <td style="text-align:left;">${fecha}</td>
+                    <td style="text-align:left; font-weight:600;">${t.categoria}</td>
+                    <td style="text-align:left;">${t.metodo}</td>
+                    <td style="font-family:'Courier New',monospace; font-weight:bold; text-align:right; ${color}">${signo}${fmt(Math.abs(t.monto))}</td>
+                </tr>`;
             }).join('');
 
             const now = new Date();
             const fgen = now.toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric'});
             const hora = now.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'});
 
-            const html = \`<!DOCTYPE html>
+            const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Historial - \${banco.nombre}</title>
+<title>Historial - ${banco.nombre}</title>
 <style>
 @page { size: A4 portrait; margin: 15mm; }
 body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; background: #fff; color: #1a1a2e; }
@@ -3922,7 +4040,7 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
 <body>
     <div class="hdr">
         <div>
-            <div class="hdr-title">\${banco.nombre}</div>
+            <div class="hdr-title">${banco.nombre}</div>
             <div class="hdr-sub">Historial de Movimientos y Conciliación</div>
         </div>
         <div style="text-align:right;">
@@ -3933,11 +4051,11 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
     <div class="info-band">
         <div>
             <div class="balance-lbl">Fecha de Generación</div>
-            <div style="font-weight:600; color:#374151;">\${fgen} - \${hora}</div>
+            <div style="font-weight:600; color:#374151;">${fgen} - ${hora}</div>
         </div>
         <div style="text-align:right;">
             <div class="balance-lbl">Saldo Actual en Sistema</div>
-            <div class="balance-val">\${fmt(banco.saldo_actual || 0)}</div>
+            <div class="balance-val">${fmt(banco.saldo_actual || 0)}</div>
         </div>
     </div>
     <table>
@@ -3950,7 +4068,7 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
             </tr>
         </thead>
         <tbody>
-            \${rowsHTML || '<tr><td colspan="4" style="text-align:center; padding:30px; color:#6b7280;">No hay movimientos registrados.</td></tr>'}
+            ${rowsHTML || '<tr><td colspan="4" style="text-align:center; padding:30px; color:#6b7280;">No hay movimientos registrados.</td></tr>'}
         </tbody>
     </table>
     <div class="ftr">
@@ -3958,7 +4076,7 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
         <span>Página 1 de 1</span>
     </div>
 </body>
-</html>\`;
+</html>`;
 
             const pw = window.open('', '_blank', 'width=900,height=700');
             if (!pw) { 
@@ -3977,8 +4095,6 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
         }
     },
 
-,
-
     confirmarEliminarBanco(bancoId) {
         const banco = State.bancosData.find(b => b.id === bancoId);
         if (!banco) return;
@@ -3996,8 +4112,17 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
         }, 100);
     },
 
+    closeDeleteBancoModal() {
+        const container = document.getElementById('temp-delete-container');
+        if (container) {
+            container.remove();
+        }
+    },
+
     async ejecutarEliminarBanco(bancoId) {
         const input = document.getElementById('delete-confirm-input');
+        if (!input) return;
+
         const confirmWord = input.value.trim().toUpperCase();
 
         if (confirmWord !== 'ELIMINAR') {
@@ -4031,12 +4156,10 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
             this.showToast('Cuenta eliminada permanentemente', 'success');
             
             // Cleanup UI
-            document.getElementById('confirm-delete-modal')?.remove();
+            this.closeDeleteBancoModal();
             State.showDetalleModal = false;
             
-            // Reload
-            await this.loadBancos();
-            this.render();
+            // Reload and render handled by listener
         } catch (error) {
             console.error('Error deleting bank:', error);
             this.showToast('Error al eliminar la cuenta', 'error');
@@ -4061,6 +4184,53 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
         } else {
             containerOtro.style.display = 'none';
             inputOtro.required = false;
+        }
+    },
+
+    showEditBancoModal(bancoId) {
+        const banco = State.bancosData.find(b => b.id === bancoId);
+        if (!banco) return;
+        State.editingBanco = banco;
+        this.render();
+        setTimeout(() => {
+            const input = document.getElementById('edit-banco-nombre');
+            if (input) input.focus();
+        }, 100);
+    },
+
+    closeEditBancoModal() {
+        State.editingBanco = null;
+        this.render();
+    },
+
+    async handleEditBancoSubmit(event, bancoId) {
+        event.preventDefault();
+        const nombre = document.getElementById('edit-banco-nombre').value.trim();
+        const numero = document.getElementById('edit-banco-numero')?.value.trim() || '';
+        const saldo = parseFloat(document.getElementById('edit-banco-saldo').value) || 0;
+
+        if (!nombre) {
+            this.showToast('El nombre no puede estar vacío', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('edit-banco-submit-btn');
+        if (btn) { btn.disabled = true; btn.innerHTML = `${Icons.loading()} Guardando...`; }
+
+        try {
+            await db.collection('cuentas_bancarias').doc(bancoId).update({
+                nombre,
+                numero,
+                saldo_actual: saldo,
+                ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            this.showToast('Cuenta actualizada correctamente', 'success');
+            State.editingBanco = null;
+        } catch (error) {
+            console.error('Error editando banco:', error);
+            this.showToast('Error al guardar los cambios', 'error');
+            if (btn) { btn.disabled = false; btn.innerHTML = 'Guardar Cambios'; }
         }
     },
 
@@ -4102,8 +4272,6 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
 
             this.showToast('Banco creado exitosamente', 'success');
             State.showBancoModal = false;
-            await this.loadBancos();
-            this.render();
         } catch (error) {
             console.error("Error creating banco:", error);
             this.showToast('Error al crear banco', 'error');
@@ -4114,21 +4282,6 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
         }
     },
 
-    async loadBancos() {
-        try {
-            const snapshot = await db.collection('cuentas_bancarias').orderBy('createdAt', 'asc').get();
-            const bancosData = [];
-            snapshot.forEach(doc => {
-                bancosData.push({ id: doc.id, ...doc.data() });
-            });
-            State.bancosData = bancosData;
-            if (State.currentRoute === 'bancos') {
-                this.render();
-            }
-        } catch (error) {
-            console.error("Error loading bancos:", error);
-        }
-    },
     async linkHistoricalRecords(name, type) {
         const idField = type === 'cobrar' ? 'clienteId' : 'proveedorId';
         const nameField = type === 'cobrar' ? 'cliente' : 'proveedor';
@@ -4260,8 +4413,6 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
 
             this.showToast('Transferencia realizada con éxito', 'success');
             State.showTransferModal = false;
-            await this.loadBancos();
-            this.render();
         } catch (error) {
             console.error("Error en transferencia:", error);
             this.showToast('Error al procesar transferencia', 'error');
@@ -4269,6 +4420,92 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
                 btn.disabled = false;
                 btn.innerHTML = 'Realizar Transferencia';
             }
+        }
+    },
+
+    /* ── AUDIT LOGS LOGIC ─────────────────────────────────────────── */
+
+    async renderAuditLogs(loadMore = false) {
+        const timeline = document.getElementById('audit-logs-timeline');
+        const loadMoreBtn = document.getElementById('audit-load-more');
+        if (!timeline) return;
+
+        if (!loadMore) {
+            State.auditLogs = [];
+            State.auditLastDoc = null;
+            timeline.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--text-secondary);">${Icons.loading(32)}<p style="margin-top: 12px;">Consultando Libro Mayor...</p></div>`;
+        }
+
+        State.auditIsLoading = true;
+        if (loadMoreBtn) loadMoreBtn.style.display = 'none';
+
+        try {
+            const filters = {
+                module: State.auditFilters.module !== 'all' ? State.auditFilters.module : null,
+                startDate: State.auditFilters.start ? new Date(State.auditFilters.start + 'T00:00:00') : null,
+                endDate: State.auditFilters.end ? new Date(State.auditFilters.end + 'T23:59:59') : null
+            };
+
+            const result = await Store.getAuditLogs(filters, State.auditLastDoc);
+            
+            State.auditLogs = loadMore ? [...State.auditLogs, ...result.logs] : result.logs;
+            State.auditLastDoc = result.lastDoc;
+            State.auditHasMore = result.hasMore;
+
+            timeline.innerHTML = Views.auditLogList(State.auditLogs);
+            
+            if (loadMoreBtn) {
+                loadMoreBtn.style.display = State.auditHasMore ? 'block' : 'none';
+            }
+
+            // Update filter inputs to match state
+            const startInput = document.getElementById('audit-filter-start');
+            const endInput = document.getElementById('audit-filter-end');
+            const modInput = document.getElementById('audit-filter-module');
+            
+            if (startInput) startInput.value = State.auditFilters.start;
+            if (endInput) endInput.value = State.auditFilters.end;
+            if (modInput) modInput.value = State.auditFilters.module;
+
+        } catch (error) {
+            console.error("Error rendering audit logs:", error);
+            timeline.innerHTML = `<div class="error-state">Error al cargar logs: ${error.message}</div>`;
+        } finally {
+            State.auditIsLoading = false;
+        }
+    },
+
+    handleAuditFilterChange() {
+        const start = document.getElementById('audit-filter-start').value;
+        const end = document.getElementById('audit-filter-end').value;
+        const module = document.getElementById('audit-filter-module').value;
+
+        State.auditFilters = { start, end, module };
+        this.renderAuditLogs(false);
+    },
+
+    resetAuditFilters() {
+        State.auditFilters = { start: '', end: '', module: 'all' };
+        this.renderAuditLogs(false);
+    },
+
+    loadMoreAuditLogs() {
+        if (State.auditIsLoading || !State.auditHasMore) return;
+        this.renderAuditLogs(true);
+    },
+
+    toggleAuditDetails(btn) {
+        const details = btn.nextElementSibling;
+        if (!details) return;
+        
+        const isVisible = details.style.display === 'block';
+        
+        if (isVisible) {
+            details.style.display = 'none';
+            btn.innerHTML = `${window.Icons && Icons.chevronDown ? Icons.chevronDown(12) : '▼'} Ver detalles técnicos`;
+        } else {
+            details.style.display = 'block';
+            btn.innerHTML = `${window.Icons && Icons.chevronUp ? Icons.chevronUp(12) : '▲'} Ocultar detalles`;
         }
     }
 };

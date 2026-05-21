@@ -12,6 +12,7 @@ const State = {
     userEditingId: null,
     theme: localStorage.getItem('theme') || 'light',
     clientEditingId: null,
+    clientTab: 'active', // 'active' | 'archived'
     showClientForm: false,
     editingCuentasCobrarId: null,
     editingCuentasPagarId: null,
@@ -76,7 +77,22 @@ const State = {
 
     // Bancos
     showBancoModal: false,
-    bancosData: []
+    bancosData: [],
+    editingBanco: null,
+    chartPeriod: '6M',
+    
+    // Privacy toggle
+    hideAmounts: localStorage.getItem('hideAmounts') === 'true',
+    // Auditoría
+    auditLogs: [],
+    auditLastDoc: null,
+    auditFilters: {
+        start: '',
+        end: '',
+        module: 'all'
+    },
+    auditHasMore: false,
+    auditIsLoading: false
 };
 
 // Expose state globally for easy access in views and handlers

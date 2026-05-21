@@ -165,10 +165,13 @@ body {
 /* Número grande */
 .stat-num {
     font-family: var(--font-mono);
-    font-size: 2.8rem;
+    font-size: clamp(1.4rem, 3.5vw, 2.2rem);
     font-weight: 800;
     line-height: 1;
     margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* === HERO CARD (Clientes Activos) — Gradient Fill === */
@@ -830,8 +833,17 @@ tr.row-anulada td {
     opacity: 0.95;
 }
 
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
 .btn-secondary:hover {
-    background: var(--border-color);
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
 }
 
 .btn-logout {
@@ -1686,6 +1698,97 @@ tr:hover td {
     transform: translateX(4px);
 }
 
+/* Dashboard KPI Grid */
+.dashboard-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 18px;
+}
+
+@media (max-width: 1200px) {
+    .dashboard-kpi-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 768px) {
+    .dashboard-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Dashboard Quick Action Buttons */
+.dash-quick-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    padding: 7px 14px;
+    font-weight: 600;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dash-quick-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+}
+
+/* Activity feed rows */
+.activity-row {
+    transition: background 0.15s ease;
+    border-radius: 6px;
+    margin: 0 -6px;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+}
+
+.activity-row:last-child { border-bottom: none !important; }
+
+.activity-row:hover { background: var(--glass-border); }
+
+/* Bank Card Action Buttons (Edit / Delete) */
+.bank-card-actions {
+    position: absolute;
+    top: 24px;
+    right: 84px;
+    display: flex;
+    gap: 6px;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 10;
+}
+
+.bank-card:hover .bank-card-actions {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.bank-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.18s ease;
+    background: rgba(255,255,255,0.06);
+    color: var(--text-secondary);
+}
+
+.bank-action-edit:hover {
+    background: rgba(var(--primary-rgb), 0.2);
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: scale(1.1);
+}
+
+.bank-action-delete:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: #ef4444;
+    color: #ef4444;
+    transform: scale(1.1);
+}
+
 /* ============================================
    Bank Themes (Premium Glassmorphism)
    ============================================ */
@@ -2316,4 +2419,210 @@ tr:hover td {
         align-items: flex-start;
         gap: 12px;
     }
+}
+
+/* ==========================================================================
+   SISTEMA DE AUDITORÍA (AUDIT LOGS)
+   ========================================================================== */
+
+.audit-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.audit-filters {
+    background: var(--bg-secondary);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    box-shadow: var(--shadow-sm);
+}
+
+.audit-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 180px;
+}
+
+.audit-filter-group label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.audit-timeline {
+    position: relative;
+    padding-left: 30px;
+    margin-top: 20px;
+}
+
+.audit-timeline::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border-color);
+    opacity: 0.5;
+}
+
+.audit-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 20px;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.audit-card:hover {
+    transform: translateX(8px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    border-color: var(--primary);
+}
+
+.audit-card::after {
+    content: '';
+    position: absolute;
+    left: -25px;
+    top: 24px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 3px solid var(--border-color);
+    z-index: 1;
+}
+
+.audit-card.action-create { border-left: 5px solid #10b981; }
+.audit-card.action-create::after { border-color: #10b981; }
+
+.audit-card.action-update { border-left: 5px solid #f59e0b; }
+.audit-card.action-update::after { border-color: #f59e0b; }
+
+.audit-card.action-delete { border-left: 5px solid #ef4444; }
+.audit-card.action-delete::after { border-color: #ef4444; }
+
+.audit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.audit-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.audit-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--border-color);
+}
+
+.audit-username {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.audit-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.audit-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.audit-description {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.audit-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.audit-module-badge {
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    background: rgba(var(--primary-rgb), 0.1);
+    color: var(--primary);
+    letter-spacing: 0.5px;
+}
+
+.audit-id-badge {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.audit-details-btn {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.audit-details-json {
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    border: 1px solid var(--border-color);
+    display: none;
+}
+
+[data-theme="dark"] .audit-details-json {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+@keyframes auditFadeIn {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.audit-card {
+    animation: auditFadeIn 0.4s ease-out backwards;
 }

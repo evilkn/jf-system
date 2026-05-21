@@ -83,6 +83,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Reglas para el Libro Mayor de Auditoría (Audit Logs)
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false; // Los logs son inmutables por seguridad
+    }
+
     // Por defecto, denegar todo lo demás
     match /{document=**} {
       allow read, write: if false;
