@@ -1327,9 +1327,6 @@ const Views = {
                     <h3 style="margin: 0;">Gestión de Cuentas</h3>
                     <p style="color: var(--text-secondary); margin: 0; font-size: 0.85rem;">Control de deudas a favor y obligaciones de la empresa.</p>
                 </div>
-                <button class="btn btn-premium" onclick="App.openReportModal()" style="display:flex; align-items:center; gap:8px;">
-                    ${Icons.report(18)} Reportes Premium
-                </button>
             </div>
 
             <div class="sri-tabs" style="margin-bottom: 24px;">
@@ -2140,111 +2137,7 @@ const Views = {
         `;
     },
 
-    reportModal() {
-        return `
-            <div id="report-modal-overlay" class="confirm-overlay animate-fadeIn" style="z-index: 1100;">
-                <div class="confirm-card glass-card animate-scaleUp" style="max-width: 600px; width: 95%;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-                        <div style="display:flex; align-items:center; gap:12px;">
-                            <div style="background:var(--premium-gradient); padding:10px; border-radius:12px; color:white;">
-                                ${Icons.report(24)}
-                            </div>
-                            <div>
-                                <h3 style="margin:0; font-size:1.25rem;">Centro de Reportes Premium</h3>
-                                <p style="margin:0; font-size:0.8rem; color:var(--text-secondary);">Genera reportes financieros personalizados por cliente.</p>
-                            </div>
-                        </div>
-                        <button class="icon-btn" onclick="App.closeReportModal()">${Icons.close()}</button>
-                    </div>
 
-                    <div style="display:grid; gap:20px;">
-                        <!-- TIPO DE REPORTE -->
-                        <div class="form-group">
-                            <label>Tipo de Reporte</label>
-                            <div style="display:flex; gap:10px;">
-                                <button class="report-type-chip active" data-type="cobrar" onclick="App.setReportType('cobrar')" style="flex:1; padding:10px; border-radius:10px; border:1px solid rgba(var(--primary-rgb),0.2); background:rgba(var(--primary-rgb),0.05); color:var(--primary); font-weight:600; cursor:pointer; transition:all 0.2s;">
-                                    ${Icons.navCuentas(14)} Cobrar
-                                </button>
-                                <button class="report-type-chip" data-type="pagar" onclick="App.setReportType('pagar')" style="flex:1; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:var(--text-secondary); font-weight:600; cursor:pointer; transition:all 0.2s;">
-                                    ${Icons.navCuentas(14)} Pagar
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- SELECCIÓN DE CONTACTO -->
-                        <div class="form-group" style="position:relative;">
-                            <label>Seleccionar Contacto *</label>
-                            <div style="position:relative;">
-                                <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--primary);">${Icons.navClients(14)}</span>
-                                <input type="text" id="report-client-search" style="padding-left:35px;" placeholder="Buscar por nombre o RUC..." autocomplete="off" oninput="App.filterReportClients(this.value)">
-                            </div>
-                            <ul id="report-client-list" class="bank-list-dropdown glass-card" style="display:none; position:absolute; left:0; right:0; max-height:200px; overflow-y:auto; z-index:100; margin-top:4px;"></ul>
-                            <input type="hidden" id="report-client-selected">
-                            <div id="report-selected-badge" style="display:none; margin-top:8px; padding:8px 12px; background:rgba(var(--primary-rgb),0.1); border-radius:8px; border:1px solid rgba(var(--primary-rgb),0.2); align-items:center; justify-content:space-between;">
-                                <span id="report-selected-name" style="font-weight:600; font-size:0.9rem; color:var(--primary);"></span>
-                                <button class="icon-btn" onclick="App.clearReportClient()" style="padding:4px;">${Icons.close()}</button>
-                            </div>
-                        </div>
-
-                        <!-- RANGO DE FECHAS -->
-                        <div class="form-group">
-                            <label>Rango de Fecha</label>
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                                <div style="position:relative;">
-                                    <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--warning);">${Icons.calendar(14)}</span>
-                                    <input type="date" id="report-date-start" style="padding-left:35px;">
-                                </div>
-                                <div style="position:relative;">
-                                    <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--warning);">${Icons.calendar(14)}</span>
-                                    <input type="date" id="report-date-end" style="padding-left:35px;">
-                                </div>
-                            </div>
-                            <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
-                                <button class="chip-btn" onclick="App.setReportRange('thisMonth')">Este Mes</button>
-                                <button class="chip-btn" onclick="App.setReportRange('lastMonth')">Mes Pasado</button>
-                                <button class="chip-btn" onclick="App.setReportRange('thisYear')">Este Año</button>
-                                <button class="chip-btn" onclick="App.setReportRange('all')">Todo</button>
-                            </div>
-                        </div>
-
-                        <!-- OPCIONES ADICIONALES -->
-                        <div class="form-group">
-                            <label>Personalización</label>
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                                <label class="checkbox-container">
-                                    <input type="checkbox" id="report-opt-charts" checked>
-                                    <span class="checkmark"></span>
-                                    Incluir Gráficos
-                                </label>
-                                <label class="checkbox-container">
-                                    <input type="checkbox" id="report-opt-details" checked>
-                                    <span class="checkmark"></span>
-                                    Detalle de Movimientos
-                                </label>
-                                <label class="checkbox-container">
-                                    <input type="checkbox" id="report-opt-bank">
-                                    <span class="checkmark"></span>
-                                    Datos Bancarios
-                                </label>
-                                <label class="checkbox-container">
-                                    <input type="checkbox" id="report-opt-compact">
-                                    <span class="checkmark"></span>
-                                    Modo Compacto
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="margin-top:32px; display:flex; gap:12px;">
-                        <button class="btn btn-secondary" style="flex:1;" onclick="App.closeReportModal()">Cancelar</button>
-                        <button class="btn btn-premium" id="btn-generate-report" style="flex:2; display:flex; align-items:center; justify-content:center; gap:10px;" onclick="App.generatePremiumReport()">
-                            ${Icons.export()} Generar Reporte PDF
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    },
 
     renderRecentSriClients() {
         const clients = Store.get('clientes') || [];
