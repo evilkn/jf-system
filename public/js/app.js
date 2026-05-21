@@ -242,6 +242,9 @@ const App = {
         }
         if (State.currentRoute === 'sri' && State.currentClientId) {
             this.renderSRITable();
+            if (State.sriActiveTab === 'conciliado') {
+                this.renderConciliadoPanel();
+            }
         }
         if (State.currentRoute === 'clients') {
             this.renderClientsTable();
@@ -353,7 +356,14 @@ const App = {
                 this.renderVentasTable();
                 this.renderComprasTable();
                 this.updateSRISummary();
-                if (State.sriActiveTab === 'conciliado') this.renderConciliadoTable();
+                if (State.sriActiveTab === 'conciliado') {
+                    const tbody = document.getElementById('conciliado-tbody');
+                    if (!tbody) {
+                        this.renderConciliadoPanel();
+                    } else {
+                        this.renderConciliadoTable();
+                    }
+                }
             }
         });
         this.navigate('sri');
