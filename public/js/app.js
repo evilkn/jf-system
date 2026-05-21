@@ -401,7 +401,7 @@ const App = {
             return;
         }
 
-        const clients = Store.get('clientes') || [];
+        const clients = (Store.get('clientes') || []).filter(c => c.status !== 'archived');
         const filtered = clients.filter(c => 
             (c.name || '').toLowerCase().includes(query.toLowerCase()) ||
             (c.ruc || '').includes(query)
@@ -2434,7 +2434,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
 
         const tbody = document.getElementById('matriz-table-body');
         if (!tbody) return;
-        const allClients = Store.get('clientes') || [];
+        const allClients = (Store.get('clientes') || []).filter(c => c.status !== 'archived');
 
         // Filtro de búsqueda
         const q = (State.matrizSearch || '').toLowerCase().trim();

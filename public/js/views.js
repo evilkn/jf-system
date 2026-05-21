@@ -652,7 +652,7 @@ const Views = {
 
     dashboard() {
         const meta = Store.get('dashboardMeta') || { totalRegistros: 0, mensual: {}, clientes: {} };
-        const clients = Store.get('clientes') || [];
+        const clients = (Store.get('clientes') || []).filter(c => c.status !== 'archived');
 
         const today = new Date();
         const currentDay = today.getDate();
@@ -901,7 +901,7 @@ const Views = {
     },
 
     renderDashboardBanner() {
-        const clients   = Store.get('clientes') || [];
+        const clients   = (Store.get('clientes') || []).filter(c => c.status !== 'archived');
         const meta      = Store.get('dashboardMeta') || {};
         const today     = new Date();
         const currentDay   = today.getDate();
@@ -1038,7 +1038,7 @@ const Views = {
     },
 
     renderLimitAlerts() {
-        const clients = Store.get('clientes') || [];
+        const clients = (Store.get('clientes') || []).filter(c => c.status !== 'archived');
         const meta = Store.get('dashboardMeta') || { totalRegistros: 0, mensual: {}, clientes: {} };
         const currentYear = new Date().getFullYear().toString();
 
@@ -2140,7 +2140,7 @@ const Views = {
 
 
     renderRecentSriClients() {
-        const clients = Store.get('clientes') || [];
+        const clients = (Store.get('clientes') || []).filter(c => c.status !== 'archived');
         // Sort alphabetically and show up to 6 clients
         const recent = [...clients]
             .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
