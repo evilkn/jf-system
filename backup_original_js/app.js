@@ -2790,12 +2790,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             const d = new Date();
             d.setMonth(d.getMonth() - i);
             const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            let monthMeta;
-            if (State.dashboardView === 'personal') {
-                monthMeta = Store.getJessicaStatsForMonth(key);
-            } else {
-                monthMeta = meta.mensual[key] || { sales: 0, purchases: 0 };
-            }
+            const monthMeta = meta.mensual[key] || { sales: 0, purchases: 0 };
             dataMap[key] = {
                 label: `${months[d.getMonth()]}`,
                 sales: monthMeta.sales || 0,
@@ -2819,7 +2814,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 labels,
                 datasets: [
                     {
-                        label: State.dashboardView === 'personal' ? 'Honorarios' : 'Ventas',
+                        label: 'Ventas',
                         data: salesData,
                         borderColor: primaryColor,
                         backgroundColor: primaryColor + '20',
@@ -2830,7 +2825,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                         pointBackgroundColor: primaryColor
                     },
                     {
-                        label: State.dashboardView === 'personal' ? 'Gastos' : 'Compras',
+                        label: 'Compras',
                         data: purchaseData,
                         borderColor: dangerColor,
                         backgroundColor: dangerColor + '20',
@@ -2899,58 +2894,6 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 btn.style.borderColor = '';
             }
         });
-    },
-
-    setDashboardView(view) {
-        State.dashboardView = view;
-        localStorage.setItem('dashboardView', view);
-        this.render();
-    },
-
-    async addTodo() {
-        const input = document.getElementById('new-todo-input');
-        if (!input) return;
-        const text = input.value.trim();
-        if (!text) return;
-        
-        try {
-            const newTodo = {
-                text,
-                completed: false,
-                userEmail: State.currentUser.email,
-                createdAt: new Date().toISOString()
-            };
-            input.value = '';
-            await Store.saveTarea(newTodo);
-            this.showToast('Tarea agregada con éxito', 'success');
-        } catch (err) {
-            console.error("Error al agregar tarea:", err);
-            this.showToast('Error al agregar tarea', 'danger');
-        }
-    },
-
-    async toggleTodo(id, completed) {
-        try {
-            const todo = (State.tareasData || []).find(t => t.id === id);
-            if (!todo) return;
-            const updatedTodo = { ...todo, completed };
-            await Store.saveTarea(updatedTodo);
-            this.showToast(completed ? 'Tarea completada' : 'Tarea marcada como pendiente', 'success');
-        } catch (err) {
-            console.error("Error al actualizar tarea:", err);
-            this.showToast('Error al actualizar tarea', 'danger');
-        }
-    },
-
-    async deleteTodo(id) {
-        if (!confirm("¿Estás seguro de eliminar esta tarea?")) return;
-        try {
-            await Store.deleteTarea(id);
-            this.showToast('Tarea eliminada', 'success');
-        } catch (err) {
-            console.error("Error al eliminar tarea:", err);
-            this.showToast('Error al eliminar tarea', 'danger');
-        }
     },
 
     animateCounters() {

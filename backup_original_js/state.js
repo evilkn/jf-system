@@ -17,8 +17,6 @@ const State = {
     editingCuentasCobrarId: null,
     editingCuentasPagarId: null,
     showSettingsModal: false,
-    dashboardView: localStorage.getItem('dashboardView') || 'personal',
-    tareasData: [],
     
     // Gestión de Cuentas Data & Modals
     showAbonoModal: false,

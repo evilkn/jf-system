@@ -720,84 +720,38 @@ const Views = {
         });
         proximosItems.sort((a, b) => a.dias - b.dias);
 
-        // KPIs Dynamic Render
-        let kpisHtml = '';
-        const pendingTodosCount = (State.tareasData || []).filter(t => !t.completed).length;
+        return `
+            <!-- ── SMART BANNER ─────────────────────────────────────────── -->
+            ${this.renderDashboardBanner()}
 
-        if (State.dashboardView === 'personal') {
-            const jessicaStats = Store.getJessicaStatsForMonth(currentMonthKey);
-            const prevJessicaStats = Store.getJessicaStatsForMonth(prevMonthKey);
-            
-            const honorarios = jessicaStats.sales || 0;
-            const gastos = jessicaStats.purchases || 0;
-            const neto = honorarios - gastos;
-            
-            const prevHonorarios = prevJessicaStats.sales || 0;
-            const prevGastos = prevJessicaStats.purchases || 0;
-            
-            kpisHtml = `
-                <!-- Honorarios de Oficina -->
-                <div class="stat-card animate-stagger" style="animation-delay: 0.05s;">
-                    <div class="stat-bar" style="background: linear-gradient(90deg, #10b981, #059669);"></div>
-                    <div class="stat-body">
-                        <div class="stat-head">
-                            <div class="stat-icon" style="background: rgba(16,185,129,0.12);">${Icons.trendingUp ? Icons.trendingUp(18) : Icons.navSRI()}</div>
-                            <span class="stat-label">HONORARIOS DEL MES</span>
-                        </div>
-                        <div class="stat-num" data-counter="${honorarios}" data-counter-type="money" style="color: var(--success);">
-                            ${State.hideAmounts ? '****' : App.formatMoney(honorarios)}
-                        </div>
-                        <div style="margin-top:6px;">${trendBadge(honorarios, prevHonorarios)}</div>
-                    </div>
+            <!-- ── QUICK ACTIONS ─────────────────────────────────────────── -->
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <div style="font-size:0.78rem; font-weight:600; letter-spacing:0.08em; color:var(--text-secondary); text-transform:uppercase;">Acciones rápidas</div>
                 </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="btn btn-primary dash-quick-btn" onclick="App.navigate('sri')" title="Ir a SRI">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Nueva Transacción
+                    </button>
+                    <button class="btn btn-secondary dash-quick-btn" onclick="App.showTransferModal()" title="Transferencia bancaria">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                        Transferencia
+                    </button>
+                    <button class="btn btn-secondary dash-quick-btn" onclick="App.showAddBancoModal()" title="Agregar banco">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/><path d="M8 7V5a2 2 0 0 0-4 0v2"/></svg>
+                        Agregar Banco
+                    </button>
+                    <button class="btn btn-secondary dash-quick-btn" onclick="App.navigate('clients')" title="Clientes">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        Clientes
+                    </button>
+                </div>
+            </div>
 
-                <!-- Gastos de Oficina -->
-                <div class="stat-card animate-stagger" style="animation-delay: 0.1s;">
-                    <div class="stat-bar" style="background: linear-gradient(90deg, #f97316, #ef4444);"></div>
-                    <div class="stat-body">
-                        <div class="stat-head">
-                            <div class="stat-icon" style="background: rgba(249,115,22,0.12);">${Icons.trendingDown ? Icons.trendingDown(18) : Icons.navSRI()}</div>
-                            <span class="stat-label">GASTOS DE OFICINA</span>
-                        </div>
-                        <div class="stat-num" data-counter="${gastos}" data-counter-type="money" style="color: var(--danger);">
-                            ${State.hideAmounts ? '****' : App.formatMoney(gastos)}
-                        </div>
-                        <div style="margin-top:6px;">${trendBadge(gastos, prevGastos, true)}</div>
-                    </div>
-                </div>
+            <!-- ── KPI CARDS ─────────────────────────────────────────────── -->
+            <div class="dashboard-kpi-grid" style="margin-bottom: 28px;">
 
-                <!-- Resultado Neto -->
-                <div class="stat-card animate-stagger" style="animation-delay: 0.15s;">
-                    <div class="stat-bar" style="background: ${neto >= 0 ? 'linear-gradient(90deg, #0ea5e9, #6366f1)' : 'linear-gradient(90deg, #ef4444, #b91c1c)'};"></div>
-                    <div class="stat-body">
-                        <div class="stat-head">
-                            <div class="stat-icon" style="background: ${neto >= 0 ? 'rgba(99,102,241,0.12)' : 'rgba(239,68,68,0.12)'};">⚖️</div>
-                            <span class="stat-label">RESULTADO NETO</span>
-                        </div>
-                        <div class="stat-num" data-counter="${neto}" data-counter-type="money" style="color: ${neto >= 0 ? 'var(--primary)' : 'var(--danger)'};">
-                            ${State.hideAmounts ? '****' : App.formatMoney(neto)}
-                        </div>
-                        <div style="margin-top:6px; font-size:0.75rem; color:var(--text-secondary);">Balance neto del mes actual</div>
-                    </div>
-                </div>
-
-                <!-- Tareas Pendientes -->
-                <div class="stat-card animate-stagger" style="animation-delay: 0.2s;">
-                    <div class="stat-bar" style="background: linear-gradient(90deg, #a855f7, #ec4899);"></div>
-                    <div class="stat-body">
-                        <div class="stat-head">
-                            <div class="stat-icon" style="background: rgba(168,85,247,0.12);">📝</div>
-                            <span class="stat-label">TAREAS PENDIENTES</span>
-                        </div>
-                        <div class="stat-num" data-counter="${pendingTodosCount}" data-counter-type="integer" style="color: #a855f7;">
-                            ${pendingTodosCount}
-                        </div>
-                        <div style="margin-top:6px; font-size:0.75rem; color:var(--text-secondary);">Tareas por completar en tu lista</div>
-                    </div>
-                </div>
-            `;
-        } else {
-            kpisHtml = `
                 <!-- Saldo Total Bancos -->
                 <div class="stat-card animate-stagger" style="animation-delay: 0.05s;">
                     <div class="stat-bar" style="background: linear-gradient(90deg, #0ea5e9, #6366f1);"></div>
@@ -867,112 +821,7 @@ const Views = {
                         <button class="btn" onclick="App.navigate('clients')" style="background:rgba(255,255,255,0.16); color:white; border:1.5px solid rgba(255,255,255,0.42); width:100%; margin-top:10px; font-size:0.75rem; padding:6px 12px; backdrop-filter:blur(8px);">Gestionar</button>
                     </div>
                 </div>
-            `;
-        }
 
-        return `
-            <!-- ── SMART BANNER ─────────────────────────────────────────── -->
-            ${this.renderDashboardBanner()}
-
-            <!-- ── SLEEK GREETING & SWITCH HEADER ────────────────────── -->
-            <div class="glass-card animate-stagger" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; margin-bottom: 20px; border-radius: 14px; gap: 16px; flex-wrap: wrap;">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--primary) 0%, #c084fc 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(99,102,241,0.3);">
-                        <span style="font-size: 1.2rem;">👩‍💼</span>
-                    </div>
-                    <div>
-                        <h2 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">¡Hola, Jéssica!</h2>
-                        <p style="margin: 2px 0 0; font-size: 0.78rem; color: var(--text-secondary);">${State.dashboardView === 'personal' ? 'Mi Oficina Personal' : 'Panel Contable de Clientes'}</p>
-                    </div>
-                </div>
-                
-                <!-- Slidable Hybrid View Switch -->
-                <div style="display: flex; background: rgba(0,0,0,0.15); padding: 4px; border-radius: 30px; border: 1px solid var(--border-color); position: relative; gap: 4px;">
-                    <button onclick="App.setDashboardView('personal')" style="border: none; background: ${State.dashboardView === 'personal' ? 'var(--primary)' : 'transparent'}; color: ${State.dashboardView === 'personal' ? '#ffffff' : 'var(--text-secondary)'}; font-size: 0.8rem; font-weight: 700; padding: 8px 16px; border-radius: 20px; cursor: pointer; transition: all 0.25s; display: flex; align-items: center; gap: 6px;">
-                        💼 Mi Oficina
-                    </button>
-                    <button onclick="App.setDashboardView('contable')" style="border: none; background: ${State.dashboardView === 'contable' ? 'var(--primary)' : 'transparent'}; color: ${State.dashboardView === 'contable' ? '#ffffff' : 'var(--text-secondary)'}; font-size: 0.8rem; font-weight: 700; padding: 8px 16px; border-radius: 20px; cursor: pointer; transition: all 0.25s; display: flex; align-items: center; gap: 6px;">
-                        📊 Panel Clientes
-                    </button>
-                </div>
-            </div>
-
-            <!-- ── DIGITAL CREDIT/DEBIT CARDS DECK ────────────────── -->
-            ${State.dashboardView === 'personal' && State.bancosData && State.bancosData.length > 0 ? `
-            <div class="animate-stagger" style="display: flex; gap: 16px; overflow-x: auto; padding: 4px 4px 16px; scrollbar-width: thin; margin-bottom: 24px; animation-delay: 0.05s;">
-                ${(State.bancosData || []).map((banco, index) => {
-                    const bankInfo = Views.getBankInfo(banco.nombre);
-                    const cardColors = {
-                        'bank-theme-pichincha': { bg: 'linear-gradient(135deg, #fef08a 0%, #ca8a04 100%)', text: '#1e293b', accent: '#a16207' },
-                        'bank-theme-guayaquil': { bg: 'linear-gradient(135deg, #f472b6 0%, #db2777 100%)', text: '#ffffff', accent: '#fbcfe8' },
-                        'bank-theme-jep': { bg: 'linear-gradient(135deg, #a7f3d0 0%, #059669 100%)', text: '#ffffff', accent: '#d1fae5' },
-                        'bank-theme-jardin': { bg: 'linear-gradient(135deg, #c084fc 0%, #7c3aed 100%)', text: '#ffffff', accent: '#e9d5ff' },
-                        'bank-theme-generic': { bg: 'linear-gradient(135deg, #94a3b8 0%, #475569 100%)', text: '#ffffff', accent: '#f1f5f9' }
-                    };
-                    const colors = cardColors[bankInfo.themeClass] || cardColors['bank-theme-generic'];
-                    
-                    return `
-                    <div class="glass-card" style="flex: 0 0 280px; height: 160px; background: ${colors.bg}; color: ${colors.text}; border-radius: 16px; padding: 18px; position: relative; box-shadow: 0 10px 20px rgba(0,0,0,0.15); display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-4px)';" onmouseout="this.style.transform='translateY(0)';">
-                        <div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 80%); pointer-events: none;"></div>
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; z-index: 1;">
-                            <div>
-                                <div style="font-size: 0.55rem; font-weight: 700; letter-spacing: 1px; opacity: 0.8; text-transform: uppercase;">CUENTA BANCARIA</div>
-                                <div style="font-size: 0.95rem; font-weight: 800; margin-top: 2px;">${banco.nombre}</div>
-                            </div>
-                            <div style="width: 30px; height: 30px; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.2); padding: 4px;">
-                                ${bankInfo.icon}
-                            </div>
-                        </div>
-                        
-                        <div style="z-index: 1; margin: 8px 0 2px;">
-                            <div style="font-size: 0.55rem; opacity: 0.7; letter-spacing: 0.5px;">SALDO DISPONIBLE</div>
-                            <div style="font-family: var(--font-mono); font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px;">
-                                ${State.hideAmounts ? '****' : App.formatMoney(banco.saldo_actual)}
-                            </div>
-                        </div>
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: flex-end; z-index: 1; font-size: 0.6rem; opacity: 0.8;">
-                            <div>
-                                <span>Nº CTA: </span>
-                                <span style="font-family: var(--font-mono); font-weight: 600;">${banco.n_cuenta || 'N/D'}</span>
-                            </div>
-                            <div style="font-weight: 700; letter-spacing: 0.5px;">DEBIT CARD</div>
-                        </div>
-                    </div>
-                    `;
-                }).join('')}
-            </div>
-            ` : ''}
-
-            <!-- ── QUICK ACTIONS ─────────────────────────────────────────── -->
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:12px;">
-                <div>
-                    <div style="font-size:0.78rem; font-weight:600; letter-spacing:0.08em; color:var(--text-secondary); text-transform:uppercase;">Acciones rápidas</div>
-                </div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button class="btn btn-primary dash-quick-btn" onclick="App.navigate('sri')" title="Ir a SRI">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        Nueva Transacción
-                    </button>
-                    <button class="btn btn-secondary dash-quick-btn" onclick="App.showTransferModal()" title="Transferencia bancaria">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-                        Transferencia
-                    </button>
-                    <button class="btn btn-secondary dash-quick-btn" onclick="App.showAddBancoModal()" title="Agregar banco">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/><path d="M8 7V5a2 2 0 0 0-4 0v2"/></svg>
-                        Agregar Banco
-                    </button>
-                    <button class="btn btn-secondary dash-quick-btn" onclick="App.navigate('clients')" title="Clientes">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                        Clientes
-                    </button>
-                </div>
-            </div>
-
-            <!-- ── KPI CARDS ─────────────────────────────────────────────── -->
-            <div class="dashboard-kpi-grid" style="margin-bottom: 28px;">
-                ${kpisHtml}
             </div>
 
             <!-- ── MAIN CONTENT AREA ──────────────────────────────────────── -->
@@ -981,9 +830,7 @@ const Views = {
                 <!-- CHART con filtro de período -->
                 <div class="glass-card animate-stagger" style="animation-delay: 0.3s;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
-                        <h3 style="margin:0; font-family:var(--font-heading); font-size:1rem; text-transform: uppercase;">
-                            ${State.dashboardView === 'personal' ? 'Evolución de Oficina (Honorarios vs Gastos)' : 'EVOLUCIÓN MENSUAL (VENTAS VS COMPRAS)'}
-                        </h3>
+                        <h3 style="margin:0; font-family:var(--font-heading); font-size:1rem;">EVOLUCIÓN MENSUAL (VENTAS VS COMPRAS)</h3>
                         <div style="display:flex; gap:6px;">
                             ${['3M','6M','1A'].map(p => `
                                 <button id="chart-period-${p}" onclick="App.setChartPeriod('${p}')"
@@ -1001,15 +848,13 @@ const Views = {
                 <!-- PANEL DERECHO -->
                 <div style="display:flex; flex-direction:column; gap:20px;">
 
-                    <!-- Widget: Límites RIMPE (Solo en vista contable de clientes) -->
-                    ${State.dashboardView === 'contable' ? `
+                    <!-- Widget: Límites RIMPE -->
                     <div class="glass-card animate-stagger" style="animation-delay:0.35s;">
                         <h3 style="margin:0 0 16px; font-family:var(--font-heading); font-size:0.95rem;">LÍMITES RIMPE</h3>
                         <div style="display:flex; flex-direction:column; gap:12px; max-height:220px; overflow-y:auto;">
                             ${this.renderLimitAlerts()}
                         </div>
                     </div>
-                    ` : ''}
 
                     <!-- Widget: Próximos Vencimientos -->
                     <div class="glass-card animate-stagger" style="animation-delay:0.4s;">
@@ -1024,7 +869,7 @@ const Views = {
                                </div>`
                             : `<div style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto;">
                                 ${proximosItems.slice(0, 6).map(item => `
-                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:${item.urgente ? 'rgba(239,68,68,0.08)' : 'rgba(var(--primary-rgb),0.05)'}; border-left:3px solid ${item.urgente ? 'var(--danger)' : 'var(--primary)'}; border: 1px solid var(--border-color);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:${item.urgente ? 'rgba(239,68,68,0.08)' : 'rgba(var(--primary-rgb),0.05)'}; border-left:3px solid ${item.urgente ? 'var(--danger)' : 'var(--primary)'};">
                                         <div>
                                             <div style="font-weight:600; font-size:0.82rem;">${item.nombre}</div>
                                             <div style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px;">${item.tipo}</div>
@@ -1038,65 +883,14 @@ const Views = {
                         }
                     </div>
 
-                    <!-- Widget: Tareas Pendientes -->
-                    <div class="glass-card animate-stagger" style="animation-delay:0.45s;">
-                        <h3 style="margin:0 0 16px; font-family:var(--font-heading); font-size:0.95rem; display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                            <span style="display:flex; align-items:center; gap:8px;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                                TAREAS PENDIENTES
-                            </span>
-                            <span style="font-size:0.75rem; color:var(--text-secondary); font-weight:normal;" id="todo-count">${pendingTodosCount} pendientes</span>
-                        </h3>
-                        <div style="display:flex; gap:8px; margin-bottom:12px;">
-                            <input type="text" id="new-todo-input" placeholder="Nueva tarea..." style="flex:1; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:var(--text-primary); font-size:0.85rem;" onkeypress="if(event.key === 'Enter') App.addTodo()">
-                            <button class="btn btn-primary" onclick="App.addTodo()" style="padding:8px 12px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                            </button>
-                        </div>
-                        <div id="todo-list" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; padding-right:4px;">
-                            ${this.renderTodoList()}
-                        </div>
-                    </div>
-
                 </div>
             </div>
 
             <!-- ── ACTIVIDAD RECIENTE ──────────────────────────────────── -->
-            <div class="glass-card animate-stagger" style="margin-top:24px; animation-delay:0.5s;">
+            <div class="glass-card animate-stagger" style="margin-top:24px; animation-delay:0.45s;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
                     <h3 style="margin:0; font-family:var(--font-heading); font-size:1rem; display:flex; align-items:center; gap:8px;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                        ACTIVIDAD RECIENTE
-                    </h3>
-                    <button class="btn btn-secondary" onclick="App.navigate('sri')" style="font-size:0.75rem; padding:5px 12px;">Ver todo →</button>
-                </div>
-                <div id="recent-activity-list">${this.renderRecentActivity()}</div>
-            </div>
-        `;
-    },
-
-    renderTodoList() {
-        const todos = State.tareasData || [];
-        if (todos.length === 0) {
-            return `
-            <div style="text-align:center; padding:20px 0; color:var(--text-secondary); font-size:0.82rem;">
-                No tienes tareas pendientes. ¡Buen trabajo!
-            </div>`;
-        }
-        return todos.map(todo => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:rgba(var(--primary-rgb),0.05); border:1px solid var(--border-color); transition: all 0.2s;">
-                <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
-                    <input type="checkbox" ${todo.completed ? 'checked' : ''} onchange="App.toggleTodo('${todo.id}', this.checked)" style="width:16px; height:16px; cursor:pointer; accent-color:var(--primary);">
-                    <span style="font-size:0.82rem; font-weight:500; text-decoration:${todo.completed ? 'line-through' : 'none'}; color:${todo.completed ? 'var(--text-secondary)' : 'var(--text-primary)'}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; transition: all 0.2s;">
-                        ${App.escapeHTML(todo.text)}
-                    </span>
-                </div>
-                <button onclick="App.deleteTodo('${todo.id}')" title="Eliminar" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:0.9rem; padding:4px; opacity:0.6; transition: opacity 0.15s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">
-                    ✕
-                </button>
-            </div>
-        `).join('');
-    },roke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                         ACTIVIDAD RECIENTE
                     </h3>
                     <button class="btn btn-secondary" onclick="App.navigate('sri')" style="font-size:0.75rem; padding:5px 12px;">Ver todo →</button>

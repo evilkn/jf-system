@@ -78,7 +78,6 @@ const Store = {
                         photoURL: user.photoURL || userData.photoURL // Priorizamos Google pero fallamos a DB
                     };
 
-                    await this.checkAndCreateJessicaClient();
                     this.setupDataListeners(db, onUpdate);
                     State.currentRoute = 'dashboard';
                 } else {
@@ -98,40 +97,6 @@ const Store = {
                 onUpdate('auth');
             }
         });
-    },
-
-    async checkAndCreateJessicaClient() {
-        if (!State.currentUser) return;
-        const jessicaId = 'client_jessica_oficina';
-        try {
-            const doc = await db.collection("clientes").doc(jessicaId).get();
-            if (!doc.exists) {
-                console.log("Creando el cliente especial para la Oficina de Jéssica...");
-                const jessicaClient = {
-                    id: jessicaId,
-                    name: "Jéssica - JF Oficina Contable",
-                    ruc: "0706501608",
-                    regime: "General",
-                    frecuencia: "Mensual",
-                    diaMaximo: "28",
-                    novenoDigito: "0",
-                    oblIVA: "Si",
-                    oblRenta: "Si",
-                    oblATS: "No",
-                    oblGP: "No",
-                    oblSuperCia: "No",
-                    oblADI: "No",
-                    oblRebefics: "No",
-                    status: "active",
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                };
-                await db.collection("clientes").doc(jessicaId).set(jessicaClient);
-                console.log("Cliente especial creado con éxito.");
-            }
-        } catch (err) {
-            console.error("Error al verificar/crear cliente de Jéssica:", err);
-        }
     },
 
     setupDataListeners(db, onUpdate) {
@@ -180,23 +145,6 @@ const Store = {
             State.bancosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             onUpdate('bancos');
         }, (error) => console.error("Error en Bancos listener:", error));
-
-        // Firestore Listener: Tareas Pendientes (Oficina)
-        db.collection("tareas")
-            .where("userEmail", "==", user.email)
-            .orderBy("createdAt", "asc")
-            .onSnapshot((snapshot) => {
-                State.tareasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                onUpdate('tareas');
-            }, (error) => console.error("Error en Tareas listener:", error));
-
-        // Firestore Listener: Registros SRI de la Oficina (para el Dashboard Personal)
-        db.collection("sri_registros")
-            .where("clientId", "==", "client_jessica_oficina")
-            .onSnapshot((snapshot) => {
-                this.jessicaSriRegistros = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                onUpdate('jessica_sri');
-            }, (error) => console.error("Error en SRI Oficina listener:", error));
     },
 
     currentSriListener: null,
@@ -535,36 +483,6 @@ const Store = {
         } catch (e) {
             console.warn('loadConciliadoCreditos:', e);
         }
-    },
-
-    async saveTarea(data) {
-        if (data.id) {
-            await db.collection("tareas").doc(data.id).set(data, { merge: true });
-        } else {
-            const docRef = db.collection("tareas").doc();
-            data.id = docRef.id;
-            await docRef.set(data);
-        }
-    },
-
-    async deleteTarea(id) {
-        await db.collection("tareas").doc(id).delete();
-    },
-
-    getJessicaStatsForMonth(yearMonth) {
-        const regs = this.jessicaSriRegistros || [];
-        let sales = 0;
-        let purchases = 0;
-        
-        regs.forEach(r => {
-            if (!r.fecha || !r.fecha.startsWith(yearMonth)) return;
-            if (r.tipo === 'venta' && !r.anulada) {
-                sales += (r.subt15 || 0) + (r.subt0 || 0);
-            } else if (r.tipo === 'compra') {
-                purchases += (r.subt15 || 0) + (r.subt0 || 0) + (r.subt5 || 0);
-            }
-        });
-        return { sales, purchases };
     }
 };
 
