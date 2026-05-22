@@ -4101,8 +4101,15 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 });
             });
 
+            const parseDate = d => {
+                if (!d) return new Date(0);
+                if (typeof d.toDate === 'function') return d.toDate();
+                if (d.seconds) return new Date(d.seconds * 1000);
+                return new Date(d);
+            };
+
             // Sort merged results
-            transacciones.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+            transacciones.sort((a, b) => parseDate(b.fecha) - parseDate(a.fecha));
 
             if (transacciones.length === 0) {
                 listDiv.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-secondary);">No hay transacciones registradas.</div>';
@@ -4111,7 +4118,8 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
 
             let html = '';
             transacciones.slice(0, 50).forEach(t => {
-                const fecha = t.fecha ? new Date(t.fecha).toLocaleDateString() : 'N/A';
+                const parsed = parseDate(t.fecha);
+                const fecha = parsed && !isNaN(parsed.getTime()) && parsed.getTime() !== 0 ? parsed.toLocaleDateString() : 'N/A';
                 const color = t.tipo === 'ingreso' ? 'var(--success)' : (t.isAjuste ? 'var(--primary)' : 'var(--error)');
                 const signo = (t.tipo === 'ingreso' || t.monto > 0) ? '+' : '-';
                 const icon = t.isPago ? '💰' : (t.isAjuste ? '⚙️' : '📝');
@@ -4340,11 +4348,19 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 });
             });
 
-            transacciones.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+            const parseDate = d => {
+                if (!d) return new Date(0);
+                if (typeof d.toDate === 'function') return d.toDate();
+                if (d.seconds) return new Date(d.seconds * 1000);
+                return new Date(d);
+            };
+
+            transacciones.sort((a, b) => parseDate(b.fecha) - parseDate(a.fecha));
 
             const fmt = n => this.formatMoney(n);
             const rowsHTML = transacciones.map(t => {
-                const fecha = t.fecha ? new Date(t.fecha).toLocaleDateString() : 'N/A';
+                const parsed = parseDate(t.fecha);
+                const fecha = parsed && !isNaN(parsed.getTime()) && parsed.getTime() !== 0 ? parsed.toLocaleDateString() : 'N/A';
                 const color = t.tipo === 'ingreso' ? 'color:#065f46;' : (t.isAjuste ? 'color:#1e3a8a;' : 'color:#991b1b;');
                 const signo = (t.tipo === 'ingreso' || t.monto > 0) ? '+' : '-';
                 return `
