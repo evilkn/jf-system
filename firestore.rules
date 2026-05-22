@@ -83,6 +83,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Reglas para Tareas Pendientes (Oficina Personal)
+    match /tareas/{tareaId} {
+      allow read: if request.auth != null && resource.data.userEmail == request.auth.token.email;
+      allow create: if request.auth != null && request.resource.data.userEmail == request.auth.token.email;
+      allow update, delete: if request.auth != null && resource.data.userEmail == request.auth.token.email;
+    }
+
     // Reglas para el Libro Mayor de Auditoría (Audit Logs)
     match /audit_logs/{logId} {
       allow read: if isAdmin();
