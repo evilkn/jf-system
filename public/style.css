@@ -2461,6 +2461,32 @@ tr:hover td {
     letter-spacing: 0.5px;
 }
 
+/* Estilización personalizada para inputs de fecha e iconos de calendario en Auditoría */
+.audit-filters input[type="date"] {
+    position: relative;
+    padding-right: 40px;
+}
+
+.audit-filters input[type="date"]::-webkit-calendar-picker-indicator {
+    background: transparent;
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 2px;
+    filter: invert(0.4) sepia(1) saturate(5) hue-rotate(250deg); /* Violeta/Púrpura en modo claro */
+    transition: opacity 0.2s, transform 0.2s;
+    opacity: 0.8;
+}
+
+[data-theme="dark"] .audit-filters input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.85) sepia(1) saturate(6) hue-rotate(245deg); /* Violeta brillante de alta visibilidad en modo oscuro */
+    opacity: 0.95;
+}
+
+.audit-filters input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+    transform: scale(1.15);
+}
+
 .audit-timeline {
     position: relative;
     padding-left: 30px;
