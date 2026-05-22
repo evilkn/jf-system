@@ -2951,8 +2951,27 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         }
     },
 
-    async deleteTodo(id) {
-        if (!confirm("¿Estás seguro de eliminar esta tarea?")) return;
+    deleteTodo(id) {
+        const todo = (State.tareasData || []).find(t => t.id === id);
+        if (!todo) return;
+
+        // Create modal element
+        const modalHtml = Views.modalEliminarTarea(id, todo.text);
+        const div = document.createElement('div');
+        div.id = 'temp-delete-todo-container';
+        div.innerHTML = modalHtml;
+        document.body.appendChild(div);
+    },
+
+    closeDeleteTodoModal() {
+        const container = document.getElementById('temp-delete-todo-container');
+        if (container) {
+            container.remove();
+        }
+    },
+
+    async ejecutarEliminarTodo(id) {
+        this.closeDeleteTodoModal();
         try {
             await Store.deleteTarea(id);
             this.showToast('Tarea eliminada', 'success');

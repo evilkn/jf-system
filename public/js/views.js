@@ -433,6 +433,41 @@ const Views = {
         `;
     },
 
+    modalEliminarTarea(todoId, todoText) {
+        return `
+            <div id="confirm-delete-todo-modal" class="modal-overlay active">
+                <div class="modal-content glass-card animate-fadeInUp" style="max-width: 420px; border: 1px solid rgba(255, 77, 77, 0.3); padding: 24px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                        <h3 style="margin: 0; color: #ff4d4d; display:flex; align-items:center; gap:8px; font-size:1.1rem; font-family:var(--font-heading);">
+                            ${Icons.trash ? Icons.trash(18) : '🗑️'} Eliminar Tarea
+                        </h3>
+                        <button class="close-btn" onclick="App.closeDeleteTodoModal()" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; padding:4px; display:flex; align-items:center; justify-content:center;">
+                            ${Icons.close()}
+                        </button>
+                    </div>
+                    
+                    <div style="margin-bottom: 24px; text-align: center;">
+                        <div style="background: rgba(255, 77, 77, 0.08); padding: 16px; border-radius: 12px; border: 1px solid rgba(255, 77, 77, 0.15);">
+                            <p style="margin: 0; font-size: 0.95rem; line-height: 1.5; color:var(--text-primary);">
+                                ¿Estás seguro de que deseas eliminar esta tarea?
+                            </p>
+                            <p style="margin: 10px 0 0 0; color: var(--text-secondary); font-size: 0.85rem; font-style: italic; word-break: break-word;">
+                                "${todoText}"
+                            </p>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap: 12px;">
+                        <button type="button" class="btn btn-secondary" style="flex: 1; padding: 10px; border-radius: 8px; font-weight: 600;" onclick="App.closeDeleteTodoModal()">Cancelar</button>
+                        <button type="button" class="btn btn-danger" style="flex: 1; background: #ff4d4d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; padding: 10px; transition: background 0.2s;" 
+                            onmouseover="this.style.background='#e04343'" onmouseout="this.style.background='#ff4d4d'"
+                            onclick="App.ejecutarEliminarTodo('${todoId}')">Eliminar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
     transferModal() {
         const bancos = State.bancosData || [];
         const options = bancos.map(b => `<option value="${b.id}">${b.nombre} (${App.formatMoney(b.saldo_actual)})</option>`).join('');
