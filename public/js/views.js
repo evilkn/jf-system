@@ -277,6 +277,7 @@ const Views = {
         if (n.includes('guayaquil')) return { icon: '<img src="Bancos/banco_guayaquil.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-guayaquil' };
         if (n.includes('jep')) return { icon: '<img src="Bancos/cooperativa_jep.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-jep' };
         if (n.includes('jardín azuayo') || n.includes('jardin azuayo')) return { icon: '<img src="Bancos/cooperativa_jardin_azuayo.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-jardin' };
+        if (n.includes('austro')) return { icon: '<img src="Bancos/banco_del_austro.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-austro' };
         if (n.includes('produbanco')) return { icon: Icons.bankProdubanco(24), themeClass: 'bank-theme-produbanco' };
         if (n.includes('pacifico')) return { icon: Icons.bankPacifico(24), themeClass: 'bank-theme-pacifico' };
         return { icon: Icons.bank(24), themeClass: 'bank-theme-generic' };
@@ -650,6 +651,91 @@ const Views = {
         return titles[State.currentRoute] || 'JF SYSTEM';
     },
 
+    renderMiLiquidezWidget() {
+        const sortedBancos = [...(State.bancosData || [])].sort((a, b) => {
+            const isCajaA = a.nombre.toLowerCase().includes('caja');
+            const isCajaB = b.nombre.toLowerCase().includes('caja');
+            if (isCajaA && !isCajaB) return -1;
+            if (!isCajaA && isCajaB) return 1;
+            return a.nombre.localeCompare(b.nombre);
+        });
+
+        const totalLiquidez = sortedBancos.reduce((acc, b) => acc + (b.saldo_actual || 0), 0);
+
+        const cardColors = {
+            'bank-theme-pichincha': 'rgba(234, 179, 8, 0.1)',
+            'bank-theme-guayaquil': 'rgba(219, 39, 119, 0.1)',
+            'bank-theme-jep': 'rgba(5, 150, 105, 0.1)',
+            'bank-theme-jardin': 'rgba(124, 58, 237, 0.1)',
+            'bank-theme-austro': 'rgba(29, 78, 216, 0.1)',
+            'bank-theme-generic': 'rgba(255, 255, 255, 0.05)'
+        };
+
+        const listHtml = sortedBancos.length === 0 
+            ? `
+            <div style="text-align:center; padding:24px 0; color:var(--text-secondary); font-size:0.82rem;">
+                <div style="font-size:1.5rem; margin-bottom:8px;">🏦</div>
+                Sin cuentas registradas.
+                <button class="btn btn-secondary" onclick="App.showAddBancoModal()" style="font-size:0.72rem; padding:4px 8px; margin-top:8px; display:inline-block;">Agregar Cuenta</button>
+            </div>`
+            : sortedBancos.map(banco => {
+                const bankInfo = this.getBankInfo(banco.nombre);
+                let maskCta = 'N/D';
+                if (banco.n_cuenta) {
+                    const ctaClean = String(banco.n_cuenta).trim();
+                    maskCta = ctaClean.length > 4 ? `•••• ${ctaClean.slice(-4)}` : ctaClean;
+                } else if (banco.numero) {
+                    const ctaClean = String(banco.numero).trim();
+                    maskCta = ctaClean.length > 4 ? `•••• ${ctaClean.slice(-4)}` : ctaClean;
+                }
+                const formattedSaldo = State.hideAmounts ? '••••' : App.formatMoney(banco.saldo_actual || 0);
+
+                return `
+                <div class="liquidez-item" onclick="App.navigate('bancos'); App.openBancoDetail('${banco.id}')" style="display:flex; align-items:center; justify-content:space-between; padding:12px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); cursor:pointer; transition: all 0.2s ease; margin-bottom:8px;" onmouseover="this.style.background='rgba(255,255,255,0.06)'; this.style.borderColor='rgba(var(--primary-rgb),0.3)';" onmouseout="this.style.background='rgba(255,255,255,0.03)'; this.style.borderColor='var(--border-color)';">
+                    <div style="display:flex; align-items:center; gap:12px; min-width: 0; flex: 1;">
+                        <div style="width:36px; height:36px; border-radius:8px; overflow:hidden; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; flex-shrink:0; border: 1px solid var(--border-color); padding: 4px;">
+                            ${bankInfo.icon}
+                        </div>
+                        <div style="min-width: 0; flex: 1;">
+                            <div style="font-weight:600; font-size:0.85rem; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${banco.nombre}</div>
+                            <div style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px;">${banco.nombre.toLowerCase().includes('caja') ? 'Efectivo' : 'Cuenta'} • ${maskCta}</div>
+                        </div>
+                    </div>
+                    <div style="font-family:var(--font-mono); font-size:0.9rem; font-weight:700; color:var(--text-primary); text-align:right; margin-left:12px;">
+                        ${formattedSaldo}
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+        return `
+        <div class="glass-card animate-stagger" style="animation-delay:0.3s; margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h3 style="margin:0; font-family:var(--font-heading); font-size:0.95rem; display:flex; align-items:center; gap:8px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/><path d="M8 7V5a2 2 0 0 0-4 0v2"/></svg>
+                    MI LIQUIDEZ
+                </h3>
+                <span class="privacy-btn-sub" onclick="App.toggleHideAmounts()" style="cursor:pointer; display:flex; align-items:center; justify-content:center; padding:4px; border-radius:6px; background:rgba(255,255,255,0.05); color:var(--text-secondary); transition: all 0.2s;" onmouseover="this.style.color='var(--primary)'; this.style.background='rgba(255,255,255,0.1)';" onmouseout="this.style.color='var(--text-secondary)'; this.style.background='rgba(255,255,255,0.05)';">
+                    ${State.hideAmounts 
+                        ? `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>` 
+                        : `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`}
+                </span>
+            </div>
+            
+            <div style="background:rgba(var(--primary-rgb),0.04); border:1px dashed rgba(var(--primary-rgb),0.18); border-radius:12px; padding:16px; margin-bottom:20px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
+                <span style="font-size:0.72rem; font-weight:600; letter-spacing:0.08em; color:var(--text-secondary); text-transform:uppercase; margin-bottom:4px;">TOTAL DISPONIBLE</span>
+                <span style="font-family:var(--font-mono); font-size:1.75rem; font-weight:800; color:var(--text-primary); letter-spacing:-0.5px; background:linear-gradient(135deg, var(--text-primary), rgba(var(--primary-rgb), 0.8)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">
+                    ${State.hideAmounts ? '••••••' : App.formatMoney(totalLiquidez)}
+                </span>
+            </div>
+
+            <div style="display:flex; flex-direction:column; max-height:260px; overflow-y:auto; padding-right:2px;">
+                ${listHtml}
+            </div>
+        </div>
+        `;
+    },
+
     dashboard() {
         const meta = Store.get('dashboardMeta') || { totalRegistros: 0, mensual: {}, clientes: {} };
         const clients = (Store.get('clientes') || []).filter(c => c.status !== 'archived');
@@ -870,6 +956,171 @@ const Views = {
             `;
         }
 
+        let columnsHtml = '';
+        if (State.dashboardView === 'personal') {
+            columnsHtml = `
+            <div class="form-grid" style="grid-template-columns: 1.2fr 1.8fr; gap: 24px; align-items: start;">
+                <!-- COLUMNA IZQUIERDA (Liquidez + Tareas) -->
+                <div style="display:flex; flex-direction:column; gap:20px;">
+                    \${this.renderMiLiquidezWidget()}
+                    
+                    <!-- Widget: Tareas Pendientes -->
+                    <div class="glass-card animate-stagger" style="animation-delay:0.35s;">
+                        <h3 style="margin:0 0 16px; font-family:var(--font-heading); font-size:0.95rem; display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                            <span style="display:flex; align-items:center; gap:8px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                TAREAS PENDIENTES
+                            </span>
+                            <span style="font-size:0.75rem; color:var(--text-secondary); font-weight:normal;" id="todo-count">\${pendingTodosCount} pendientes</span>
+                        </h3>
+                        <div style="display:flex; gap:8px; margin-bottom:12px;">
+                            <input type="text" id="new-todo-input" placeholder="Nueva tarea..." style="flex:1; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:var(--text-primary); font-size:0.85rem;" onkeypress="if(event.key === 'Enter') App.addTodo()">
+                            <button type="button" class="btn btn-primary" onclick="App.addTodo()" style="padding:8px 12px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            </button>
+                        </div>
+                        <div id="todo-list" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; padding-right:4px;">
+                            \${this.renderTodoList()}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUMNA DERECHA (Gráfica + Vencimientos) -->
+                <div style="display:flex; flex-direction:column; gap:20px;">
+                    <!-- CHART con filtro de período -->
+                    <div class="glass-card animate-stagger" style="animation-delay: 0.4s;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+                            <h3 style="margin:0; font-family:var(--font-heading); font-size:1rem; text-transform: uppercase;">
+                                Evolución de Oficina (Honorarios vs Gastos)
+                            </h3>
+                            <div style="display:flex; gap:6px;">
+                                \${['3M','6M','1A'].map(p => \`
+                                    <button id="chart-period-\${p}" onclick="App.setChartPeriod('\${p}')"
+                                        class="btn btn-secondary"
+                                        style="padding:4px 12px; font-size:0.75rem; font-weight:600; \${(State.chartPeriod||'6M') === p ? 'background:var(--primary); color:white; border-color:var(--primary);' : ''}">
+                                        \${p}
+                                    </button>\`).join('')}
+                            </div>
+                        </div>
+                        <div style="height:300px; position:relative;">
+                            <canvas id="dashboardChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Widget: Próximos Vencimientos -->
+                    <div class="glass-card animate-stagger" style="animation-delay: 0.45s;">
+                        <h3 style="margin:0 0 16px; font-family:var(--font-heading); font-size:0.95rem; display:flex; align-items:center; gap:8px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            PRÓXIMOS VENCIMIENTOS
+                        </h3>
+                        \${proximosItems.length === 0
+                            ? \`<div style="text-align:center; padding:20px 0; color:var(--success);">
+                                   <div style="font-size:1.8rem; margin-bottom:6px;">✓</div>
+                                   <div style="font-size:0.85rem; font-weight:600;">Sin vencimientos próximos</div>
+                               </div>\`
+                            : \`<div style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto;">
+                                \${proximosItems.slice(0, 6).map(item => \`
+                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:\${item.urgente ? 'rgba(239,68,68,0.08)' : 'rgba(var(--primary-rgb),0.05)'}; border-left:3px solid \${item.urgente ? 'var(--danger)' : 'var(--primary)'}; border: 1px solid var(--border-color);">
+                                        <div>
+                                            <div style="font-weight:600; font-size:0.82rem;">\${item.nombre}</div>
+                                            <div style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px;">\${item.tipo}</div>
+                                        </div>
+                                        <span style="font-size:0.75rem; font-weight:700; padding:3px 8px; border-radius:12px; background:\${item.urgente ? 'rgba(239,68,68,0.15)' : 'rgba(var(--primary-rgb),0.12)'}; color:\${item.urgente ? 'var(--danger)' : 'var(--primary)'}; white-space:nowrap;">
+                                            \${item.dias <= 0 ? 'Hoy' : item.dias === 1 ? 'Mañana' : \`\${item.dias}d\`}
+                                        </span>
+                                    </div>
+                                \`).join('')}
+                               </div>\`
+                        }
+                    </div>
+                </div>
+            </div>
+            `;
+        } else {
+            // Contable view (traditional columns: 2fr 1fr)
+            columnsHtml = `
+            <div class="form-grid" style="grid-template-columns: 2fr 1fr; gap: 24px; align-items: start;">
+                <!-- COLUMNA IZQUIERDA (Gráfica) -->
+                <div class="glass-card animate-stagger" style="animation-delay: 0.3s;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+                        <h3 style="margin:0; font-family:var(--font-heading); font-size:1rem; text-transform: uppercase;">
+                            EVOLUCIÓN MENSUAL (VENTAS VS COMPRAS)
+                        </h3>
+                        <div style="display:flex; gap:6px;">
+                            \${['3M','6M','1A'].map(p => \`
+                                <button id="chart-period-\${p}" onclick="App.setChartPeriod('\${p}')"
+                                    class="btn btn-secondary"
+                                    style="padding:4px 12px; font-size:0.75rem; font-weight:600; \${(State.chartPeriod||'6M') === p ? 'background:var(--primary); color:white; border-color:var(--primary);' : ''}">
+                                    \${p}
+                                </button>\`).join('')}
+                        </div>
+                    </div>
+                    <div style="height:300px; position:relative;">
+                        <canvas id="dashboardChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- COLUMNA DERECHA (Límites RIMPE + Vencimientos + Tareas) -->
+                <div style="display:flex; flex-direction:column; gap:20px;">
+                    <!-- Widget: Límites RIMPE -->
+                    <div class="glass-card animate-stagger" style="animation-delay:0.35s;">
+                        <h3 style="margin:0 0 16px; font-family:var(--font-heading); font-size:0.95rem;">LÍMITES RIMPE</h3>
+                        <div style="display:flex; flex-direction:column; gap:12px; max-height:220px; overflow-y:auto;">
+                            \${this.renderLimitAlerts()}
+                        </div>
+                    </div>
+
+                    <!-- Widget: Próximos Vencimientos -->
+                    <div class="glass-card animate-stagger" style="animation-delay:0.4s;">
+                        <h3 style="margin:0 0 16px; font-family:var(--font-heading); font-size:0.95rem; display:flex; align-items:center; gap:8px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            PRÓXIMOS VENCIMIENTOS
+                        </h3>
+                        \${proximosItems.length === 0
+                            ? \`<div style="text-align:center; padding:20px 0; color:var(--success);">
+                                   <div style="font-size:1.8rem; margin-bottom:6px;">✓</div>
+                                   <div style="font-size:0.85rem; font-weight:600;">Sin vencimientos próximos</div>
+                               </div>\`
+                            : \`<div style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto;">
+                                \${proximosItems.slice(0, 6).map(item => \`
+                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:\${item.urgente ? 'rgba(239,68,68,0.08)' : 'rgba(var(--primary-rgb),0.05)'}; border-left:3px solid \${item.urgente ? 'var(--danger)' : 'var(--primary)'}; border: 1px solid var(--border-color);">
+                                        <div>
+                                            <div style="font-weight:600; font-size:0.82rem;">\${item.nombre}</div>
+                                            <div style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px;">\${item.tipo}</div>
+                                        </div>
+                                        <span style="font-size:0.75rem; font-weight:700; padding:3px 8px; border-radius:12px; background:\${item.urgente ? 'rgba(239,68,68,0.15)' : 'rgba(var(--primary-rgb),0.12)'}; color:\${item.urgente ? 'var(--danger)' : 'var(--primary)'}; white-space:nowrap;">
+                                            \${item.dias <= 0 ? 'Hoy' : item.dias === 1 ? 'Mañana' : \`\${item.dias}d\`}
+                                        </span>
+                                    </div>
+                                \`).join('')}
+                               </div>\`
+                        }
+                    </div>
+
+                    <!-- Widget: Tareas Pendientes -->
+                    <div class="glass-card animate-stagger" style="animation-delay:0.45s;">
+                        <h3 style="margin:0 0 16px; font-family:var(--font-heading); font-size:0.95rem; display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                            <span style="display:flex; align-items:center; gap:8px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                TAREAS PENDIENTES
+                            </span>
+                            <span style="font-size:0.75rem; color:var(--text-secondary); font-weight:normal;" id="todo-count">\${pendingTodosCount} pendientes</span>
+                        </h3>
+                        <div style="display:flex; gap:8px; margin-bottom:12px;">
+                            <input type="text" id="new-todo-input" placeholder="Nueva tarea..." style="flex:1; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:var(--text-primary); font-size:0.85rem;" onkeypress="if(event.key === 'Enter') App.addTodo()">
+                            <button type="button" class="btn btn-primary" onclick="App.addTodo()" style="padding:8px 12px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            </button>
+                        </div>
+                        <div id="todo-list" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; padding-right:4px;">
+                            \${this.renderTodoList()}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
         return `
             <!-- ── SMART BANNER ─────────────────────────────────────────── -->
             ${this.renderDashboardBanner()}
@@ -896,54 +1147,6 @@ const Views = {
                     </button>
                 </div>
             </div>
-
-            <!-- ── DIGITAL CREDIT/DEBIT CARDS DECK ────────────────── -->
-            ${State.dashboardView === 'personal' && State.bancosData && State.bancosData.length > 0 ? `
-            <div class="animate-stagger" style="display: flex; gap: 16px; overflow-x: auto; padding: 4px 4px 16px; scrollbar-width: thin; margin-bottom: 24px; animation-delay: 0.05s;">
-                ${(State.bancosData || []).map((banco, index) => {
-                    const bankInfo = Views.getBankInfo(banco.nombre);
-                    const cardColors = {
-                        'bank-theme-pichincha': { bg: 'linear-gradient(135deg, #fef08a 0%, #ca8a04 100%)', text: '#1e293b', accent: '#a16207' },
-                        'bank-theme-guayaquil': { bg: 'linear-gradient(135deg, #f472b6 0%, #db2777 100%)', text: '#ffffff', accent: '#fbcfe8' },
-                        'bank-theme-jep': { bg: 'linear-gradient(135deg, #a7f3d0 0%, #059669 100%)', text: '#ffffff', accent: '#d1fae5' },
-                        'bank-theme-jardin': { bg: 'linear-gradient(135deg, #c084fc 0%, #7c3aed 100%)', text: '#ffffff', accent: '#e9d5ff' },
-                        'bank-theme-generic': { bg: 'linear-gradient(135deg, #94a3b8 0%, #475569 100%)', text: '#ffffff', accent: '#f1f5f9' }
-                    };
-                    const colors = cardColors[bankInfo.themeClass] || cardColors['bank-theme-generic'];
-                    
-                    return `
-                    <div class="glass-card" style="flex: 0 0 280px; height: 160px; background: ${colors.bg}; color: ${colors.text}; border-radius: 16px; padding: 18px; position: relative; box-shadow: 0 10px 20px rgba(0,0,0,0.15); display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-4px)';" onmouseout="this.style.transform='translateY(0)';">
-                        <div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 80%); pointer-events: none;"></div>
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; z-index: 1;">
-                            <div>
-                                <div style="font-size: 0.55rem; font-weight: 700; letter-spacing: 1px; opacity: 0.8; text-transform: uppercase;">CUENTA BANCARIA</div>
-                                <div style="font-size: 0.95rem; font-weight: 800; margin-top: 2px;">${banco.nombre}</div>
-                            </div>
-                            <div style="width: 30px; height: 30px; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.2); padding: 4px;">
-                                ${bankInfo.icon}
-                            </div>
-                        </div>
-                        
-                        <div style="z-index: 1; margin: 8px 0 2px;">
-                            <div style="font-size: 0.55rem; opacity: 0.7; letter-spacing: 0.5px;">SALDO DISPONIBLE</div>
-                            <div style="font-family: var(--font-mono); font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px;">
-                                ${State.hideAmounts ? '****' : App.formatMoney(banco.saldo_actual)}
-                            </div>
-                        </div>
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: flex-end; z-index: 1; font-size: 0.6rem; opacity: 0.8;">
-                            <div>
-                                <span>Nº CTA: </span>
-                                <span style="font-family: var(--font-mono); font-weight: 600;">${banco.n_cuenta || 'N/D'}</span>
-                            </div>
-                            <div style="font-weight: 700; letter-spacing: 0.5px;">DEBIT CARD</div>
-                        </div>
-                    </div>
-                    `;
-                }).join('')}
-            </div>
-            ` : ''}
 
             <!-- ── QUICK ACTIONS ─────────────────────────────────────────── -->
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:12px;">
@@ -976,90 +1179,7 @@ const Views = {
             </div>
 
             <!-- ── MAIN CONTENT AREA ──────────────────────────────────────── -->
-            <div class="form-grid" style="grid-template-columns: 2fr 1fr; gap: 24px; align-items: start;">
-
-                <!-- CHART con filtro de período -->
-                <div class="glass-card animate-stagger" style="animation-delay: 0.3s;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
-                        <h3 style="margin:0; font-family:var(--font-heading); font-size:1rem; text-transform: uppercase;">
-                            ${State.dashboardView === 'personal' ? 'Evolución de Oficina (Honorarios vs Gastos)' : 'EVOLUCIÓN MENSUAL (VENTAS VS COMPRAS)'}
-                        </h3>
-                        <div style="display:flex; gap:6px;">
-                            ${['3M','6M','1A'].map(p => `
-                                <button id="chart-period-${p}" onclick="App.setChartPeriod('${p}')"
-                                    class="btn btn-secondary"
-                                    style="padding:4px 12px; font-size:0.75rem; font-weight:600; ${(State.chartPeriod||'6M') === p ? 'background:var(--primary); color:white; border-color:var(--primary);' : ''}">
-                                    ${p}
-                                </button>`).join('')}
-                        </div>
-                    </div>
-                    <div style="height:300px; position:relative;">
-                        <canvas id="dashboardChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- PANEL DERECHO -->
-                <div style="display:flex; flex-direction:column; gap:20px;">
-
-                    <!-- Widget: Límites RIMPE (Solo en vista contable de clientes) -->
-                    ${State.dashboardView === 'contable' ? `
-                    <div class="glass-card animate-stagger" style="animation-delay:0.35s;">
-                        <h3 style="margin:0 0 16px; font-family:var(--font-heading); font-size:0.95rem;">LÍMITES RIMPE</h3>
-                        <div style="display:flex; flex-direction:column; gap:12px; max-height:220px; overflow-y:auto;">
-                            ${this.renderLimitAlerts()}
-                        </div>
-                    </div>
-                    ` : ''}
-
-                    <!-- Widget: Próximos Vencimientos -->
-                    <div class="glass-card animate-stagger" style="animation-delay:0.4s;">
-                        <h3 style="margin:0 0 16px; font-family:var(--font-heading); font-size:0.95rem; display:flex; align-items:center; gap:8px;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                            PRÓXIMOS VENCIMIENTOS
-                        </h3>
-                        ${proximosItems.length === 0
-                            ? `<div style="text-align:center; padding:20px 0; color:var(--success);">
-                                   <div style="font-size:1.8rem; margin-bottom:6px;">✓</div>
-                                   <div style="font-size:0.85rem; font-weight:600;">Sin vencimientos próximos</div>
-                               </div>`
-                            : `<div style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto;">
-                                ${proximosItems.slice(0, 6).map(item => `
-                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:${item.urgente ? 'rgba(239,68,68,0.08)' : 'rgba(var(--primary-rgb),0.05)'}; border-left:3px solid ${item.urgente ? 'var(--danger)' : 'var(--primary)'}; border: 1px solid var(--border-color);">
-                                        <div>
-                                            <div style="font-weight:600; font-size:0.82rem;">${item.nombre}</div>
-                                            <div style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px;">${item.tipo}</div>
-                                        </div>
-                                        <span style="font-size:0.75rem; font-weight:700; padding:3px 8px; border-radius:12px; background:${item.urgente ? 'rgba(239,68,68,0.15)' : 'rgba(var(--primary-rgb),0.12)'}; color:${item.urgente ? 'var(--danger)' : 'var(--primary)'}; white-space:nowrap;">
-                                            ${item.dias <= 0 ? 'Hoy' : item.dias === 1 ? 'Mañana' : `${item.dias}d`}
-                                        </span>
-                                    </div>
-                                `).join('')}
-                               </div>`
-                        }
-                    </div>
-
-                    <!-- Widget: Tareas Pendientes -->
-                    <div class="glass-card animate-stagger" style="animation-delay:0.45s;">
-                        <h3 style="margin:0 0 16px; font-family:var(--font-heading); font-size:0.95rem; display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                            <span style="display:flex; align-items:center; gap:8px;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                                TAREAS PENDIENTES
-                            </span>
-                            <span style="font-size:0.75rem; color:var(--text-secondary); font-weight:normal;" id="todo-count">${pendingTodosCount} pendientes</span>
-                        </h3>
-                        <div style="display:flex; gap:8px; margin-bottom:12px;">
-                            <input type="text" id="new-todo-input" placeholder="Nueva tarea..." style="flex:1; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:var(--text-primary); font-size:0.85rem;" onkeypress="if(event.key === 'Enter') App.addTodo()">
-                            <button class="btn btn-primary" onclick="App.addTodo()" style="padding:8px 12px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                            </button>
-                        </div>
-                        <div id="todo-list" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; padding-right:4px;">
-                            ${this.renderTodoList()}
-                        </div>
-                    </div>
-
-                </div>
-            </div>
+            ${columnsHtml}
 
             <!-- ── ACTIVIDAD RECIENTE ──────────────────────────────────── -->
             <div class="glass-card animate-stagger" style="margin-top:24px; animation-delay:0.5s;">

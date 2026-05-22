@@ -2908,20 +2908,29 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
     },
 
     async addTodo() {
+        console.log("App.addTodo() iniciada.");
         const input = document.getElementById('new-todo-input');
-        if (!input) return;
+        if (!input) {
+            console.warn("No se encontró el elemento input con ID 'new-todo-input'.");
+            return;
+        }
         const text = input.value.trim();
+        console.log("Texto de la tarea a agregar:", text);
         if (!text) return;
         
         try {
+            const email = State.currentUser?.email || '';
+            console.log("Usuario actual en State:", State.currentUser, "Email:", email);
             const newTodo = {
                 text,
                 completed: false,
-                userEmail: State.currentUser.email,
+                userEmail: email,
                 createdAt: new Date().toISOString()
             };
             input.value = '';
+            console.log("Guardando tarea en Store...", newTodo);
             await Store.saveTarea(newTodo);
+            console.log("Tarea guardada con éxito en Firestore.");
             this.showToast('Tarea agregada con éxito', 'success');
         } catch (err) {
             console.error("Error al agregar tarea:", err);
