@@ -962,7 +962,7 @@ const Views = {
             <div class="form-grid" style="grid-template-columns: 1.2fr 1.8fr; gap: 24px; align-items: start;">
                 <!-- COLUMNA IZQUIERDA (Liquidez + Tareas) -->
                 <div style="display:flex; flex-direction:column; gap:20px;">
-                    \${this.renderMiLiquidezWidget()}
+                    ${this.renderMiLiquidezWidget()}
                     
                     <!-- Widget: Tareas Pendientes -->
                     <div class="glass-card animate-stagger" style="animation-delay:0.35s;">
@@ -971,7 +971,7 @@ const Views = {
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                                 TAREAS PENDIENTES
                             </span>
-                            <span style="font-size:0.75rem; color:var(--text-secondary); font-weight:normal;" id="todo-count">\${pendingTodosCount} pendientes</span>
+                            <span style="font-size:0.75rem; color:var(--text-secondary); font-weight:normal;" id="todo-count">${pendingTodosCount} pendientes</span>
                         </h3>
                         <div style="display:flex; gap:8px; margin-bottom:12px;">
                             <input type="text" id="new-todo-input" placeholder="Nueva tarea..." style="flex:1; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:var(--text-primary); font-size:0.85rem;" onkeypress="if(event.key === 'Enter') App.addTodo()">
@@ -980,7 +980,7 @@ const Views = {
                             </button>
                         </div>
                         <div id="todo-list" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; padding-right:4px;">
-                            \${this.renderTodoList()}
+                            ${this.renderTodoList()}
                         </div>
                     </div>
                 </div>
@@ -994,12 +994,12 @@ const Views = {
                                 Evolución de Oficina (Honorarios vs Gastos)
                             </h3>
                             <div style="display:flex; gap:6px;">
-                                \${['3M','6M','1A'].map(p => \`
-                                    <button id="chart-period-\${p}" onclick="App.setChartPeriod('\${p}')"
+                                ${['3M','6M','1A'].map(p => `
+                                    <button id="chart-period-${p}" onclick="App.setChartPeriod('${p}')"
                                         class="btn btn-secondary"
-                                        style="padding:4px 12px; font-size:0.75rem; font-weight:600; \${(State.chartPeriod||'6M') === p ? 'background:var(--primary); color:white; border-color:var(--primary);' : ''}">
-                                        \${p}
-                                    </button>\`).join('')}
+                                        style="padding:4px 12px; font-size:0.75rem; font-weight:600; ${(State.chartPeriod||'6M') === p ? 'background:var(--primary); color:white; border-color:var(--primary);' : ''}">
+                                        ${p}
+                                    </button>`).join('')}
                             </div>
                         </div>
                         <div style="height:300px; position:relative;">
@@ -1013,24 +1013,24 @@ const Views = {
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                             PRÓXIMOS VENCIMIENTOS
                         </h3>
-                        \${proximosItems.length === 0
-                            ? \`<div style="text-align:center; padding:20px 0; color:var(--success);">
+                        ${proximosItems.length === 0
+                            ? `<div style="text-align:center; padding:20px 0; color:var(--success);">
                                    <div style="font-size:1.8rem; margin-bottom:6px;">✓</div>
                                    <div style="font-size:0.85rem; font-weight:600;">Sin vencimientos próximos</div>
-                               </div>\`
-                            : \`<div style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto;">
-                                \${proximosItems.slice(0, 6).map(item => \`
-                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:\${item.urgente ? 'rgba(239,68,68,0.08)' : 'rgba(var(--primary-rgb),0.05)'}; border-left:3px solid \${item.urgente ? 'var(--danger)' : 'var(--primary)'}; border: 1px solid var(--border-color);">
+                               </div>`
+                            : `<div style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto;">
+                                ${proximosItems.slice(0, 6).map(item => `
+                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:${item.urgente ? 'rgba(239,68,68,0.08)' : 'rgba(var(--primary-rgb),0.05)'}; border-left:3px solid ${item.urgente ? 'var(--danger)' : 'var(--primary)'}; border: 1px solid var(--border-color);">
                                         <div>
-                                            <div style="font-weight:600; font-size:0.82rem;">\${item.nombre}</div>
-                                            <div style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px;">\${item.tipo}</div>
+                                            <div style="font-weight:600; font-size:0.82rem;">${item.nombre}</div>
+                                            <div style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px;">${item.tipo}</div>
                                         </div>
-                                        <span style="font-size:0.75rem; font-weight:700; padding:3px 8px; border-radius:12px; background:\${item.urgente ? 'rgba(239,68,68,0.15)' : 'rgba(var(--primary-rgb),0.12)'}; color:\${item.urgente ? 'var(--danger)' : 'var(--primary)'}; white-space:nowrap;">
-                                            \${item.dias <= 0 ? 'Hoy' : item.dias === 1 ? 'Mañana' : \`\${item.dias}d\`}
+                                        <span style="font-size:0.75rem; font-weight:700; padding:3px 8px; border-radius:12px; background:${item.urgente ? 'rgba(239,68,68,0.15)' : 'rgba(var(--primary-rgb),0.12)'}; color:${item.urgente ? 'var(--danger)' : 'var(--primary)'}; white-space:nowrap;">
+                                            ${item.dias <= 0 ? 'Hoy' : item.dias === 1 ? 'Mañana' : `${item.dias}d`}
                                         </span>
                                     </div>
-                                \`).join('')}
-                               </div>\`
+                                `).join('')}
+                               </div>`
                         }
                     </div>
                 </div>
@@ -1047,12 +1047,12 @@ const Views = {
                             EVOLUCIÓN MENSUAL (VENTAS VS COMPRAS)
                         </h3>
                         <div style="display:flex; gap:6px;">
-                            \${['3M','6M','1A'].map(p => \`
-                                <button id="chart-period-\${p}" onclick="App.setChartPeriod('\${p}')"
+                            ${['3M','6M','1A'].map(p => `
+                                <button id="chart-period-${p}" onclick="App.setChartPeriod('${p}')"
                                     class="btn btn-secondary"
-                                    style="padding:4px 12px; font-size:0.75rem; font-weight:600; \${(State.chartPeriod||'6M') === p ? 'background:var(--primary); color:white; border-color:var(--primary);' : ''}">
-                                    \${p}
-                                </button>\`).join('')}
+                                    style="padding:4px 12px; font-size:0.75rem; font-weight:600; ${(State.chartPeriod||'6M') === p ? 'background:var(--primary); color:white; border-color:var(--primary);' : ''}">
+                                    ${p}
+                                </button>`).join('')}
                         </div>
                     </div>
                     <div style="height:300px; position:relative;">
@@ -1066,7 +1066,7 @@ const Views = {
                     <div class="glass-card animate-stagger" style="animation-delay:0.35s;">
                         <h3 style="margin:0 0 16px; font-family:var(--font-heading); font-size:0.95rem;">LÍMITES RIMPE</h3>
                         <div style="display:flex; flex-direction:column; gap:12px; max-height:220px; overflow-y:auto;">
-                            \${this.renderLimitAlerts()}
+                            ${this.renderLimitAlerts()}
                         </div>
                     </div>
 
@@ -1076,24 +1076,24 @@ const Views = {
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                             PRÓXIMOS VENCIMIENTOS
                         </h3>
-                        \${proximosItems.length === 0
-                            ? \`<div style="text-align:center; padding:20px 0; color:var(--success);">
+                        ${proximosItems.length === 0
+                            ? `<div style="text-align:center; padding:20px 0; color:var(--success);">
                                    <div style="font-size:1.8rem; margin-bottom:6px;">✓</div>
                                    <div style="font-size:0.85rem; font-weight:600;">Sin vencimientos próximos</div>
-                               </div>\`
-                            : \`<div style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto;">
-                                \${proximosItems.slice(0, 6).map(item => \`
-                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:\${item.urgente ? 'rgba(239,68,68,0.08)' : 'rgba(var(--primary-rgb),0.05)'}; border-left:3px solid \${item.urgente ? 'var(--danger)' : 'var(--primary)'}; border: 1px solid var(--border-color);">
+                               </div>`
+                            : `<div style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto;">
+                                ${proximosItems.slice(0, 6).map(item => `
+                                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:${item.urgente ? 'rgba(239,68,68,0.08)' : 'rgba(var(--primary-rgb),0.05)'}; border-left:3px solid ${item.urgente ? 'var(--danger)' : 'var(--primary)'}; border: 1px solid var(--border-color);">
                                         <div>
-                                            <div style="font-weight:600; font-size:0.82rem;">\${item.nombre}</div>
-                                            <div style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px;">\${item.tipo}</div>
+                                            <div style="font-weight:600; font-size:0.82rem;">${item.nombre}</div>
+                                            <div style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px;">${item.tipo}</div>
                                         </div>
-                                        <span style="font-size:0.75rem; font-weight:700; padding:3px 8px; border-radius:12px; background:\${item.urgente ? 'rgba(239,68,68,0.15)' : 'rgba(var(--primary-rgb),0.12)'}; color:\${item.urgente ? 'var(--danger)' : 'var(--primary)'}; white-space:nowrap;">
-                                            \${item.dias <= 0 ? 'Hoy' : item.dias === 1 ? 'Mañana' : \`\${item.dias}d\`}
+                                        <span style="font-size:0.75rem; font-weight:700; padding:3px 8px; border-radius:12px; background:${item.urgente ? 'rgba(239,68,68,0.15)' : 'rgba(var(--primary-rgb),0.12)'}; color:${item.urgente ? 'var(--danger)' : 'var(--primary)'}; white-space:nowrap;">
+                                            ${item.dias <= 0 ? 'Hoy' : item.dias === 1 ? 'Mañana' : `${item.dias}d`}
                                         </span>
                                     </div>
-                                \`).join('')}
-                               </div>\`
+                                `).join('')}
+                               </div>`
                         }
                     </div>
 
@@ -1104,7 +1104,7 @@ const Views = {
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                                 TAREAS PENDIENTES
                             </span>
-                            <span style="font-size:0.75rem; color:var(--text-secondary); font-weight:normal;" id="todo-count">\${pendingTodosCount} pendientes</span>
+                            <span style="font-size:0.75rem; color:var(--text-secondary); font-weight:normal;" id="todo-count">${pendingTodosCount} pendientes</span>
                         </h3>
                         <div style="display:flex; gap:8px; margin-bottom:12px;">
                             <input type="text" id="new-todo-input" placeholder="Nueva tarea..." style="flex:1; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:var(--text-primary); font-size:0.85rem;" onkeypress="if(event.key === 'Enter') App.addTodo()">
@@ -1113,7 +1113,7 @@ const Views = {
                             </button>
                         </div>
                         <div id="todo-list" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; padding-right:4px;">
-                            \${this.renderTodoList()}
+                            ${this.renderTodoList()}
                         </div>
                     </div>
                 </div>
