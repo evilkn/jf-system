@@ -4101,6 +4101,9 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
         btn.innerHTML = `${Icons.loading()} Borrando...`;
         btn.disabled = true;
 
+        const banco = (State.bancosData || []).find(b => b.id === bancoId);
+        const bancoNombre = banco ? banco.nombre : 'S/N';
+
         try {
             const batch = db.batch();
             const bancoRef = db.collection('cuentas_bancarias').doc(bancoId);
@@ -4113,6 +4116,12 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
             batch.delete(bancoRef);
             
             await batch.commit();
+
+            // Registrar log de auditoría
+            await Store.logAction('delete', 'BANCOS', `Eliminada cuenta bancaria: ${bancoNombre}`, {
+                id: bancoId,
+                nombre: bancoNombre
+            });
 
             this.showToast('Cuenta eliminada permanentemente', 'success');
             
@@ -4186,6 +4195,14 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
                 ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
             });
 
+            // Registrar log de auditoría
+            await Store.logAction('update', 'BANCOS', `Actualizada cuenta bancaria: ${nombre}`, {
+                id: bancoId,
+                nombre,
+                numero,
+                saldo_actual: saldo
+            });
+
             this.showToast('Cuenta actualizada correctamente', 'success');
             State.editingBanco = null;
         } catch (error) {
@@ -4229,6 +4246,13 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
                 saldo_actual: saldoInicial,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            // Registrar log de auditoría
+            await Store.logAction('create', 'BANCOS', `Nueva cuenta bancaria creada: ${nombre}`, {
+                nombre,
+                numero: nroCuenta,
+                saldo_inicial: saldoInicial
             });
 
             this.showToast('Banco creado exitosamente', 'success');
@@ -4371,6 +4395,14 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
             });
 
             await batch.commit();
+
+            // Registrar log de auditoría
+            await Store.logAction('update', 'BANCOS', `Transferencia de fondos realizada`, {
+                origen: origen?.nombre || 'S/N',
+                destino: destino?.nombre || 'S/N',
+                monto: monto,
+                descripcion: desc
+            });
 
             this.showToast('Transferencia realizada con éxito', 'success');
             State.showTransferModal = false;

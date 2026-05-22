@@ -2548,6 +2548,7 @@ const Views = {
                             <option value="all">Todos los Módulos</option>
                             <option value="SRI">Compra y Venta (SRI)</option>
                             <option value="CLIENTES">Clientes</option>
+                            <option value="BANCOS">Bancos / Finanzas</option>
                             <option value="CUENTAS">Gestión de Cuentas</option>
                             <option value="ROLES">Seguridad / Roles</option>
                         </select>
