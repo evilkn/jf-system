@@ -244,6 +244,8 @@ const App = {
             this.renderSRITable();
             if (State.sriActiveTab === 'conciliado') {
                 this.renderConciliadoPanel();
+            } else {
+                this.setupSRIValidationListeners();
             }
         }
         if (State.currentRoute === 'clients') {
@@ -1464,6 +1466,13 @@ const App = {
 
     async handleSRISubmit(e, tipo) {
         e.preventDefault();
+        
+        // Ejecutar validaciones robustas antes de procesar el guardado
+        if (!this.validateSRIForm(tipo)) {
+            this.showToast('Por favor, corrige los errores en el formulario antes de guardar.', 'danger');
+            return;
+        }
+
         const isEditing = !!State.sriEditingId;
         let data;
 
@@ -1524,14 +1533,380 @@ const App = {
         if (panel === 'ventas' || !panel) {
             const f = document.getElementById('sri-form-ventas');
             if (f) f.reset();
+            ['venta-factura', 'venta-ruc', 'venta-subt15', 'venta-subt0'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) this.clearFieldError(el);
+            });
         }
         if (panel === 'compras' || !panel) {
             const f = document.getElementById('sri-form-compras');
             if (f) f.reset();
+            ['compra-factura', 'compra-ruc', 'compra-subt15', 'compra-subt0', 'compra-subt5'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) this.clearFieldError(el);
+            });
         }
         State.sriEditingId   = null;
         State.sriEditingTipo = null;
     },
+
+    // ─────────────────────────────────────────────
+    // VALIDACIONES Y FORMATEADORES SRI (COMPRA Y VENTA)
+    // ─────────────────────────────────────────────
+
+    validateEcuadorianId(idStr) {
+        if (!/^\d+$/.test(idStr)) return { valid: false, msg: 'Debe contener solo números.' };
+        if (idStr.length !== 10 && idStr.length !== 13) {
+            return { valid: false, msg: 'Debe tener 10 dígitos (Cédula) o 13 dígitos (RUC).' };
+        }
+        
+        // Código de provincia (dos primeros dígitos)
+        const province = parseInt(idStr.slice(0, 2), 10);
+        if (province < 1 || (province > 24 && province !== 30)) {
+            return { valid: false, msg: 'Provincia inválida (primeros 2 dígitos).' };
+        }
+        
+        const thirdDigit = parseInt(idStr.charAt(2), 10);
+        
+        // Validación de Cédula o RUC de Persona Natural (tercer dígito < 6)
+        if (thirdDigit < 6) {
+            const digits = idStr.slice(0, 10).split('').map(Number);
+            const checkDigit = digits[9];
+            const coefficients = [2, 1, 2, 1, 2, 1, 2, 1, 2];
+            let sum = 0;
+            for (let i = 0; i < 9; i++) {
+                let prod = digits[i] * coefficients[i];
+                if (prod >= 10) prod -= 9;
+                sum += prod;
+            }
+            const verifier = (10 - (sum % 10)) % 10;
+            if (verifier !== checkDigit) {
+                return { valid: false, msg: 'Número de cédula inválido (dígito verificador incorrecto).' };
+            }
+        } else if (thirdDigit === 6) {
+            // Entidades Públicas: coeficientes [3, 2, 7, 6, 5, 4, 3, 2] con módulo 11
+            const digits = idStr.slice(0, 9).split('').map(Number);
+            const checkDigit = parseInt(idStr.charAt(8), 10);
+            const coefficients = [3, 2, 7, 6, 5, 4, 3, 2];
+            let sum = 0;
+            for (let i = 0; i < 8; i++) {
+                sum += digits[i] * coefficients[i];
+            }
+            const remainder = sum % 11;
+            const verifier = remainder === 0 ? 0 : 11 - remainder;
+            if (verifier !== checkDigit) {
+                return { valid: false, msg: 'RUC de entidad pública inválido.' };
+            }
+        } else if (thirdDigit === 9) {
+            // Personas Jurídicas/Compañías: coeficientes [4, 3, 2, 7, 6, 5, 4, 3, 2] con módulo 11
+            const digits = idStr.slice(0, 10).split('').map(Number);
+            const checkDigit = digits[9];
+            const coefficients = [4, 3, 2, 7, 6, 5, 4, 3, 2];
+            let sum = 0;
+            for (let i = 0; i < 9; i++) {
+                sum += digits[i] * coefficients[i];
+            }
+            const remainder = sum % 11;
+            const verifier = remainder === 0 ? 0 : 11 - remainder;
+            if (verifier !== checkDigit) {
+                return { valid: false, msg: 'RUC de persona jurídica inválido.' };
+            }
+        }
+
+        // Para RUC (13 dígitos), validar el sufijo de establecimiento
+        if (idStr.length === 13) {
+            const establishment = idStr.slice(10, 13);
+            if (establishment === '000') {
+                return { valid: false, msg: 'El establecimiento (sufijo RUC) no puede ser 000.' };
+            }
+        }
+        
+        return { valid: true };
+    },
+
+    formatFactura(val) {
+        let numbers = val.replace(/\D/g, '');
+        if (numbers.length > 15) numbers = numbers.slice(0, 15);
+        
+        let formatted = '';
+        if (numbers.length > 0) {
+            formatted += numbers.slice(0, 3);
+        }
+        if (numbers.length > 3) {
+            formatted += '-' + numbers.slice(3, 6);
+        }
+        if (numbers.length > 6) {
+            formatted += '-' + numbers.slice(6, 15);
+        }
+        return formatted;
+    },
+
+    showFieldError(el, errorMsg) {
+        if (!el) return;
+        el.classList.add('is-invalid');
+        const parent = el.closest('.form-group');
+        if (parent) {
+            let errEl = parent.querySelector('.validation-error-msg');
+            if (!errEl) {
+                errEl = document.createElement('span');
+                errEl.className = 'validation-error-msg';
+                parent.appendChild(errEl);
+            }
+            errEl.textContent = errorMsg;
+        }
+    },
+
+    clearFieldError(el) {
+        if (!el) return;
+        el.classList.remove('is-invalid');
+        const parent = el.closest('.form-group');
+        if (parent) {
+            const errEl = parent.querySelector('.validation-error-msg');
+            if (errEl) {
+                errEl.remove();
+            }
+        }
+    },
+
+    setupSRIValidationListeners() {
+        // Formatos de Facturas
+        ['venta-factura', 'compra-factura'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el.dataset.listenerAttached) {
+                el.dataset.listenerAttached = 'true';
+                
+                el.addEventListener('keydown', (e) => {
+                    const isControlKey = e.key === 'Backspace' || e.key === 'Delete' || 
+                                         e.key === 'Tab' || e.key === 'Escape' || 
+                                         e.key === 'Enter' || e.key.startsWith('Arrow');
+                    const isNumber = /^\d$/.test(e.key);
+                    
+                    if (!isControlKey && !isNumber) {
+                        e.preventDefault();
+                    }
+                });
+
+                el.addEventListener('input', () => {
+                    const start = el.selectionStart;
+                    const oldLength = el.value.length;
+                    
+                    const formatted = this.formatFactura(el.value);
+                    el.value = formatted;
+                    
+                    const newLength = formatted.length;
+                    let newCursor = start + (newLength - oldLength);
+                    if (newCursor < 0) newCursor = 0;
+                    el.setSelectionRange(newCursor, newCursor);
+
+                    // Validación en tiempo real
+                    if (formatted.replace(/\D/g, '').length === 15) {
+                        this.clearFieldError(el);
+                    } else if (formatted.length > 0) {
+                        this.showFieldError(el, 'Formato: 001-001-000000001 (15 dígitos).');
+                    } else {
+                        this.clearFieldError(el);
+                    }
+                });
+
+                el.addEventListener('blur', () => {
+                    const val = el.value.trim();
+                    if (val && val.replace(/\D/g, '').length !== 15) {
+                        this.showFieldError(el, 'Debe tener exactamente 15 dígitos.');
+                    } else {
+                        this.clearFieldError(el);
+                    }
+                });
+            }
+        });
+
+        // RUC / Cédula
+        ['venta-ruc', 'compra-ruc'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el.dataset.listenerAttached) {
+                el.dataset.listenerAttached = 'true';
+
+                el.addEventListener('keydown', (e) => {
+                    const isControlKey = e.key === 'Backspace' || e.key === 'Delete' || 
+                                         e.key === 'Tab' || e.key === 'Escape' || 
+                                         e.key === 'Enter' || e.key.startsWith('Arrow');
+                    const isNumber = /^\d$/.test(e.key);
+                    
+                    if (!isControlKey && !isNumber) {
+                        e.preventDefault();
+                    }
+                });
+
+                el.addEventListener('input', () => {
+                    let val = el.value.replace(/\D/g, '');
+                    if (val.length > 13) val = val.slice(0, 13);
+                    el.value = val;
+
+                    if (val.length === 10 || val.length === 13) {
+                        const res = this.validateEcuadorianId(val);
+                        if (res.valid) {
+                            this.clearFieldError(el);
+                        } else {
+                            this.showFieldError(el, res.msg);
+                        }
+                    } else if (val.length > 0) {
+                        this.showFieldError(el, 'Debe tener 10 dígitos (Cédula) o 13 dígitos (RUC).');
+                    } else {
+                        this.clearFieldError(el);
+                    }
+                });
+
+                el.addEventListener('blur', () => {
+                    const val = el.value.trim();
+                    if (val) {
+                        const res = this.validateEcuadorianId(val);
+                        if (!res.valid) {
+                            this.showFieldError(el, res.msg);
+                        } else {
+                            this.clearFieldError(el);
+                        }
+                    } else {
+                        this.clearFieldError(el);
+                    }
+                });
+            }
+        });
+
+        // Subtotales numéricos
+        ['venta-subt15', 'venta-subt0', 'compra-subt15', 'compra-subt0', 'compra-subt5'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el.dataset.listenerAttached) {
+                el.dataset.listenerAttached = 'true';
+
+                el.addEventListener('keydown', (e) => {
+                    const isControlKey = e.key === 'Backspace' || e.key === 'Delete' || 
+                                         e.key === 'Tab' || e.key === 'Escape' || 
+                                         e.key === 'Enter' || e.key.startsWith('Arrow');
+                    const isNumber = /^\d$/.test(e.key);
+                    const isDot = e.key === '.';
+
+                    if (isDot && el.value.includes('.')) {
+                        e.preventDefault();
+                        return;
+                    }
+
+                    if (!isControlKey && !isNumber && !isDot) {
+                        e.preventDefault();
+                    }
+                });
+
+                el.addEventListener('input', () => {
+                    const val = parseFloat(el.value) || 0;
+                    if (val < 0) {
+                        el.value = '0.00';
+                        this.showFieldError(el, 'El subtotal no puede ser negativo.');
+                    } else {
+                        this.clearFieldError(el);
+                    }
+                });
+            }
+        });
+    },
+
+    validateSRIForm(tipo) {
+        let isValid = true;
+
+        if (tipo === 'venta') {
+            const facturaEl = document.getElementById('venta-factura');
+            const rucEl = document.getElementById('venta-ruc');
+            const subt15El = document.getElementById('venta-subt15');
+            const subt0El  = document.getElementById('venta-subt0');
+
+            if (facturaEl) {
+                const fVal = facturaEl.value.trim();
+                if (!fVal) {
+                    this.showFieldError(facturaEl, 'El número de factura es requerido.');
+                    isValid = false;
+                } else if (fVal.replace(/\D/g, '').length !== 15) {
+                    this.showFieldError(facturaEl, 'El número de factura debe tener exactamente 15 dígitos.');
+                    isValid = false;
+                } else {
+                    this.clearFieldError(facturaEl);
+                }
+            }
+
+            if (rucEl) {
+                const rVal = rucEl.value.trim();
+                if (rVal) {
+                    const res = this.validateEcuadorianId(rVal);
+                    if (!res.valid) {
+                        this.showFieldError(rucEl, res.msg);
+                        isValid = false;
+                    } else {
+                        this.clearFieldError(rucEl);
+                    }
+                } else {
+                    this.clearFieldError(rucEl);
+                }
+            }
+
+            const s15 = parseFloat(subt15El?.value) || 0;
+            const s0  = parseFloat(subt0El?.value)  || 0;
+            if (s15 === 0 && s0 === 0) {
+                if (subt15El) this.showFieldError(subt15El, 'Debes ingresar al menos un subtotal mayor a cero.');
+                if (subt0El) this.showFieldError(subt0El, 'Debes ingresar al menos un subtotal mayor a cero.');
+                isValid = false;
+            } else {
+                if (subt15El) this.clearFieldError(subt15El);
+                if (subt0El) this.clearFieldError(subt0El);
+            }
+        } else {
+            const facturaEl = document.getElementById('compra-factura');
+            const rucEl = document.getElementById('compra-ruc');
+            const subt15El = document.getElementById('compra-subt15');
+            const subt0El  = document.getElementById('compra-subt0');
+            const subt5El  = document.getElementById('compra-subt5');
+
+            if (facturaEl) {
+                const fVal = facturaEl.value.trim();
+                if (!fVal) {
+                    this.showFieldError(facturaEl, 'El número de factura es requerido.');
+                    isValid = false;
+                } else if (fVal.replace(/\D/g, '').length !== 15) {
+                    this.showFieldError(facturaEl, 'El número de factura debe tener exactamente 15 dígitos.');
+                    isValid = false;
+                } else {
+                    this.clearFieldError(facturaEl);
+                }
+            }
+
+            if (rucEl) {
+                const rVal = rucEl.value.trim();
+                if (rVal) {
+                    const res = this.validateEcuadorianId(rVal);
+                    if (!res.valid) {
+                        this.showFieldError(rucEl, res.msg);
+                        isValid = false;
+                    } else {
+                        this.clearFieldError(rucEl);
+                    }
+                } else {
+                    this.clearFieldError(rucEl);
+                }
+            }
+
+            const s15 = parseFloat(subt15El?.value) || 0;
+            const s0  = parseFloat(subt0El?.value)  || 0;
+            const s5  = parseFloat(subt5El?.value)  || 0;
+            if (s15 === 0 && s0 === 0 && s5 === 0) {
+                if (subt15El) this.showFieldError(subt15El, 'Debes ingresar al menos un subtotal mayor a cero.');
+                if (subt0El) this.showFieldError(subt0El, 'Debes ingresar al menos un subtotal mayor a cero.');
+                if (subt5El) this.showFieldError(subt5El, 'Debes ingresar al menos un subtotal mayor a cero.');
+                isValid = false;
+            } else {
+                if (subt15El) this.clearFieldError(subt15El);
+                if (subt0El) this.clearFieldError(subt0El);
+                if (subt5El) this.clearFieldError(subt5El);
+            }
+        }
+
+        return isValid;
+    },
+
 
     renderVentasTable() {
         const tbody = document.getElementById('sri-ventas-body');
@@ -1700,6 +2075,13 @@ const App = {
     editSRI(id) {
         const r = Store.get('sri_registros').find(x => x.id === id);
         if (!r) return;
+        
+        // Limpiar errores visuales previos antes de cargar datos a editar
+        ['venta-factura', 'venta-ruc', 'venta-subt15', 'venta-subt0', 'compra-factura', 'compra-ruc', 'compra-subt15', 'compra-subt0', 'compra-subt5'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) this.clearFieldError(el);
+        });
+
         State.sriEditingId   = id;
         State.sriEditingTipo = r.tipo;
 

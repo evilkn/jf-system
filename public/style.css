@@ -2651,3 +2651,19 @@ tr:hover td {
 .audit-card {
     animation: auditFadeIn 0.4s ease-out backwards;
 }
+
+/* --- Dynamic Input Validation Styling --- */
+input.is-invalid, select.is-invalid {
+    border-color: var(--danger) !important;
+    box-shadow: 0 0 0 3px rgba(var(--danger-rgb), 0.18) !important;
+}
+
+.validation-error-msg {
+    color: var(--danger);
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin-top: 5px;
+    display: block;
+    animation: fadeIn 0.2s ease-in-out;
+}
+
