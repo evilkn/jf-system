@@ -740,6 +740,16 @@ const Views = {
         const meta = Store.get('dashboardMeta') || { totalRegistros: 0, mensual: {}, clientes: {} };
         const clients = (Store.get('clientes') || []).filter(c => c.status !== 'archived');
 
+        const userName = State.currentUser?.displayName 
+            ? State.currentUser.displayName.split(' ')[0] 
+            : (State.currentUser?.email 
+                ? State.currentUser.email.split('@')[0].split(/[\._-]/).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
+                : 'Usuario');
+
+        const userAvatar = State.currentUser?.photoURL 
+            ? `<img src="${State.currentUser.photoURL}" alt="Perfil" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`
+            : `<span style="font-size: 1.15rem; font-weight: 700; color: white;">${(userName || 'U').charAt(0).toUpperCase()}</span>`;
+
         const today = new Date();
         const currentDay = today.getDate();
         const currentMonth = today.getMonth() + 1;
@@ -1128,11 +1138,11 @@ const Views = {
             <!-- ── SLEEK GREETING & SWITCH HEADER ────────────────────── -->
             <div class="glass-card animate-stagger" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; margin-bottom: 20px; border-radius: 14px; gap: 16px; flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--primary) 0%, #c084fc 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(99,102,241,0.3);">
-                        <span style="font-size: 1.2rem;">👩‍💼</span>
+                    <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--primary) 0%, #c084fc 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(99,102,241,0.3); overflow: hidden;">
+                        ${userAvatar}
                     </div>
                     <div>
-                        <h2 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">¡Hola, Jéssica!</h2>
+                        <h2 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">¡Hola, ${userName}!</h2>
                         <p style="margin: 2px 0 0; font-size: 0.78rem; color: var(--text-secondary);">${State.dashboardView === 'personal' ? 'Mi Oficina Personal' : 'Panel Contable de Clientes'}</p>
                     </div>
                 </div>

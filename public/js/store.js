@@ -47,17 +47,19 @@ const Store = {
                     if (!userDoc.exists) {
                         const newUserData = {
                             email: user.email,
+                            displayName: user.displayName || '',
                             role: 'lector', // Rol por defecto: Lector (Solo ver)
-                            photoURL: user.photoURL,
+                            photoURL: user.photoURL || '',
                             createdAt: new Date().toISOString(),
                             uid: user.uid // Guardamos el UID como referencia interna
                         };
                         await db.collection("usuarios").doc(user.email).set(newUserData);
                         userDoc = await db.collection("usuarios").doc(user.email).get();
                     } else {
-                        // Si ya existe, actualizamos la foto por si cambió en Google
+                        // Si ya existe, actualizamos la foto y el nombre por si cambió en Google
                         await db.collection("usuarios").doc(user.email).update({
-                            photoURL: user.photoURL,
+                            displayName: user.displayName || '',
+                            photoURL: user.photoURL || '',
                             lastLogin: new Date().toISOString()
                         }).catch(err => console.warn("No se pudo actualizar perfil:", err));
                     }
@@ -75,6 +77,7 @@ const Store = {
                         ...userData,
                         uid: user.uid, 
                         email: user.email, 
+                        displayName: user.displayName || userData.displayName || '',
                         photoURL: user.photoURL || userData.photoURL // Priorizamos Google pero fallamos a DB
                     };
 
