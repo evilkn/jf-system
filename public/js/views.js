@@ -1096,14 +1096,6 @@ const Views = {
                 </button>
             </div>
         `).join('');
-    },roke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                        ACTIVIDAD RECIENTE
-                    </h3>
-                    <button class="btn btn-secondary" onclick="App.navigate('sri')" style="font-size:0.75rem; padding:5px 12px;">Ver todo →</button>
-                </div>
-                <div id="recent-activity-list">${this.renderRecentActivity()}</div>
-            </div>
-        `;
     },
 
     renderDashboardBanner() {
