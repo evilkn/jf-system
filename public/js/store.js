@@ -109,7 +109,7 @@ const Store = {
         try {
             const doc = await db.collection("clientes").doc(jessicaId).get();
             if (!doc.exists) {
-                console.log("Creando el cliente especial para la Oficina de Jéssica...");
+
                 const jessicaClient = {
                     id: jessicaId,
                     name: "Jéssica - JF Oficina Contable",
@@ -130,7 +130,7 @@ const Store = {
                     updatedAt: new Date().toISOString()
                 };
                 await db.collection("clientes").doc(jessicaId).set(jessicaClient);
-                console.log("Cliente especial creado con éxito.");
+
             }
         } catch (err) {
             console.error("Error al verificar/crear cliente de Jéssica:", err);
@@ -228,7 +228,7 @@ const Store = {
     },
 
     async rebuildDashboardMetadata() {
-        console.log("Reconstruyendo metadatos del dashboard desde cero...");
+
         const snapshot = await db.collection("sri_registros").get();
         let meta = { totalRegistros: 0, mensual: {}, clientes: {} };
 
@@ -254,7 +254,7 @@ const Store = {
         });
 
         await db.collection("metadata").doc("dashboard").set(meta);
-        console.log("Metadatos reconstruidos con éxito.");
+
     },
 
     async loginWithGoogle() {

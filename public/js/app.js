@@ -28,13 +28,13 @@ const App = {
     },
 
     init() {
-        console.log('App Initializing...');
+
         // Set initial theme
         document.documentElement.setAttribute('data-theme', State.theme);
         
         // Initialize Store with Firestore and an update callback
         Store.init(db, (type) => {
-            console.log(`Store updated: ${type}`);
+
             this.render();
         });
 
@@ -2587,7 +2587,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         if (!id) return;
         State.clientEditingId = id;
         State.showClientForm = true;
-        console.log('[editClient] Editando cliente ID:', id);
+
         this.render();
     },
 
@@ -2670,7 +2670,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         const isEditing = !!editingId;
         const docId = editingId || ('client_' + Date.now());
 
-        console.log('[handleClientSubmit] Modo:', isEditing ? 'EDITAR' : 'NUEVO', '| ID:', docId);
+
 
         const ruc = document.getElementById('client-ruc').value.trim();
         const diaDeclaracion = this.calculateDeclarationDay(ruc);
@@ -3290,19 +3290,19 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
     },
 
     async addTodo() {
-        console.log("App.addTodo() iniciada.");
+
         const input = document.getElementById('new-todo-input');
         if (!input) {
             console.warn("No se encontró el elemento input con ID 'new-todo-input'.");
             return;
         }
         const text = input.value.trim();
-        console.log("Texto de la tarea a agregar:", text);
+
         if (!text) return;
         
         try {
             const email = State.currentUser?.email || '';
-            console.log("Usuario actual en State:", State.currentUser, "Email:", email);
+
             const newTodo = {
                 text,
                 completed: false,
@@ -3310,9 +3310,9 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 createdAt: new Date().toISOString()
             };
             input.value = '';
-            console.log("Guardando tarea en Store...", newTodo);
+
             await Store.saveTarea(newTodo);
-            console.log("Tarea guardada con éxito en Firestore.");
+
             this.showToast('Tarea agregada con éxito', 'success');
         } catch (err) {
             console.error("Error al agregar tarea:", err);
@@ -4091,13 +4091,18 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             movsSnapshot.forEach(doc => {
                 const m = doc.data();
                 transacciones.push({
+                    id: doc.id,
                     tipo: m.tipo,
                     categoria: m.descripcion,
                     monto: m.monto || 0,
                     fecha: m.fecha,
                     metodo: 'Manual',
                     isPago: false,
-                    isAjuste: m.isAjuste
+                    isAjuste: m.isAjuste,
+                    origen: m.origen,
+                    transferenciaId: m.transferenciaId,
+                    transferenciaDestinoId: m.transferenciaDestinoId,
+                    transferenciaOrigenId: m.transferenciaOrigenId
                 });
             });
 
@@ -4125,6 +4130,21 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 const icon = t.isPago ? '💰' : (t.isAjuste ? '⚙️' : '📝');
                 const tag = t.tag || (t.isPago ? 'Ventas' : (t.isAjuste ? 'Conciliación' : ''));
                 
+                let deleteBtn = '';
+                if (t.id && (t.origen === 'manual' || t.origen === 'transferencia')) {
+                    const deleteIcon = t.origen === 'transferencia' ? '🗑️' : '🗑️';
+                    const tooltip = t.origen === 'transferencia' ? 'Eliminar transferencia vinculada (se eliminará de ambas cuentas)' : 'Eliminar movimiento';
+                    deleteBtn = `
+                        <button onclick="App.deleteBankMovement('${bancoId}', '${t.id}', '${t.origen}', '${t.transferenciaId || ''}', '${t.transferenciaDestinoId || ''}', '${t.transferenciaOrigenId || ''}')" 
+                                style="background: none; border: none; cursor: pointer; opacity: 0.5; padding: 4px; font-size: 1.1rem;" 
+                                title="${tooltip}"
+                                onmouseover="this.style.opacity='1'" 
+                                onmouseout="this.style.opacity='0.5'">
+                            ${deleteIcon}
+                        </button>
+                    `;
+                }
+
                 html += `
                     <div style="display:flex; justify-content:space-between; align-items:center; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
                         <div style="display:flex; align-items:center; gap:12px; flex: 1;">
@@ -4139,8 +4159,11 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                                 </div>
                             </div>
                         </div>
-                        <div style="font-weight: 800; font-family: var(--font-mono); color: ${color}; font-size: 1.05rem; white-space: nowrap; margin-left: 15px;">
-                            ${signo}${App.formatMoney(Math.abs(t.monto))}
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="font-weight: 800; font-family: var(--font-mono); color: ${color}; font-size: 1.05rem; white-space: nowrap; margin-left: 15px;">
+                                ${signo}${App.formatMoney(Math.abs(t.monto))}
+                            </div>
+                            ${deleteBtn}
                         </div>
                     </div>
                 `;
@@ -4296,6 +4319,107 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             this.showToast('Error al registrar movimiento', 'error');
             btn.innerHTML = originalText;
             btn.disabled = false;
+        }
+    },
+
+    async deleteBankMovement(bancoId, movId, origen, transferenciaId, tDestinoId, tOrigenId) {
+        const message = origen === 'transferencia' 
+            ? 'Se eliminará este movimiento y su transferencia vinculada en la otra cuenta. Esto recalculará los saldos de ambas cuentas.'
+            : 'Se eliminará este movimiento y se recalculará el saldo del banco.';
+
+        const ok = await this.confirmDialog({
+            title: '¿Eliminar movimiento?',
+            message: message,
+            type: 'danger',
+            confirmText: 'Sí, eliminar',
+            cancelText: 'Cancelar'
+        });
+
+        if (!ok) return;
+
+        try {
+            const batch = db.batch();
+
+            if (origen === 'manual') {
+                const movRef = db.collection('cuentas_bancarias').doc(bancoId).collection('movimientos').doc(movId);
+                const movDoc = await movRef.get();
+                if (!movDoc.exists) throw new Error('Movimiento no encontrado');
+                
+                const movData = movDoc.data();
+                const factor = movData.tipo === 'ingreso' ? -1 : 1; // Revertir
+                
+                const bancoRef = db.collection('cuentas_bancarias').doc(bancoId);
+                batch.update(bancoRef, {
+                    saldo_actual: firebase.firestore.FieldValue.increment(movData.monto * factor),
+                    ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                batch.delete(movRef);
+                
+                await batch.commit();
+                this.showToast('Movimiento eliminado correctamente', 'success');
+
+                await Store.logAction('delete', 'BANCOS', `Eliminación de movimiento manual`, {
+                    bancoId: bancoId,
+                    movimiento: movData.descripcion,
+                    monto: movData.monto
+                });
+            } else if (origen === 'transferencia') {
+                if (!transferenciaId || !tDestinoId || !tOrigenId) {
+                    throw new Error('Datos de transferencia incompletos');
+                }
+
+                // Buscar ambos movimientos usando el transferenciaId
+                const origenMovsSnapshot = await db.collection('cuentas_bancarias').doc(tOrigenId).collection('movimientos')
+                    .where('transferenciaId', '==', transferenciaId).get();
+                const destinoMovsSnapshot = await db.collection('cuentas_bancarias').doc(tDestinoId).collection('movimientos')
+                    .where('transferenciaId', '==', transferenciaId).get();
+
+                if (origenMovsSnapshot.empty && destinoMovsSnapshot.empty) {
+                    throw new Error('No se encontraron los movimientos de la transferencia');
+                }
+
+                // Rollback origen
+                if (!origenMovsSnapshot.empty) {
+                    const docO = origenMovsSnapshot.docs[0];
+                    const dataO = docO.data();
+                    const factorO = dataO.tipo === 'ingreso' ? -1 : 1;
+                    const bancoOrigenRef = db.collection('cuentas_bancarias').doc(tOrigenId);
+                    batch.update(bancoOrigenRef, {
+                        saldo_actual: firebase.firestore.FieldValue.increment(dataO.monto * factorO),
+                        ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    batch.delete(docO.ref);
+                }
+
+                // Rollback destino
+                if (!destinoMovsSnapshot.empty) {
+                    const docD = destinoMovsSnapshot.docs[0];
+                    const dataD = docD.data();
+                    const factorD = dataD.tipo === 'ingreso' ? -1 : 1;
+                    const bancoDestinoRef = db.collection('cuentas_bancarias').doc(tDestinoId);
+                    batch.update(bancoDestinoRef, {
+                        saldo_actual: firebase.firestore.FieldValue.increment(dataD.monto * factorD),
+                        ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    batch.delete(docD.ref);
+                }
+
+                await batch.commit();
+                this.showToast('Transferencia anulada y saldos revertidos', 'success');
+
+                await Store.logAction('delete', 'BANCOS', `Anulación de transferencia vinculada`, {
+                    transferenciaId: transferenciaId
+                });
+            }
+
+            // Refrescar modal si está abierto
+            if (State.showDetalleModal) {
+                this.openBancoDetail(bancoId);
+            }
+        } catch (error) {
+            console.error('Error al eliminar movimiento:', error);
+            this.showToast('Error al procesar la solicitud: ' + error.message, 'error');
         }
     },
 
@@ -4655,6 +4779,7 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
 
             this.showToast('Banco creado exitosamente', 'success');
             State.showBancoModal = false;
+            this.render();
         } catch (error) {
             console.error("Error creating banco:", error);
             this.showToast('Error al crear banco', 'error');
@@ -4755,6 +4880,9 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
         try {
             const batch = db.batch();
             
+            // Generate a shared UUID for the transfer
+            const transferenciaId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            
             // Referencias a cuentas
             const origenRef = db.collection('cuentas_bancarias').doc(origenId);
             const destinoRef = db.collection('cuentas_bancarias').doc(destinoId);
@@ -4771,7 +4899,11 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
                 monto: monto,
                 descripcion: desc + ` (Transferencia a ${destino?.nombre || 'otra cuenta'})`,
                 etiqueta: 'Transferencia',
-                fecha: firebase.firestore.FieldValue.serverTimestamp()
+                fecha: firebase.firestore.FieldValue.serverTimestamp(),
+                origen: 'transferencia',
+                transferenciaId: transferenciaId,
+                transferenciaDestinoId: destinoId,
+                transferenciaOrigenId: origenId
             });
             batch.update(origenRef, {
                 saldo_actual: firebase.firestore.FieldValue.increment(-monto),
@@ -4785,7 +4917,11 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
                 monto: monto,
                 descripcion: desc + ` (Transferencia desde ${origen?.nombre || 'otra cuenta'})`,
                 etiqueta: 'Transferencia',
-                fecha: firebase.firestore.FieldValue.serverTimestamp()
+                fecha: firebase.firestore.FieldValue.serverTimestamp(),
+                origen: 'transferencia',
+                transferenciaId: transferenciaId,
+                transferenciaDestinoId: destinoId,
+                transferenciaOrigenId: origenId
             });
             batch.update(destinoRef, {
                 saldo_actual: firebase.firestore.FieldValue.increment(monto),
@@ -4804,6 +4940,7 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
 
             this.showToast('Transferencia realizada con éxito', 'success');
             State.showTransferModal = false;
+            this.render();
         } catch (error) {
             console.error("Error en transferencia:", error);
             this.showToast('Error al procesar transferencia', 'error');
