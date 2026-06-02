@@ -230,6 +230,7 @@ const App = {
             case 'matriz': return Views.matriz();
             case 'cuentas': return Views.cuentas();
             case 'bancos': return Views.bancos();
+            case 'finanzas': return Views.estadosFinancieros();
             case 'audit': return Views.auditLogs();
             default: return Views.dashboard();
         }
@@ -259,6 +260,9 @@ const App = {
         }
         if (State.currentRoute === 'audit') {
             this.renderAuditLogs();
+        }
+        if (State.showDetalleModal && State.currentBancoId) {
+            this.openBancoDetail(State.currentBancoId, true);
         }
     },
 
@@ -2580,15 +2584,19 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
     toggleClientForm(show) {
         State.showClientForm = show;
         if (!show) State.clientEditingId = null;
+        State.currentClientActivities = [];
         this.render();
+        if (show) setTimeout(() => this.renderClientActivities(), 0);
     },
 
     editClient(id) {
         if (!id) return;
         State.clientEditingId = id;
         State.showClientForm = true;
-
+        const c = Store.get('clientes').find(x => x.id === id);
+        State.currentClientActivities = c && c.actividades ? JSON.parse(JSON.stringify(c.actividades)) : [];
         this.render();
+        setTimeout(() => this.renderClientActivities(), 0);
     },
 
     async archiveClient(id, archive) {
@@ -2661,6 +2669,51 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         return dias[novenoDigito] || null;
     },
 
+    renderClientActivities() {
+        const container = document.getElementById('client-activities-list');
+        if (!container) return;
+        if (State.currentClientActivities.length === 0) {
+            container.innerHTML = '<div style="font-size:0.75rem; color:var(--text-secondary); font-style:italic;">No hay actividades registradas.</div>';
+            return;
+        }
+        container.innerHTML = State.currentClientActivities.map((act, i) => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:rgba(var(--text-rgb),0.03); border-radius:6px; margin-bottom:6px; border:1px solid var(--border-color);">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:0.7rem; font-weight:700; background:var(--primary); color:white; padding:2px 6px; border-radius:4px;">${act.tarifa}</span>
+                    <span style="font-size:0.75rem; color:var(--text-color);">${App.escapeHTML(act.name)}</span>
+                </div>
+                <button type="button" class="btn-icon" style="color:var(--danger); display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px;" onclick="App.removeClientActivity(${i})" title="Eliminar">${Icons.trash(14)}</button>
+            </div>
+        `).join('');
+    },
+
+    addClientActivity() {
+        const nameInput = document.getElementById('new-activity-name');
+        const tarifaInput = document.getElementById('new-activity-tarifa');
+        const name = nameInput.value.trim();
+        const tarifa = tarifaInput.value;
+        if (!name) {
+            this.showToast('Por favor, ingresa el nombre de la actividad', 'warning');
+            return;
+        }
+        State.currentClientActivities.push({ name, tarifa });
+        nameInput.value = '';
+        tarifaInput.value = '15%'; // default
+        this.renderClientActivities();
+    },
+
+    removeClientActivity(index) {
+        State.currentClientActivities.splice(index, 1);
+        this.renderClientActivities();
+    },
+
+    toggleSuperCiaFields(value, prefix) {
+        const container = document.getElementById(`${prefix}-super-cia-container`);
+        if (container) {
+            container.style.display = value === 'Si' ? 'block' : 'none';
+        }
+    },
+
     async handleClientSubmit(e) {
         e.preventDefault();
 
@@ -2680,6 +2733,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             name: document.getElementById('client-name').value.trim(),
             ruc: ruc,
             regime: document.getElementById('client-regime').value,
+            tipo: document.getElementById('client-tipo').value,
             frecuencia: document.getElementById('client-frecuencia').value,
             claveSRI: document.getElementById('client-clave-sri').value,
             arrastreInicial: parseFloat(document.getElementById('client-arrastre-inicial')?.value) || 0,
@@ -2693,6 +2747,25 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             oblADI:      document.getElementById('client-adi').value,
             oblGP:       document.getElementById('client-gp').value,
             oblRebefics: document.getElementById('client-rebefics').value,
+            superCiaUser: document.getElementById('client-super-cia-user')?.value.trim() || '',
+            superCiaPass: document.getElementById('client-super-cia-pass')?.value || '',
+            actividades: State.currentClientActivities,
+            // Contacto y Acceso
+            correo:      document.getElementById('client-correo')?.value.trim() || '',
+            telefono:    document.getElementById('client-telefono')?.value.trim() || '',
+            direccion:   document.getElementById('client-direccion')?.value.trim() || '',
+            contrasena:  document.getElementById('client-contrasena')?.value || '',
+            // Facturación
+            factUsuario: document.getElementById('client-fact-usuario')?.value.trim() || '',
+            factClave:   document.getElementById('client-fact-clave')?.value || '',
+            factNumComp: document.getElementById('client-fact-num')?.value.trim() || '',
+            factEmitido: document.getElementById('client-fact-emi')?.value || '',
+            factCaduca:  document.getElementById('client-fact-cad')?.value || '',
+            // Firma Digital
+            firmaClave:   document.getElementById('client-firma-clave')?.value || '',
+            firmaEmision: document.getElementById('client-firma-emi')?.value || '',
+            firmaCaduca:  document.getElementById('client-firma-cad')?.value || '',
+            firmaTiempo:  document.getElementById('client-firma-tiempo')?.value || '1',
             updatedAt: new Date().toISOString()
         };
 
@@ -2711,6 +2784,30 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             console.error("Error al guardar cliente:", err);
             this.showToast('Error al guardar cliente', 'danger');
         }
+    },
+
+    toggleClientSort() {
+        State.clientSortAsc = !State.clientSortAsc;
+        this.render();
+    },
+
+    switchClientFormTab(tabId) {
+        const tabs = ['tributario', 'personal', 'facturacion', 'firma'];
+        tabs.forEach(t => {
+            const btn = document.getElementById(`tab-btn-${t}`);
+            const content = document.getElementById(`tab-${t}`);
+            if (btn && content) {
+                if (t === tabId) {
+                    content.style.display = 'block';
+                    btn.style.background = 'var(--primary)';
+                    btn.style.color = 'white';
+                } else {
+                    content.style.display = 'none';
+                    btn.style.background = 'transparent';
+                    btn.style.color = 'var(--text-secondary)';
+                }
+            }
+        });
     },
 
     renderClientsTable() {
@@ -2781,15 +2878,21 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
 
         const isAdmin = State.currentUser?.role === 'admin';
 
-        tbody.innerHTML = clients.map(c => `
+        const sortedClients = clients.sort((a, b) => {
+            const nameA = (a.name || '').toLowerCase();
+            const nameB = (b.name || '').toLowerCase();
+            const cmp = nameA.localeCompare(nameB);
+            return State.clientSortAsc ? cmp : -cmp;
+        });
+
+        tbody.innerHTML = sortedClients.map(c => `
             <tr>
                 <td style="font-weight: 600;">${this.escapeHTML(c.name)}</td>
                 <td style="font-family:var(--font-mono);">${this.escapeHTML(c.ruc)}</td>
                 <td><span class="badge" style="background: rgba(var(--primary-rgb), 0.1); color: var(--primary); padding: 4px 8px; border-radius: 4px;">${this.escapeHTML(c.regime)}</span></td>
                 <td><span class="badge" style="background: rgba(100, 100, 100, 0.1); color: var(--text-secondary); padding: 4px 8px; border-radius: 4px;">${this.escapeHTML(c.frecuencia || 'Mensual')}</span></td>
                 <td style="font-weight: bold; font-family: var(--font-mono);">${c.diaMaximo || '-'}</td>
-                <td style="text-align:center;">${statusDot(c.firmaCaduca)}</td>
-                <td style="text-align:center;">${statusDot(c.factCaduca)}</td>
+                <td style="text-align:center;"><span class="badge" style="background: rgba(var(--primary-rgb), 0.05); color: var(--text-primary); padding: 4px 8px; border-radius: 4px; font-weight:600;">${this.escapeHTML(c.tipo || 'P. Natural')}</span></td>
                 <td>
                     <div style="display: flex; gap: 4px; flex-wrap: nowrap;">
                         <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.75rem; display:inline-flex;align-items:center;gap:6px; white-space:nowrap;" onclick="App.openFicha('${c.id}')">${Icons.ficha(14)} Ficha</button>
@@ -3188,39 +3291,30 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         const labels = Object.values(dataMap).map(v => v.label);
         const salesData = Object.values(dataMap).map(v => v.sales);
         const purchaseData = Object.values(dataMap).map(v => v.purchases);
-
         const isDark = State.theme === 'dark';
-        const primaryColor = '#3b82f6';
-        const dangerColor = '#ef4444';
+        const primaryColor = '#0ea5e9'; // Azure Blue
+        const secondaryColor = '#a855f7'; // Neon Purple
 
         if (this.currentChart) this.currentChart.destroy();
 
         this.currentChart = new Chart(ctx, {
-            type: 'line',
+            type: 'bar',
             data: {
                 labels,
                 datasets: [
                     {
                         label: State.dashboardView === 'personal' ? 'Honorarios' : 'Ventas',
                         data: salesData,
-                        borderColor: primaryColor,
-                        backgroundColor: primaryColor + '20',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 3,
-                        pointRadius: 4,
-                        pointBackgroundColor: primaryColor
+                        backgroundColor: primaryColor,
+                        borderRadius: 6,
+                        borderWidth: 0,
                     },
                     {
                         label: State.dashboardView === 'personal' ? 'Gastos' : 'Compras',
                         data: purchaseData,
-                        borderColor: dangerColor,
-                        backgroundColor: dangerColor + '20',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 3,
-                        pointRadius: 4,
-                        pointBackgroundColor: dangerColor
+                        backgroundColor: secondaryColor,
+                        borderRadius: 6,
+                        borderWidth: 0,
                     }
                 ]
             },
@@ -3251,7 +3345,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                             color: isDark ? 'rgba(255,255,255,0.6)' : '#64748b',
                             callback: (value) => this.formatMoney(value)
                         },
-                        grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
+                        grid: { display: false }
                     },
                     x: {
                         ticks: { color: isDark ? 'rgba(255,255,255,0.6)' : '#64748b' },
@@ -3262,6 +3356,107 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         });
         // Animate KPI counters after chart paint
         setTimeout(() => this.animateCounters(), 80);
+        
+        // Inicializar el nuevo gráfico circular
+        this.initTopClientesChart();
+    },
+
+    initTopClientesChart() {
+        const ctx = document.getElementById('topClientesChart')?.getContext('2d');
+        if (!ctx) return;
+        
+        // Solo aplica para la vista personal
+        if (State.dashboardView !== 'personal') return;
+
+        const meta = Store.get('dashboardMeta') || { clientes: {} };
+        const periodMap = { '3M': 3, '6M': 6, '1A': 12 };
+        const numMonths = periodMap[State.chartPeriod || '6M'] || 6;
+
+        // Collect all year-months for the selected period
+        const targetMonths = [];
+        for (let i = numMonths - 1; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            targetMonths.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+        }
+
+        // Aggregate sales per client for the target months
+        const clientSales = {};
+        Object.entries(meta.clientes || {}).forEach(([clientId, clientData]) => {
+            let total = 0;
+            targetMonths.forEach(ym => {
+                if (clientData[ym]) total += (clientData[ym].sales || 0);
+            });
+            if (total > 0) {
+                clientSales[clientId] = total;
+            }
+        });
+
+        // Sort and get Top 5
+        const sortedClients = Object.entries(clientSales)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+
+        // Find names for those clients
+        const labels = sortedClients.map(c => {
+            const clientMatch = Store.clientes.find(cli => cli.id === c[0]);
+            return clientMatch ? clientMatch.name.substring(0, 15) + (clientMatch.name.length > 15 ? '...' : '') : 'Desconocido';
+        });
+        const data = sortedClients.map(c => c[1]);
+
+        if (this.currentTopChart) this.currentTopChart.destroy();
+        
+        if (labels.length === 0) {
+            // Mostrar mensaje si no hay datos
+            if (this.currentTopChart) this.currentTopChart.destroy();
+            return;
+        }
+
+        const isDark = State.theme === 'dark';
+        const colors = [
+            '#a855f7', // Neon Purple
+            '#0ea5e9', // Azure Blue
+            '#3b82f6', // Primary Blue
+            '#6366f1', // Indigo
+            '#14b8a6'  // Teal
+        ];
+
+        this.currentTopChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{
+                    data,
+                    backgroundColor: colors,
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            color: isDark ? '#ffffff' : '#1e293b',
+                            font: { family: 'Inter', weight: '500', size: 11 },
+                            boxWidth: 12,
+                            padding: 15
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleFont: { family: 'Inter' },
+                        bodyFont: { family: 'Inter' },
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: { label: ctx => ' ' + this.formatMoney(ctx.raw) }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
     },
 
     setChartPeriod(period) {
@@ -3426,8 +3621,8 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         const dias = { '1':10,'2':10,'3':10,'4':16,'5':16,'6':16,'7':22,'8':22,'9':22,'0':28 };
         const diaMax = ninth ? (dias[ninth] || null) : null;
         const updates = {
-            name: document.getElementById('fich-name').value.trim(),
             ruc, regime: document.getElementById('fich-regime').value,
+            tipo: document.getElementById('fich-tipo').value,
             frecuencia: document.getElementById('fich-frecuencia').value,
             claveSRI: document.getElementById('fich-clave-sri').value,
             novenoDigito: ninth, diaMaximo: diaMax,
@@ -3438,6 +3633,8 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             oblADI:      document.getElementById('fich-adi').value,
             oblGP:       document.getElementById('fich-gp').value,
             oblRebefics: document.getElementById('fich-rebefics').value,
+            superCiaUser: document.getElementById('fich-super-cia-user')?.value.trim() || '',
+            superCiaPass: document.getElementById('fich-super-cia-pass')?.value || '',
             updatedAt: new Date().toISOString()
         };
         try {
@@ -3473,7 +3670,6 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         const c = Store.get('clientes').find(cl => cl.id === State.currentFichaClientId);
         if (!c) return;
         const updates = {
-            firmaUsuario: document.getElementById('firma-usuario').value.trim(),
             firmaClave:   document.getElementById('firma-clave').value,
             firmaEmision: document.getElementById('firma-emision').value,
             firmaCaduca:  document.getElementById('firma-caduca').value,
@@ -4046,16 +4242,28 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         }, 100);
     },
 
-    async openBancoDetail(bancoId) {
+    async openBancoDetail(bancoId, skipRender = false) {
         const banco = State.bancosData.find(b => b.id === bancoId);
         if (!banco) return;
         
+        State.currentBancoId = bancoId;
         State.showDetalleModal = true;
-        this.render();
+        
+        if (!skipRender) {
+            this.render();
+        }
 
         const contentDiv = document.getElementById('detalle-modal-content');
         if (contentDiv) {
             contentDiv.innerHTML = Views.bancoDetalleContent(banco);
+            const fechaInput = document.getElementById('mov-fecha');
+            if (fechaInput) {
+                const today = new Date();
+                const dd = String(today.getDate()).padStart(2, '0');
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const yyyy = today.getFullYear();
+                fechaInput.value = `${yyyy}-${mm}-${dd}`;
+            }
         }
 
         try {
@@ -4126,22 +4334,42 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 const parsed = parseDate(t.fecha);
                 const fecha = parsed && !isNaN(parsed.getTime()) && parsed.getTime() !== 0 ? parsed.toLocaleDateString() : 'N/A';
                 const color = t.tipo === 'ingreso' ? 'var(--success)' : (t.isAjuste ? 'var(--primary)' : 'var(--error)');
-                const signo = (t.tipo === 'ingreso' || t.monto > 0) ? '+' : '-';
+                const signo = (t.tipo === 'ingreso') ? '+' : '-';
                 const icon = t.isPago ? '💰' : (t.isAjuste ? '⚙️' : '📝');
                 const tag = t.tag || (t.isPago ? 'Ventas' : (t.isAjuste ? 'Conciliación' : ''));
                 
-                let deleteBtn = '';
-                if (t.id && (t.origen === 'manual' || t.origen === 'transferencia')) {
+                let actionsBtn = '';
+                if (t.id && (t.origen === 'manual' || t.origen === 'transferencia' || t.isAjuste)) {
                     const deleteIcon = t.origen === 'transferencia' ? '🗑️' : '🗑️';
-                    const tooltip = t.origen === 'transferencia' ? 'Eliminar transferencia vinculada (se eliminará de ambas cuentas)' : 'Eliminar movimiento';
-                    deleteBtn = `
-                        <button onclick="App.deleteBankMovement('${bancoId}', '${t.id}', '${t.origen}', '${t.transferenciaId || ''}', '${t.transferenciaDestinoId || ''}', '${t.transferenciaOrigenId || ''}')" 
-                                style="background: none; border: none; cursor: pointer; opacity: 0.5; padding: 4px; font-size: 1.1rem;" 
-                                title="${tooltip}"
-                                onmouseover="this.style.opacity='1'" 
-                                onmouseout="this.style.opacity='0.5'">
-                            ${deleteIcon}
-                        </button>
+                    const tooltip = t.origen === 'transferencia' ? 'Eliminar transferencia vinculada (se eliminará de ambas cuentas)' : (t.isAjuste ? 'Eliminar ajuste y recalcular saldo' : 'Eliminar movimiento');
+                    
+                    let editBtn = '';
+                    if (t.origen === 'manual') {
+                        const tJson = JSON.stringify({id: t.id, tipo: t.tipo, monto: Math.abs(t.monto), desc: t.categoria, tag: t.tag, fecha: t.fecha}).replace(/"/g, '&quot;');
+                        editBtn = `
+                            <button onclick="App.editMovementSetup('${bancoId}', '${tJson}')" 
+                                    style="background: none; border: none; cursor: pointer; opacity: 0.5; padding: 4px; font-size: 1.1rem; margin-right: 5px;" 
+                                    title="Editar movimiento"
+                                    onmouseover="this.style.opacity='1'" 
+                                    onmouseout="this.style.opacity='0.5'">
+                                ✏️
+                            </button>
+                        `;
+                    }
+
+                    const origenToPass = t.isAjuste ? 'ajuste' : t.origen;
+
+                    actionsBtn = `
+                        <div style="display:flex; gap: 4px;">
+                            ${editBtn}
+                            <button onclick="App.deleteBankMovement('${bancoId}', '${t.id}', '${origenToPass}', '${t.transferenciaId || ''}', '${t.transferenciaDestinoId || ''}', '${t.transferenciaOrigenId || ''}')" 
+                                    style="background: none; border: none; cursor: pointer; opacity: 0.5; padding: 4px; font-size: 1.1rem;" 
+                                    title="${tooltip}"
+                                    onmouseover="this.style.opacity='1'" 
+                                    onmouseout="this.style.opacity='0.5'">
+                                ${deleteIcon}
+                            </button>
+                        </div>
                     `;
                 }
 
@@ -4163,7 +4391,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                             <div style="font-weight: 800; font-family: var(--font-mono); color: ${color}; font-size: 1.05rem; white-space: nowrap; margin-left: 15px;">
                                 ${signo}${App.formatMoney(Math.abs(t.monto))}
                             </div>
-                            ${deleteBtn}
+                            ${actionsBtn}
                         </div>
                     </div>
                 `;
@@ -4178,6 +4406,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
 
     closeDetalleModal() {
         State.showDetalleModal = false;
+        State.currentBancoId = null;
         this.render();
     },
 
@@ -4270,6 +4499,106 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         }
     },
 
+    editMovementSetup(bancoId, tJsonStr) {
+        const t = JSON.parse(tJsonStr.replace(/&quot;/g, '"'));
+        State.editingMovement = { bancoId, ...t };
+        
+        document.getElementById('mov-tipo').value = t.tipo;
+        document.getElementById('mov-monto').value = t.monto;
+        document.getElementById('mov-desc').value = t.desc;
+        document.getElementById('mov-tag').value = t.tag || '';
+        
+        const fechaInput = document.getElementById('mov-fecha');
+        if (fechaInput && t.fecha) {
+            const d = new Date(t.fecha);
+            if (!isNaN(d.getTime())) {
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                fechaInput.value = `${yyyy}-${mm}-${dd}`;
+            }
+        }
+        
+        let formTitle = document.getElementById('form-movimiento-title');
+        if (!formTitle) {
+            const form = document.getElementById('mov-tipo').closest('form');
+            if (form && form.previousElementSibling && form.previousElementSibling.tagName === 'H3') {
+                formTitle = form.previousElementSibling;
+                formTitle.id = 'form-movimiento-title';
+            }
+        }
+        if (formTitle) formTitle.textContent = 'Editar Movimiento';
+        
+        let submitBtn = document.getElementById('btn-movimiento-submit');
+        if (!submitBtn) {
+            const form = document.getElementById('mov-tipo').closest('form');
+            if (form) submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.id = 'btn-movimiento-submit';
+        }
+        if (submitBtn) {
+            submitBtn.textContent = 'Actualizar Registro';
+            submitBtn.classList.remove('btn-primary');
+            submitBtn.style.background = 'var(--warning)';
+            submitBtn.style.color = 'black';
+        }
+        
+        let cancelBtn = document.getElementById('btn-movimiento-cancel');
+        if (!cancelBtn) {
+            cancelBtn = document.createElement('button');
+            cancelBtn.id = 'btn-movimiento-cancel';
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'btn btn-secondary';
+            cancelBtn.textContent = 'Cancelar Edición';
+            cancelBtn.style.marginTop = '8px';
+            cancelBtn.style.width = '100%';
+            cancelBtn.onclick = () => App.cancelEditMovement();
+            submitBtn.parentNode.appendChild(cancelBtn);
+        }
+        cancelBtn.style.display = 'block';
+    },
+
+    cancelEditMovement() {
+        State.editingMovement = null;
+        
+        document.getElementById('mov-tipo').value = 'ingreso';
+        document.getElementById('mov-monto').value = '';
+        document.getElementById('mov-desc').value = '';
+        document.getElementById('mov-tag').value = '';
+        
+        const fechaInput = document.getElementById('mov-fecha');
+        if (fechaInput) {
+            const today = new Date();
+            const dd = String(today.getDate()).padStart(2, '0');
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const yyyy = today.getFullYear();
+            fechaInput.value = `${yyyy}-${mm}-${dd}`;
+        }
+        
+        let formTitle = document.getElementById('form-movimiento-title');
+        if (!formTitle) {
+            const form = document.getElementById('mov-tipo').closest('form');
+            if (form && form.previousElementSibling && form.previousElementSibling.tagName === 'H3') {
+                formTitle = form.previousElementSibling;
+            }
+        }
+        if (formTitle) formTitle.textContent = 'Nuevo Movimiento';
+        
+        let submitBtn = document.getElementById('btn-movimiento-submit');
+        if (!submitBtn) {
+            const form = document.getElementById('mov-tipo').closest('form');
+            if (form) submitBtn = form.querySelector('button[type="submit"]');
+        }
+        if (submitBtn) {
+            submitBtn.textContent = 'Registrar Movimiento';
+            submitBtn.classList.add('btn-primary');
+            submitBtn.style.background = '';
+            submitBtn.style.color = '';
+        }
+        
+        const cancelBtn = document.getElementById('btn-movimiento-cancel');
+        if (cancelBtn) cancelBtn.style.display = 'none';
+    },
+
     async handleMovimientoSubmit(e, bancoId) {
         e.preventDefault();
         const tipo = document.getElementById('mov-tipo').value;
@@ -4277,10 +4606,29 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         const desc = document.getElementById('mov-desc').value;
         const tag = document.getElementById('mov-tag').value;
         const banco = State.bancosData.find(b => b.id === bancoId);
+        const fechaInputStr = document.getElementById('mov-fecha')?.value;
+        
+        let fechaISO = new Date().toISOString();
+        if (fechaInputStr) {
+            const [yyyy, mm, dd] = fechaInputStr.split('-');
+            const customDate = new Date();
+            customDate.setFullYear(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
+            fechaISO = customDate.toISOString();
+        }
 
-        if (!banco || isNaN(monto)) return;
+        if (!banco) return;
+        
+        if (isNaN(monto) || monto <= 0) {
+            this.showToast('Por favor, ingresa un monto válido mayor a 0', 'warning');
+            return;
+        }
 
-        const btn = e.target.querySelector('button');
+        if (!desc.trim()) {
+            this.showToast('Por favor, ingresa una descripción', 'warning');
+            return;
+        }
+
+        const btn = document.getElementById('btn-movimiento-submit') || e.target.querySelector('button[type="submit"]');
         const originalText = btn.innerHTML;
         btn.innerHTML = `${Icons.loading()} Procesando...`;
         btn.disabled = true;
@@ -4289,34 +4637,66 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             const batch = db.batch();
             const bancoRef = db.collection('cuentas_bancarias').doc(bancoId);
             
-            const factor = tipo === 'ingreso' ? 1 : -1;
-            const nuevoSaldo = (banco.saldo_actual || 0) + (monto * factor);
+            if (State.editingMovement) {
+                const oldT = State.editingMovement;
+                if (oldT.bancoId !== bancoId) return;
+                
+                const oldFactor = oldT.tipo === 'ingreso' ? 1 : -1;
+                const newFactor = tipo === 'ingreso' ? 1 : -1;
+                
+                const saldoSinOld = (banco.saldo_actual || 0) - (oldT.monto * oldFactor);
+                const nuevoSaldo = saldoSinOld + (monto * newFactor);
+                
+                batch.update(bancoRef, {
+                    saldo_actual: nuevoSaldo,
+                    ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                const movRef = bancoRef.collection('movimientos').doc(oldT.id);
+                batch.update(movRef, {
+                    tipo,
+                    monto,
+                    descripcion: desc,
+                    tag: tag || null,
+                    fecha: fechaISO
+                });
+                
+                const timeout = new Promise((resolve) => setTimeout(resolve, 2000));
+                await Promise.race([batch.commit(), timeout]);
+                this.showToast('Movimiento actualizado correctamente', 'success');
+                
+                this.cancelEditMovement();
+            } else {
+                const factor = tipo === 'ingreso' ? 1 : -1;
+                const nuevoSaldo = (banco.saldo_actual || 0) + (monto * factor);
 
-            batch.update(bancoRef, {
-                saldo_actual: nuevoSaldo,
-                ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
-            });
+                batch.update(bancoRef, {
+                    saldo_actual: nuevoSaldo,
+                    ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+                });
 
-            const movRef = bancoRef.collection('movimientos').doc();
-            batch.set(movRef, {
-                tipo,
-                monto,
-                descripcion: desc,
-                tag: tag || null,
-                fecha: new Date().toISOString(),
-                isAjuste: false,
-                origen: 'manual',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+                const movRef = bancoRef.collection('movimientos').doc();
+                batch.set(movRef, {
+                    tipo,
+                    monto,
+                    descripcion: desc,
+                    tag: tag || null,
+                    fecha: fechaISO,
+                    isAjuste: false,
+                    origen: 'manual',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
 
-            await batch.commit();
-            this.showToast('Movimiento registrado correctamente', 'success');
+                const timeout = new Promise((resolve) => setTimeout(resolve, 2000));
+                await Promise.race([batch.commit(), timeout]);
+                this.showToast('Movimiento registrado correctamente', 'success');
+            }
             
             // Re-render is handled by real-time listener
             this.openBancoDetail(bancoId);
         } catch (error) {
             console.error('Error recording movement:', error);
-            this.showToast('Error al registrar movimiento', 'error');
+            this.showToast('Error al procesar movimiento', 'error');
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
@@ -4340,7 +4720,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         try {
             const batch = db.batch();
 
-            if (origen === 'manual') {
+            if (origen === 'manual' || origen === 'ajuste') {
                 const movRef = db.collection('cuentas_bancarias').doc(bancoId).collection('movimientos').doc(movId);
                 const movDoc = await movRef.get();
                 if (!movDoc.exists) throw new Error('Movimiento no encontrado');
@@ -4357,9 +4737,9 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 batch.delete(movRef);
                 
                 await batch.commit();
-                this.showToast('Movimiento eliminado correctamente', 'success');
+                this.showToast(origen === 'ajuste' ? 'Ajuste eliminado correctamente' : 'Movimiento eliminado correctamente', 'success');
 
-                await Store.logAction('delete', 'BANCOS', `Eliminación de movimiento manual`, {
+                await Store.logAction('delete', 'BANCOS', `Eliminación de movimiento ${origen === 'ajuste' ? 'de ajuste' : 'manual'}`, {
                     bancoId: bancoId,
                     movimiento: movData.descripcion,
                     monto: movData.monto
@@ -4433,15 +4813,16 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         this.showToast('Generando reporte PDF...', 'info');
 
         try {
+            const startDateStr = document.getElementById('export-desde')?.value;
+            const endDateStr = document.getElementById('export-hasta')?.value;
+
             const [pagosSnapshot, movsSnapshot] = await Promise.all([
                 db.collection('pagos')
                     .where('banco_destino', '==', banco.nombre)
                     .orderBy('fecha_pago', 'desc')
-                    .limit(100)
                     .get(),
                 db.collection('cuentas_bancarias').doc(bancoId).collection('movimientos')
                     .orderBy('fecha', 'desc')
-                    .limit(100)
                     .get()
             ]);
 
@@ -4481,18 +4862,45 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
 
             transacciones.sort((a, b) => parseDate(b.fecha) - parseDate(a.fecha));
 
+            let currentBal = banco.saldo_actual || 0;
+            transacciones.forEach(t => {
+                t.saldoDespues = currentBal;
+                const factor = t.tipo === 'ingreso' ? -1 : 1;
+                currentBal = currentBal + (Math.abs(t.monto) * factor);
+                t.saldoAntes = currentBal;
+            });
+
+            if (startDateStr) {
+                const [y, m, d] = startDateStr.split('-');
+                const localStartD = new Date(y, m - 1, d, 0, 0, 0, 0);
+                transacciones = transacciones.filter(t => parseDate(t.fecha) >= localStartD);
+            }
+            if (endDateStr) {
+                const [y, m, d] = endDateStr.split('-');
+                const localEndD = new Date(y, m - 1, d, 23, 59, 59, 999);
+                transacciones = transacciones.filter(t => parseDate(t.fecha) <= localEndD);
+            }
+
             const fmt = n => this.formatMoney(n);
             const rowsHTML = transacciones.map(t => {
                 const parsed = parseDate(t.fecha);
                 const fecha = parsed && !isNaN(parsed.getTime()) && parsed.getTime() !== 0 ? parsed.toLocaleDateString() : 'N/A';
-                const color = t.tipo === 'ingreso' ? 'color:#065f46;' : (t.isAjuste ? 'color:#1e3a8a;' : 'color:#991b1b;');
-                const signo = (t.tipo === 'ingreso' || t.monto > 0) ? '+' : '-';
+                
+                let inStr = '';
+                let outStr = '';
+                if (t.tipo === 'ingreso') {
+                    inStr = `<span style="color:#065f46; font-weight:bold;">${fmt(Math.abs(t.monto))}</span>`;
+                } else {
+                    outStr = `<span style="color:#991b1b; font-weight:bold;">${fmt(Math.abs(t.monto))}</span>`;
+                }
+                
                 return `
                 <tr>
                     <td style="text-align:left;">${fecha}</td>
-                    <td style="text-align:left; font-weight:600;">${t.categoria}</td>
-                    <td style="text-align:left;">${t.metodo}</td>
-                    <td style="font-family:'Courier New',monospace; font-weight:bold; text-align:right; ${color}">${signo}${fmt(Math.abs(t.monto))}</td>
+                    <td style="text-align:left; font-weight:600;">${t.categoria} <br><span style="font-size:7pt; font-weight:normal; opacity:0.6;">${t.metodo}</span></td>
+                    <td style="font-family:'Courier New',monospace; text-align:right;">${inStr}</td>
+                    <td style="font-family:'Courier New',monospace; text-align:right;">${outStr}</td>
+                    <td style="font-family:'Courier New',monospace; font-weight:bold; text-align:right;">${fmt(t.saldoDespues)}</td>
                 </tr>`;
             }).join('');
 
@@ -4500,14 +4908,42 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             const fgen = now.toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric'});
             const hora = now.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'});
 
+            let periodoText = 'Historial Completo';
+            if (startDateStr && endDateStr) {
+                periodoText = `${startDateStr.split('-').reverse().join('/')} al ${endDateStr.split('-').reverse().join('/')}`;
+            } else if (startDateStr) {
+                periodoText = `Desde ${startDateStr.split('-').reverse().join('/')}`;
+            } else if (endDateStr) {
+                periodoText = `Hasta ${endDateStr.split('-').reverse().join('/')}`;
+            }
+
+            let totalIngresos = 0;
+            let totalEgresos = 0;
+            transacciones.forEach(t => {
+                if(t.tipo === 'ingreso') totalIngresos += Math.abs(t.monto);
+                else totalEgresos += Math.abs(t.monto);
+            });
+            const flujoNeto = totalIngresos - totalEgresos;
+
+            let saldoFinalPeriodo = banco.saldo_actual || 0;
+            let saldoInicialPeriodo = 0;
+
+            if (transacciones.length > 0) {
+                saldoFinalPeriodo = transacciones[0].saldoDespues;
+                saldoInicialPeriodo = transacciones[transacciones.length - 1].saldoAntes;
+            } else {
+                saldoFinalPeriodo = currentBal;
+                saldoInicialPeriodo = currentBal;
+            }
+
             const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <title>Historial - ${banco.nombre}</title>
 <style>
-@page { size: A4 portrait; margin: 15mm; }
-body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; background: #fff; color: #1a1a2e; }
+@page { size: A4 portrait; margin: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; background: #fff; color: #1a1a2e; margin: 0; padding: 15mm; }
 .hdr { background: linear-gradient(135deg, #1e0533 0%, #3b0764 100%); color: #fff; padding: 20px; border-radius: 8px 8px 0 0; display:flex; justify-content:space-between; align-items:center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .hdr-title { font-size: 18pt; font-weight: 800; }
 .hdr-sub { font-size: 9pt; opacity: 0.8; margin-top: 4px; }
@@ -4533,27 +4969,60 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
     </div>
     <div class="info-band">
         <div>
-            <div class="balance-lbl">Fecha de Generación</div>
-            <div style="font-weight:600; color:#374151;">${fgen} - ${hora}</div>
+            <div class="balance-lbl">Período de Exportación</div>
+            <div style="font-weight:600; color:#374151;">${periodoText}</div>
+        </div>
+        <div>
+            <div class="balance-lbl">Generación</div>
+            <div style="font-weight:600; color:#374151; font-size:9pt;">${fgen} - ${hora}</div>
         </div>
         <div style="text-align:right;">
-            <div class="balance-lbl">Saldo Actual en Sistema</div>
-            <div class="balance-val">${fmt(banco.saldo_actual || 0)}</div>
+            <div class="balance-lbl">Saldo Final del Período</div>
+            <div class="balance-val">${fmt(saldoFinalPeriodo)}</div>
         </div>
     </div>
+
     <table>
         <thead>
             <tr>
                 <th style="width: 15%;">Fecha</th>
-                <th style="width: 45%;">Descripción</th>
-                <th style="width: 20%;">Método</th>
-                <th style="width: 20%; text-align:right;">Monto</th>
+                <th style="width: 35%;">Descripción</th>
+                <th style="width: 15%; text-align:right;">Ingreso</th>
+                <th style="width: 15%; text-align:right;">Egreso</th>
+                <th style="width: 20%; text-align:right;">Saldo</th>
             </tr>
         </thead>
         <tbody>
-            ${rowsHTML || '<tr><td colspan="4" style="text-align:center; padding:30px; color:#6b7280;">No hay movimientos registrados.</td></tr>'}
+            ${rowsHTML || '<tr><td colspan="5" style="text-align:center; padding:30px; color:#6b7280;">No hay movimientos registrados en este período.</td></tr>'}
         </tbody>
     </table>
+    
+    <div style="margin-top: 30px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; page-break-inside: avoid;">
+        <div style="background: #f50086; padding: 12px 20px; font-weight: 700; color: #ffffff; border-bottom: 1px solid #e5e7eb; text-transform: uppercase; font-size: 9pt; letter-spacing: 0.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact;">Resumen del Período</div>
+        <div style="display: flex; flex-wrap: wrap; padding: 15px 20px; gap: 20px; background: #faf8fc;">
+            <div style="flex: 1; min-width: 120px;">
+                <div style="font-size: 8pt; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Saldo Inicial</div>
+                <div style="font-family: 'Courier New', monospace; font-size: 11pt; font-weight: 700;">${fmt(saldoInicialPeriodo)}</div>
+            </div>
+            <div style="flex: 1; min-width: 120px;">
+                <div style="font-size: 8pt; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Total Ingresos</div>
+                <div style="font-family: 'Courier New', monospace; font-size: 11pt; font-weight: 700; color: #065f46;">+${fmt(totalIngresos)}</div>
+            </div>
+            <div style="flex: 1; min-width: 120px;">
+                <div style="font-size: 8pt; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Total Egresos</div>
+                <div style="font-family: 'Courier New', monospace; font-size: 11pt; font-weight: 700; color: #991b1b;">-${fmt(totalEgresos)}</div>
+            </div>
+            <div style="flex: 1; min-width: 120px; border-left: 2px solid #e5e7eb; padding-left: 20px;">
+                <div style="font-size: 8pt; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Flujo Neto</div>
+                <div style="font-family: 'Courier New', monospace; font-size: 12pt; font-weight: 800; color: ${flujoNeto >= 0 ? '#065f46' : '#991b1b'};">${flujoNeto >= 0 ? '+' : ''}${fmt(flujoNeto)}</div>
+            </div>
+            <div style="flex: 1; min-width: 120px; background: #f3f4f6; border-radius: 6px; padding: 10px; margin-top: -10px; margin-bottom: -10px;">
+                <div style="font-size: 8pt; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Saldo Final</div>
+                <div style="font-family: 'Courier New', monospace; font-size: 13pt; font-weight: 900; color: #111827;">${fmt(saldoFinalPeriodo)}</div>
+            </div>
+        </div>
+    </div>
+
     <div class="ftr">
         <span>Documento generado por JF System</span>
         <span>Página 1 de 1</span>
@@ -4667,15 +5136,14 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
 
     toggleOtroBanco() {
         const seleccion = document.querySelector('input[name="banco_seleccion"]:checked').value;
-        const containerOtro = document.getElementById('container-otro-banco');
         const inputOtro = document.getElementById('banco-nombre-manual');
+        
         if (seleccion === 'Otro') {
-            containerOtro.style.display = 'block';
-            inputOtro.required = true;
+            inputOtro.value = '';
             inputOtro.focus();
         } else {
-            containerOtro.style.display = 'none';
-            inputOtro.required = false;
+            inputOtro.value = seleccion;
+            inputOtro.focus();
         }
     },
 
@@ -4710,12 +5178,14 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
         if (btn) { btn.disabled = true; btn.innerHTML = `${Icons.loading()} Guardando...`; }
 
         try {
-            await db.collection('cuentas_bancarias').doc(bancoId).update({
+            const updates = {
                 nombre,
                 numero,
                 saldo_actual: saldo,
                 ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            };
+            const timeout = new Promise((resolve) => setTimeout(resolve, 3000));
+            await Promise.race([db.collection('cuentas_bancarias').doc(bancoId).update(updates), timeout]);
 
             // Registrar log de auditoría
             await Store.logAction('update', 'BANCOS', `Actualizada cuenta bancaria: ${nombre}`, {
@@ -4737,14 +5207,7 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
     async handleBancoSubmit(event) {
         event.preventDefault();
         
-        const seleccion = document.querySelector('input[name="banco_seleccion"]:checked').value;
-        let nombre = '';
-        
-        if (seleccion === 'Otro') {
-            nombre = document.getElementById('banco-nombre-manual').value.trim();
-        } else {
-            nombre = seleccion;
-        }
+        const nombre = document.getElementById('banco-nombre-manual').value.trim();
         
         const saldoInicial = parseFloat(document.getElementById('banco-saldo-inicial').value) || 0;
         const nroCuenta = document.getElementById('banco-numero-cuenta')?.value || '';

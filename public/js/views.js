@@ -107,6 +107,10 @@ const Views = {
                             <span class="nav-icon">${Icons.navBancos()}</span>
                             <span class="nav-label">Bancos</span>
                         </a>
+                        <a href="#" class="nav-item ${State.currentRoute === 'finanzas' ? 'active' : ''}" onclick="App.navigate('finanzas', true); return false;" data-tooltip="Estados Financieros">
+                            <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></span>
+                            <span class="nav-label">Estados Financieros</span>
+                        </a>
                         ${user.role === 'admin' ? `
                         <a href="#" class="nav-item ${State.currentRoute === 'audit' ? 'active' : ''}" onclick="App.navigate('audit', true); return false;" data-tooltip="Auditoría">
                             <span class="nav-icon">${Icons.navAudit()}</span>
@@ -224,15 +228,27 @@ const Views = {
                                 Cargando movimientos...
                             </div>
                         </div>
-                        <div style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 16px; display:flex; justify-content:center;">
-                            <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 16px; display:flex; align-items:center; gap:8px;" onclick="App.exportBankHistoryPDF('${banco.id}')">
-                                ${Icons.export(14)} Descargar Historial (PDF)
-                            </button>
+                        <div style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 16px;">
+                            <div style="display: flex; gap: 10px; margin-bottom: 12px; justify-content: center;">
+                                <div style="display: flex; flex-direction: column;">
+                                    <label style="font-size: 0.7rem; opacity: 0.7; margin-bottom: 2px;">Desde</label>
+                                    <input type="date" id="export-desde" style="padding: 6px; font-size: 0.8rem; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px;">
+                                </div>
+                                <div style="display: flex; flex-direction: column;">
+                                    <label style="font-size: 0.7rem; opacity: 0.7; margin-bottom: 2px;">Hasta</label>
+                                    <input type="date" id="export-hasta" style="padding: 6px; font-size: 0.8rem; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px;">
+                                </div>
+                            </div>
+                            <div style="display:flex; justify-content:center;">
+                                <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 16px; display:flex; align-items:center; gap:8px;" onclick="App.exportBankHistoryPDF('${banco.id}')">
+                                    ${Icons.export(14)} Descargar Historial (PDF)
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <div class="glass-card" style="background: rgba(255,255,255,0.02); padding: 20px; border: 1px solid rgba(255,255,255,0.05);">
-                        <h3 style="margin: 0 0 16px 0; font-size: 1.1rem;">Nuevo Movimiento</h3>
+                        <h3 id="form-movimiento-title" style="margin: 0 0 16px 0; font-size: 1.1rem;">Nuevo Movimiento</h3>
                         <form onsubmit="App.handleMovimientoSubmit(event, '${banco.id}')" style="display:grid; gap: 12px;">
                             <div class="form-group">
                                 <label style="font-size: 0.75rem; opacity: 0.7;">Tipo de Movimiento</label>
@@ -240,6 +256,10 @@ const Views = {
                                     <option value="ingreso">Ingreso (+)</option>
                                     <option value="egreso">Egreso (-)</option>
                                 </select>
+                            </div>
+                            <div class="form-group">
+                                <label style="font-size: 0.75rem; opacity: 0.7;">Fecha</label>
+                                <input type="date" id="mov-fecha" required style="width: 100%; padding: 8px; background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px;">
                             </div>
                             <div class="form-group">
                                 <label style="font-size: 0.75rem; opacity: 0.7;">Monto ($)</label>
@@ -262,7 +282,7 @@ const Views = {
                                     <option value="Otros">Otros</option>
                                 </select>
                             </div>
-                            <button type="submit" class="btn btn-primary" style="margin-top: 8px; width: 100%;">Registrar Movimiento</button>
+                            <button id="btn-movimiento-submit" type="submit" class="btn btn-primary" style="margin-top: 8px; width: 100%;">Registrar Movimiento</button>
                         </form>
                     </div>
                 </div>
@@ -335,9 +355,9 @@ const Views = {
                                 </label>
                             </div>
                         </div>
-                        <div class="form-group" id="container-otro-banco" style="display:none;">
-                            <label>Escribe el nombre del Banco/Cuenta</label>
-                            <input type="text" id="banco-nombre-manual" placeholder="Ej. Caja Chica, Produbanco...">
+                        <div class="form-group" id="container-otro-banco">
+                            <label>Nombre de la Cuenta *</label>
+                            <input type="text" id="banco-nombre-manual" placeholder="Ej. Caja Chica, Banco Pichincha..." required value="Banco Pichincha">
                         </div>
                         <div class="form-group">
                             <label>Saldo Inicial ($)</label>
@@ -866,6 +886,12 @@ const Views = {
             const prevHonorarios = prevJessicaStats.sales || 0;
             const prevGastos = prevJessicaStats.purchases || 0;
             
+            const jessicaCobrar = (State.cuentasCobrarData || []).filter(c => (parseFloat(c.pendiente) || 0) > 0);
+            const jessicaPagar = (State.cuentasPagarData || []).filter(c => (parseFloat(c.pendiente) || 0) > 0);
+            
+            const totalPorCobrar = jessicaCobrar.reduce((sum, c) => sum + (parseFloat(c.pendiente) || 0), 0);
+            const totalPorPagar = jessicaPagar.reduce((sum, c) => sum + (parseFloat(c.pendiente) || 0), 0);
+            
             kpisHtml = `
                 <!-- Honorarios de Oficina -->
                 <div class="stat-card animate-stagger" style="animation-delay: 0.05s;">
@@ -924,6 +950,32 @@ const Views = {
                             ${pendingTodosCount}
                         </div>
                         <div style="margin-top:6px; font-size:0.75rem; color:var(--text-secondary);">Tareas por completar en tu lista</div>
+                    </div>
+                </div>
+
+                <!-- Estado de Cuentas -->
+                <div class="stat-card animate-stagger" style="animation-delay: 0.25s;">
+                    <div class="stat-bar" style="background: linear-gradient(90deg, #3b82f6, #8b5cf6);"></div>
+                    <div class="stat-body" style="padding-bottom: 12px;">
+                        <div class="stat-head">
+                            <div class="stat-icon" style="background: rgba(59,130,246,0.12);">${Icons.navCuentas ? Icons.navCuentas(18) : '💸'}</div>
+                            <span class="stat-label">ESTADO DE CUENTAS</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-top: 10px; align-items:center;">
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-size:0.65rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700;">Por Cobrar</span>
+                                <span class="stat-num" style="color: var(--success); font-size:1.15rem;">
+                                    ${State.hideAmounts ? '****' : App.formatMoney(totalPorCobrar)}
+                                </span>
+                            </div>
+                            <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.1); margin: 0 10px;"></div>
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-size:0.65rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700;">Por Pagar</span>
+                                <span class="stat-num" style="color: var(--danger); font-size:1.15rem;">
+                                    ${State.hideAmounts ? '****' : App.formatMoney(totalPorPagar)}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -1049,6 +1101,16 @@ const Views = {
                         </div>
                         <div style="height:300px; position:relative;">
                             <canvas id="dashboardChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- NUEVO WIDGET: Top Clientes -->
+                    <div class="glass-card animate-stagger" style="animation-delay: 0.42s;">
+                        <h3 style="margin:0 0 16px; font-family:var(--font-heading); font-size:1rem; text-transform: uppercase;">
+                            Top 5 Clientes por Ganancias
+                        </h3>
+                        <div style="height:250px; position:relative; display:flex; justify-content:center;">
+                            <canvas id="topClientesChart"></canvas>
                         </div>
                     </div>
 
@@ -2097,6 +2159,8 @@ const Views = {
                     ${Store.getUserRole() === 'admin' ? `<button class="btn btn-primary" onclick="App.toggleClientForm(true)" style="display:inline-flex;align-items:center;gap:8px;">${Icons.addPerson()} Nuevo Cliente</button>` : ''}
                 </div>
 
+                <!-- Ocultar lista y controles si el formulario está abierto -->
+                ${!State.showClientForm ? `
                 <!-- Tabs de Navegación -->
                 <div style="display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 2px;">
                     <button 
@@ -2132,38 +2196,22 @@ const Views = {
                         >
                         ${State.clientSearch ? `<button onclick="App.setClientSearch('')" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; opacity:0.5; color:var(--text-primary);display:flex;align-items:center;">${Icons.close()}</button>` : ''}
                     </div>
-
-                    <!-- Leyenda de Estados -->
-                    <div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.8rem; background: rgba(255,255,255,0.03); padding: 10px 16px; border-radius: var(--radius-md); align-items: center; border: 1px solid rgba(255,255,255,0.05); min-height: 42px; box-sizing: border-box;">
-                        <span style="color: var(--text-secondary); font-weight: 600; margin-right: 4px;">Estados (Firma/Fact.):</span>
-                        <span style="display: flex; align-items: center; gap: 6px;" title="Más de 30 días restantes">
-                            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);"></span> Vigente
-                        </span>
-                        <span style="display: flex; align-items: center; gap: 6px;" title="30 días o menos restantes">
-                            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--warning);box-shadow:0 0 6px var(--warning);"></span> Por Vencer
-                        </span>
-                        <span style="display: flex; align-items: center; gap: 6px;" title="La fecha ya pasó">
-                            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--danger);box-shadow:0 0 6px var(--danger);"></span> Vencido
-                        </span>
-                        <span style="display: flex; align-items: center; gap: 6px;" title="No hay fecha registrada">
-                            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgba(150,150,150,0.4);"></span> Sin Datos
-                        </span>
-                    </div>
                 </div>
+                ` : ''}
 
                 ${State.showClientForm ? this.clientForm() : ''}
 
+                ${!State.showClientForm ? `
                 <div class="table-container">
                     <table>
                         <thead>
                             <tr>
-                                <th>Cliente</th>
-                                <th>RUC</th>
+                                <th><div style="cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none;" onclick="App.toggleClientSort()" title="Ordenar alfabéticamente">Cliente <span style="font-size: 0.8em; opacity: 0.7;">${State.clientSortAsc ? '▼' : '▲'}</span></div></th>
+                                <th>RUC / CÉDULA</th>
                                 <th>Régimen</th>
                                 <th>Forma</th>
-                                <th>Día Pago</th>
-                                <th style="text-align:center;">Firma</th>
-                                <th style="text-align:center;">Fact.</th>
+                                <th>Fecha de Declaración</th>
+                                <th style="text-align:center;">Tipo</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
@@ -2173,6 +2221,7 @@ const Views = {
                     </table>
                 </div>
                 <div id="clients-search-count" style="margin-top: 10px; font-size: 0.78rem; color: var(--text-secondary); text-align: right;"></div>
+                ` : ''}
             </div>
         `;
     },
@@ -2184,18 +2233,40 @@ const Views = {
         const name      = editingClient ? editingClient.name : '';
         const ruc       = editingClient ? editingClient.ruc : '';
         const regime    = editingClient ? editingClient.regime : '';
+        const tipo      = editingClient && editingClient.tipo ? editingClient.tipo : 'P. Natural';
         const frecuencia = editingClient && editingClient.frecuencia ? editingClient.frecuencia : 'Mensual';
         const claveSRI  = editingClient && editingClient.claveSRI ? editingClient.claveSRI : '';
         const arrastreInicial = editingClient && editingClient.arrastreInicial ? editingClient.arrastreInicial : 0;
 
         // Obligaciones tributarias (Sí/No)
         const oblSuperCia = editingClient ? (editingClient.oblSuperCia || 'No') : 'No';
+        const superCiaUser = editingClient ? (editingClient.superCiaUser || '') : '';
+        const superCiaPass = editingClient ? (editingClient.superCiaPass || '') : '';
         const oblIVA      = editingClient ? (editingClient.oblIVA      || 'No') : 'No';
         const oblRenta    = editingClient ? (editingClient.oblRenta    || 'No') : 'No';
         const oblATS      = editingClient ? (editingClient.oblATS      || 'No') : 'No';
         const oblADI      = editingClient ? (editingClient.oblADI      || 'No') : 'No';
         const oblGP       = editingClient ? (editingClient.oblGP       || 'No') : 'No';
         const oblRebefics = editingClient ? (editingClient.oblRebefics || 'No') : 'No';
+
+        // Contacto y Acceso
+        const correo      = editingClient && editingClient.correo ? editingClient.correo : '';
+        const telefono    = editingClient && editingClient.telefono ? editingClient.telefono : '';
+        const direccion   = editingClient && editingClient.direccion ? editingClient.direccion : '';
+        const contrasena  = editingClient && editingClient.contrasena ? editingClient.contrasena : '';
+
+        // Facturación
+        const factUsuario = editingClient ? (editingClient.factUsuario || '') : '';
+        const factClave   = editingClient ? (editingClient.factClave || '') : '';
+        const factNumComp = editingClient ? (editingClient.factNumComp || '') : '';
+        const factEmitido = editingClient ? (editingClient.factEmitido || '') : '';
+        const factCaduca  = editingClient ? (editingClient.factCaduca || '') : '';
+
+        // Firma Digital
+        const firmaClave   = editingClient ? (editingClient.firmaClave || '') : '';
+        const firmaEmision = editingClient ? (editingClient.firmaEmision || '') : '';
+        const firmaCaduca  = editingClient ? (editingClient.firmaCaduca || '') : '';
+        const firmaTiempo  = editingClient ? (editingClient.firmaTiempo || '1') : '1';
 
         // Helper: genera un select Sí/No con el valor pre-seleccionado
         const siNo = (id, val) => `
@@ -2210,55 +2281,163 @@ const Views = {
                     <div style="margin-bottom: 15px; font-weight: bold; color: var(--primary); font-family: var(--font-heading);">
                         <span style="display:inline-flex;align-items:center;gap:8px;">${editingClient ? Icons.edit(16) : Icons.addPerson()} ${editingClient ? 'Editar Cliente' : 'Nuevo Cliente'}</span>
                     </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>Razón Social</label>
-                            <input type="text" id="client-name" value="${App.escapeHTML(name)}" required>
-                        </div>
-                        <div class="form-group">
-                            <label>RUC (13 dígitos)</label>
-                            <input type="text" id="client-ruc" maxlength="13" value="${App.escapeHTML(ruc)}" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Régimen Tributario</label>
-                            <select id="client-regime">
-                                ${conf.regimenes.map(o => `<option value="${o}" ${regime === o ? 'selected' : ''}>${o}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Forma</label>
-                            <select id="client-frecuencia">
-                                <option value="Mensual" ${frecuencia === 'Mensual' ? 'selected' : ''}>Mensual</option>
-                                <option value="Anual" ${frecuencia === 'Anual' ? 'selected' : ''}>Anual</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Clave SRI</label>
-                            <div style="position: relative;">
-                                <input type="password" id="client-clave-sri" value="${App.escapeHTML(claveSRI)}" style="padding-right: 88px;">
-                                <div style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); display: flex; gap: 4px;">
-                                    <button type="button" class="btn-icon" style="width:34px;height:34px;opacity:0.6;display:flex;align-items:center;justify-content:center;" onclick="App.copyToClipboard('client-clave-sri')" title="Copiar contraseña">${Icons.copy(16)}</button>
-                                    <button type="button" class="btn-icon" style="width:34px;height:34px;opacity:0.6;display:flex;align-items:center;justify-content:center;" onclick="App.togglePasswordVis('client-clave-sri')" title="Mostrar/Ocultar">${Icons.eye(16)}</button>
+
+                    <!-- TABS -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; flex-wrap: wrap;">
+                        <button type="button" id="tab-btn-tributario" class="btn" style="background: var(--primary); color: white; border-radius: 6px; padding: 6px 12px; font-size: 0.85rem;" onclick="App.switchClientFormTab('tributario')">Datos Tributarios</button>
+                        <button type="button" id="tab-btn-personal" class="btn" style="background: transparent; color: var(--text-secondary); border-radius: 6px; padding: 6px 12px; font-size: 0.85rem;" onclick="App.switchClientFormTab('personal')">Contacto y Acceso</button>
+                        <button type="button" id="tab-btn-facturacion" class="btn" style="background: transparent; color: var(--text-secondary); border-radius: 6px; padding: 6px 12px; font-size: 0.85rem;" onclick="App.switchClientFormTab('facturacion')">Facturación</button>
+                        <button type="button" id="tab-btn-firma" class="btn" style="background: transparent; color: var(--text-secondary); border-radius: 6px; padding: 6px 12px; font-size: 0.85rem;" onclick="App.switchClientFormTab('firma')">Firma Digital</button>
+                    </div>
+
+                    <div id="tab-tributario" style="display: block;">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Razón Social</label>
+                                <input type="text" id="client-name" value="${App.escapeHTML(name)}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>RUC (13 dígitos)</label>
+                                <input type="text" id="client-ruc" maxlength="13" value="${App.escapeHTML(ruc)}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Régimen Tributario</label>
+                                <select id="client-regime">
+                                    ${conf.regimenes.map(o => `<option value="${o}" ${regime === o ? 'selected' : ''}>${o}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Forma</label>
+                                <select id="client-frecuencia">
+                                    <option value="Mensual" ${frecuencia === 'Mensual' ? 'selected' : ''}>Mensual</option>
+                                    <option value="Anual" ${frecuencia === 'Anual' ? 'selected' : ''}>Anual</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Tipo de Contribuyente</label>
+                                <select id="client-tipo">
+                                    <option value="P. Natural" ${tipo === 'P. Natural' ? 'selected' : ''}>P. Natural</option>
+                                    <option value="Sociedad" ${tipo === 'Sociedad' ? 'selected' : ''}>Sociedad</option>
+                                    <option value="Tercera Edad" ${tipo === 'Tercera Edad' ? 'selected' : ''}>Tercera Edad</option>
+                                    <option value="Discapacidad" ${tipo === 'Discapacidad' ? 'selected' : ''}>Discapacidad</option>
+                                    <option value="Trabajador Público" ${tipo === 'Trabajador Público' ? 'selected' : ''}>Trabajador Público</option>
+                                    <option value="Otro" ${tipo === 'Otro' ? 'selected' : ''}>Otro</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Clave SRI</label>
+                                <div style="position: relative;">
+                                    <input type="password" id="client-clave-sri" value="${App.escapeHTML(claveSRI)}" style="padding-right: 88px;">
+                                    <div style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); display: flex; gap: 4px;">
+                                        <button type="button" class="btn-icon" style="width:34px;height:34px;opacity:0.6;display:flex;align-items:center;justify-content:center;" onclick="App.copyToClipboard('client-clave-sri')" title="Copiar contraseña">${Icons.copy(16)}</button>
+                                        <button type="button" class="btn-icon" style="width:34px;height:34px;opacity:0.6;display:flex;align-items:center;justify-content:center;" onclick="App.togglePasswordVis('client-clave-sri')" title="Mostrar/Ocultar">${Icons.eye(16)}</button>
+                                    </div>
                                 </div>
                             </div>
+                            <div class="form-group">
+                                <label>Arrastre IVA Inicial ($)</label>
+                                <input type="number" step="0.01" min="0" id="client-arrastre-inicial" value="${arrastreInicial}" placeholder="0.00">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Arrastre IVA Inicial ($)</label>
-                            <input type="number" step="0.01" min="0" id="client-arrastre-inicial" value="${arrastreInicial}" placeholder="0.00">
+
+                        <!-- Actividades Económicas -->
+                        <div style="margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-color);">
+                            <div style="font-size: 0.75rem; font-weight: 700; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 14px;">ACTIVIDADES ECONÓMICAS</div>
+                            <div id="client-activities-list" style="max-height: 150px; overflow-y: auto; margin-bottom: 10px; padding-right: 5px; max-width: 600px;"></div>
+                            <div style="display: flex; gap: 10px; align-items: center; max-width: 600px;">
+                                <input type="text" id="new-activity-name" placeholder="Ej. Venta de repuestos..." style="flex: 1;">
+                                <select id="new-activity-tarifa" style="width: 100px;">
+                                    <option value="0%">0%</option>
+                                    <option value="5%">5%</option>
+                                    <option value="15%" selected>15%</option>
+                                </select>
+                                <button type="button" class="btn btn-primary" onclick="App.addClientActivity()" style="padding: 0 12px; height: 38px;">${Icons.plus(16)}</button>
+                            </div>
+                        </div>
+
+                        <!-- Obligaciones Tributarias -->
+                        <div style="margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-color);">
+                            <div style="font-size: 0.75rem; font-weight: 700; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 14px;">OBLIGACIONES TRIBUTARIAS</div>
+                            <div class="form-grid">
+                                <div class="form-group"><label>SUPER CIA</label><select id="client-super-cia" onchange="App.toggleSuperCiaFields(this.value, 'client')"><option value="Si" ${oblSuperCia==='Si'?'selected':''}>Sí</option><option value="No" ${oblSuperCia==='No'?'selected':''}>No</option></select></div>
+                                <div class="form-group"><label>IVA</label>${siNo('client-iva', oblIVA)}</div>
+                                <div class="form-group"><label>RENTA</label>${siNo('client-renta', oblRenta)}</div>
+                                <div class="form-group"><label>ATS</label>${siNo('client-ats', oblATS)}</div>
+                                <div class="form-group"><label>ADI</label>${siNo('client-adi', oblADI)}</div>
+                                <div class="form-group"><label>GP</label>${siNo('client-gp', oblGP)}</div>
+                                <div class="form-group"><label>REBEFICS</label>${siNo('client-rebefics', oblRebefics)}</div>
+                            </div>
+                        </div>
+                        <div id="client-super-cia-container" style="display: ${oblSuperCia === 'Si' ? 'block' : 'none'}; margin-top: 15px; padding: 16px; background: rgba(var(--primary-rgb), 0.04); border-radius: 12px; border: 1px solid rgba(var(--primary-rgb), 0.15);">
+                            <div style="font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 12px;">CREDENCIALES SUPER CIA</div>
+                            <div style="display: flex; gap: 15px; max-width: 600px;">
+                                <div class="form-group" style="flex: 1;"><label>Usuario</label><input type="text" id="client-super-cia-user" value="${App.escapeHTML(superCiaUser)}"></div>
+                                <div class="form-group" style="flex: 1;"><label>Contraseña</label><div style="position:relative;"><input type="password" id="client-super-cia-pass" value="${App.escapeHTML(superCiaPass)}" style="padding-right:78px;"><div style="position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;gap:3px;"><button type="button" class="pw-action-btn" onclick="App.copyToClipboard('client-super-cia-pass')">${Icons.copy(14)}</button><button type="button" class="pw-action-btn" onclick="App.togglePasswordVis('client-super-cia-pass')">${Icons.eye(14)}</button></div></div></div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Obligaciones Tributarias -->
-                    <div style="margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-color);">
-                        <div style="font-size: 0.75rem; font-weight: 700; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 14px;">OBLIGACIONES TRIBUTARIAS</div>
+                    <div id="tab-personal" style="display: none;">
                         <div class="form-grid">
-                            <div class="form-group"><label>SUPER CIA</label>${siNo('client-super-cia', oblSuperCia)}</div>
-                            <div class="form-group"><label>IVA</label>${siNo('client-iva', oblIVA)}</div>
-                            <div class="form-group"><label>RENTA</label>${siNo('client-renta', oblRenta)}</div>
-                            <div class="form-group"><label>ATS</label>${siNo('client-ats', oblATS)}</div>
-                            <div class="form-group"><label>ADI</label>${siNo('client-adi', oblADI)}</div>
-                            <div class="form-group"><label>GP</label>${siNo('client-gp', oblGP)}</div>
-                            <div class="form-group"><label>REBEFICS</label>${siNo('client-rebefics', oblRebefics)}</div>
+                            <div class="form-group">
+                                <label>Correo Electrónico</label>
+                                <input type="email" id="client-correo" value="${App.escapeHTML(correo)}" placeholder="ejemplo@correo.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Contraseña (App/Portal)</label>
+                                <div style="position: relative;">
+                                    <input type="password" id="client-contrasena" value="${App.escapeHTML(contrasena)}" style="padding-right: 88px;">
+                                    <div style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); display: flex; gap: 4px;">
+                                        <button type="button" class="btn-icon" style="width:34px;height:34px;opacity:0.6;display:flex;align-items:center;justify-content:center;" onclick="App.copyToClipboard('client-contrasena')" title="Copiar contraseña">${Icons.copy(16)}</button>
+                                        <button type="button" class="btn-icon" style="width:34px;height:34px;opacity:0.6;display:flex;align-items:center;justify-content:center;" onclick="App.togglePasswordVis('client-contrasena')" title="Mostrar/Ocultar">${Icons.eye(16)}</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Teléfono</label>
+                                <input type="text" id="client-telefono" value="${App.escapeHTML(telefono)}" placeholder="Ej. 0999999999">
+                            </div>
+                            <div class="form-group">
+                                <label>Dirección</label>
+                                <input type="text" id="client-direccion" value="${App.escapeHTML(direccion)}" placeholder="Ej. Av. Principal y Secundaria">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tab-facturacion" style="display: none;">
+                        <div class="form-grid">
+                            <div class="form-group"><label>Usuario/RUC</label><input type="text" id="client-fact-usuario" value="${App.escapeHTML(factUsuario)}"></div>
+                            <div class="form-group">
+                                <label>Clave</label>
+                                <div style="position:relative;">
+                                    <input type="password" id="client-fact-clave" value="${App.escapeHTML(factClave)}" style="padding-right:78px;">
+                                    <div style="position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;gap:3px;">
+                                        <button type="button" class="pw-action-btn" onclick="App.copyToClipboard('client-fact-clave')">${Icons.copy(14)}</button>
+                                        <button type="button" class="pw-action-btn" onclick="App.togglePasswordVis('client-fact-clave')">${Icons.eye(14)}</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group"><label>N° Comprobantes</label><input type="text" id="client-fact-num" value="${App.escapeHTML(factNumComp)}"></div>
+                            <div class="form-group"><label>Fecha Emisión</label><input type="date" id="client-fact-emi" value="${factEmitido}"></div>
+                            <div class="form-group"><label>Fecha Caducidad</label><input type="date" id="client-fact-cad" value="${factCaduca}"></div>
+                        </div>
+                    </div>
+
+                    <div id="tab-firma" style="display: none;">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Clave de Firma</label>
+                                <div style="position:relative;">
+                                    <input type="password" id="client-firma-clave" value="${App.escapeHTML(firmaClave)}" style="padding-right:78px;">
+                                    <div style="position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;gap:3px;">
+                                        <button type="button" class="pw-action-btn" onclick="App.copyToClipboard('client-firma-clave')">${Icons.copy(14)}</button>
+                                        <button type="button" class="pw-action-btn" onclick="App.togglePasswordVis('client-firma-clave')">${Icons.eye(14)}</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group"><label>Fecha Emisión</label><input type="date" id="client-firma-emi" value="${firmaEmision}"></div>
+                            <div class="form-group"><label>Fecha Caducidad</label><input type="date" id="client-firma-cad" value="${firmaCaduca}"></div>
+                            <div class="form-group"><label>Tiempo Vigencia (Años)</label><input type="number" id="client-firma-tiempo" value="${firmaTiempo}" min="1"></div>
                         </div>
                     </div>
                     <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
@@ -2366,17 +2545,25 @@ const Views = {
                     <div class="form-group"><label>RUC</label><input type="text" id="fich-ruc" maxlength="13" value="${App.escapeHTML(c.ruc)}" required></div>
                     <div class="form-group"><label>Régimen</label><select id="fich-regime">${conf.regimenes.map(o=>`<option value="${o}" ${c.regime===o?'selected':''}>${o}</option>`).join('')}</select></div>
                     <div class="form-group"><label>Forma</label><select id="fich-frecuencia"><option value="Mensual" ${c.frecuencia==='Mensual'?'selected':''}>Mensual</option><option value="Anual" ${c.frecuencia==='Anual'?'selected':''}>Anual</option></select></div>
+                    <div class="form-group"><label>Tipo</label><select id="fich-tipo"><option value="P. Natural" ${c.tipo==='P. Natural'?'selected':''}>P. Natural</option><option value="Sociedad" ${c.tipo==='Sociedad'?'selected':''}>Sociedad</option><option value="Tercera Edad" ${c.tipo==='Tercera Edad'?'selected':''}>Tercera Edad</option><option value="Discapacidad" ${c.tipo==='Discapacidad'?'selected':''}>Discapacidad</option><option value="Trabajador Público" ${c.tipo==='Trabajador Público'?'selected':''}>Trabajador Público</option><option value="Otro" ${c.tipo==='Otro'?'selected':''}>Otro</option></select></div>
                     <div class="form-group"><label>Clave SRI</label><div style="position:relative;"><input type="password" id="fich-clave-sri" value="${App.escapeHTML(c.claveSRI||'')}" style="padding-right:78px;"><div style="position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;gap:3px;"><button type="button" class="pw-action-btn" onclick="App.copyToClipboard('fich-clave-sri')">${Icons.copy(14)}</button><button type="button" class="pw-action-btn" onclick="App.togglePasswordVis('fich-clave-sri')">${Icons.eye(14)}</button></div></div></div>
                 </div>
                 <div style="border-top:1px solid var(--border-color);margin:14px 0 10px;padding-top:12px;font-size:0.72rem;font-weight:700;letter-spacing:1px;color:var(--text-secondary);">OBLIGACIONES TRIBUTARIAS</div>
                 <div class="form-grid" style="grid-template-columns: repeat(auto-fill, minmax(120px,1fr));">
-                    <div class="form-group"><label>SUPER CIA</label>${siNo('fich-super-cia', c.oblSuperCia||'No')}</div>
+                    <div class="form-group"><label>SUPER CIA</label><select id="fich-super-cia" onchange="App.toggleSuperCiaFields(this.value, 'fich')"><option value="Si" ${c.oblSuperCia==='Si'?'selected':''}>Sí</option><option value="No" ${c.oblSuperCia==='No'?'selected':''}>No</option></select></div>
                     <div class="form-group"><label>IVA</label>${siNo('fich-iva', c.oblIVA||'No')}</div>
                     <div class="form-group"><label>RENTA</label>${siNo('fich-renta', c.oblRenta||'No')}</div>
                     <div class="form-group"><label>ATS</label>${siNo('fich-ats', c.oblATS||'No')}</div>
                     <div class="form-group"><label>ADI</label>${siNo('fich-adi', c.oblADI||'No')}</div>
                     <div class="form-group"><label>GP</label>${siNo('fich-gp', c.oblGP||'No')}</div>
                     <div class="form-group"><label>REBEFICS</label>${siNo('fich-rebefics', c.oblRebefics||'No')}</div>
+                </div>
+                <div id="fich-super-cia-container" style="display: ${c.oblSuperCia === 'Si' ? 'block' : 'none'}; margin-top: 15px; padding: 16px; background: rgba(var(--primary-rgb), 0.04); border-radius: 12px; border: 1px solid rgba(var(--primary-rgb), 0.15);">
+                    <div style="font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 12px;">CREDENCIALES SUPER CIA</div>
+                    <div style="display: flex; gap: 15px; max-width: 600px;">
+                        <div class="form-group" style="flex: 1;"><label>Usuario</label><input type="text" id="fich-super-cia-user" value="${App.escapeHTML(c.superCiaUser||'')}"></div>
+                        <div class="form-group" style="flex: 1;"><label>Contraseña</label><div style="position:relative;"><input type="password" id="fich-super-cia-pass" value="${App.escapeHTML(c.superCiaPass||'')}" style="padding-right:78px;"><div style="position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;gap:3px;"><button type="button" class="pw-action-btn" onclick="App.copyToClipboard('fich-super-cia-pass')">${Icons.copy(14)}</button><button type="button" class="pw-action-btn" onclick="App.togglePasswordVis('fich-super-cia-pass')">${Icons.eye(14)}</button></div></div></div>
+                    </div>
                 </div>
                 <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
                     <button type="button" class="btn btn-secondary" onclick="App.setFichaSection(null)">Cancelar</button>
@@ -2404,7 +2591,6 @@ const Views = {
         const firmaFormHTML = editFirma ? `
             <form onsubmit="App.handleFichaFirmaSubmit(event)" style="margin-top:16px;">
                 <div class="form-grid" style="grid-template-columns: repeat(auto-fill, minmax(180px,1fr));">
-                    <div class="form-group"><label>Usuario / Token</label><input type="text" id="firma-usuario" value="${App.escapeHTML(firmaUsuario)}"></div>
                     <div class="form-group"><label>Clave</label><div style="position:relative;"><input type="password" id="firma-clave" value="${App.escapeHTML(firmaClave)}" style="padding-right:78px;"><div style="position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;gap:3px;"><button type="button" class="pw-action-btn" onclick="App.copyToClipboard('firma-clave')">${Icons.copy(14)}</button><button type="button" class="pw-action-btn" onclick="App.togglePasswordVis('firma-clave')">${Icons.eye(14)}</button></div></div></div>
                     <div class="form-group"><label>Fecha Emisión</label><input type="date" id="firma-emision" value="${firmaEmision}"></div>
                     <div class="form-group"><label>Fecha Caducidad</label><input type="date" id="firma-caduca" value="${firmaCaduca}"></div>
@@ -2429,6 +2615,25 @@ const Views = {
                 <div style="min-width:140px;"><div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:4px;">DÍA MÁX.</div><div style="font-weight:700;font-family:var(--font-mono);">${c.diaMaximo||'—'}</div></div>
                 <div style="min-width:140px;"><div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:4px;">CLAVE SRI</div><div style="font-weight:600;">${pwDisplay('sri-clave', c.claveSRI)}</div></div>
             </div>
+            ${c.actividades && c.actividades.length > 0 ? `
+            <div style="margin-top:16px;">
+                <div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:6px;font-weight:600;">ACTIVIDADES ECONÓMICAS</div>
+                <div style="max-height:120px;overflow-y:auto;padding-right:5px;">
+                    ${c.actividades.map(act => `
+                        <div style="display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:1px solid var(--border-color);">
+                            <span style="font-size:0.65rem; font-weight:700; background:var(--primary); color:white; padding:2px 6px; border-radius:4px;">${act.tarifa}</span>
+                            <span style="font-size:0.7rem;">${App.escapeHTML(act.name)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            ` : ''}
+            ${c.oblSuperCia === 'Si' ? `
+            <div style="display:flex;flex-wrap:wrap;gap:20px;margin-top:16px;padding:12px 16px;background:rgba(var(--primary-rgb),0.04);border-radius:8px;border:1px solid rgba(var(--primary-rgb),0.15);">
+                <div style="min-width:140px;"><div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:4px;">USUARIO SUPER CIA</div><div style="font-weight:600;">${App.escapeHTML(c.superCiaUser||'—')}</div></div>
+                <div style="min-width:140px;"><div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:4px;">CLAVE SUPER CIA</div><div style="font-weight:600;">${pwDisplay('sri-super-cia-pass', c.superCiaPass)}</div></div>
+            </div>
+            ` : ''}
             <div style="border-top:1px solid var(--border-color);margin-top:14px;padding-top:12px;display:flex;flex-wrap:wrap;gap:10px;">
                 ${oblList.map(([k,v])=>`<div style="text-align:center;"><div style="font-size:0.65rem;color:var(--text-secondary);margin-bottom:4px;">${k}</div>${pill(v)}</div>`).join('')}
             </div>` : '';
@@ -2444,15 +2649,15 @@ const Views = {
 
         const firmaDisplay = !editFirma ? `
             <div style="display:flex;flex-wrap:wrap;gap:20px;margin-top:12px;">
-                <div style="min-width:140px;"><div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:4px;">USUARIO / TOKEN</div><div style="font-weight:600;">${App.escapeHTML(firmaUsuario||'—')}</div></div>
                 <div style="min-width:140px;"><div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:4px;">CLAVE</div><div style="font-weight:600;">${pwDisplay('firma-clave', firmaClave)}</div></div>
                 <div style="min-width:140px;"><div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:4px;">EMISIÓN</div><div style="font-weight:600;">${formatDate(firmaEmision)}</div></div>
                 <div style="min-width:140px;"><div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:4px;">CADUCIDAD</div><div style="font-weight:600;display:flex;align-items:center;gap:6px;">${formatDate(firmaCaduca)} ${statusDot(firmaCaduca)}</div></div>
                 <div style="min-width:140px;"><div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:4px;">VIGENCIA</div><div style="font-weight:600;">${firmaTiempo ? firmaTiempo + ' año(s)' : '—'}</div></div>
             </div>` : '';
 
-        const sectionCard = (icon, title, accent, sectionKey, displayHTML, formHTML, alwaysVisible=false) => {
+        const sectionCard = (icon, title, accent, sectionKey, displayHTML, formHTML) => {
             const active = isEditing === sectionKey;
+            const isEditable = sectionKey !== 'contacto';
             return `
             <div class="glass-card animate-fadeIn" style="border-left: 3px solid ${accent}; margin-bottom: 16px; padding: 20px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -2460,12 +2665,20 @@ const Views = {
                         <span style="font-size:1.3rem;">${icon}</span>
                         <span style="font-weight:700;font-size:0.95rem;color:${accent};">${title}</span>
                     </div>
-                    ${isAdmin && !active ? `<button class="btn btn-secondary" style="padding:4px 14px;font-size:0.8rem;display:inline-flex;align-items:center;gap:6px;" onclick="App.setFichaSection('${sectionKey}')">${Icons.edit(14)} Editar</button>` : ''}
+                    ${isAdmin && !active && isEditable ? `<button class="btn btn-secondary" style="padding:4px 14px;font-size:0.8rem;display:inline-flex;align-items:center;gap:6px;" onclick="App.setFichaSection('${sectionKey}')">${Icons.edit(14)} Editar</button>` : ''}
                 </div>
                 ${displayHTML}
-                ${formHTML}
+                ${formHTML || ''}
             </div>`;
         };
+
+        const contactoDisplay = `
+            <div style="display:flex;flex-wrap:wrap;gap:20px;margin-top:12px;">
+                <div style="min-width:140px;"><div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:4px;">CORREO</div><div style="font-weight:600;">${App.escapeHTML(c.correo||'—')}</div></div>
+                <div style="min-width:140px;"><div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:4px;">TELÉFONO</div><div style="font-weight:600;">${App.escapeHTML(c.telefono||'—')}</div></div>
+                <div style="min-width:140px;"><div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:4px;">DIRECCIÓN</div><div style="font-weight:600;">${App.escapeHTML(c.direccion||'—')}</div></div>
+                <div style="min-width:140px;"><div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:4px;">CONTRASEÑA</div><div style="font-weight:600;">${pwDisplay('contacto-pass', c.contrasena)}</div></div>
+            </div>`;
 
         return `
             <div class="animate-fadeIn">
@@ -2492,6 +2705,9 @@ const Views = {
                         </div>
                     </div>
                 </div>
+
+                <!-- Sección Contacto -->
+                ${sectionCard(Icons.navClients ? Icons.navClients() : '👤', 'Perfil / Contacto', '#3b82f6', 'contacto', contactoDisplay, '')}
 
                 <!-- Sección SRI -->
                 ${sectionCard(Icons.sectionSRI(),'Datos SRI','var(--primary)','sri', sriDisplay, sriFormHTML)}
@@ -2626,7 +2842,327 @@ const Views = {
                 </div>
             `;
         }).join('');
+    },
+    estadosFinancieros() {
+        // 1. Efectivo y Equivalentes
+        const bancosRaw = State.bancosData || [];
+        const bancosFormales = [];
+        const cajas = [];
+        
+        let totalBancos = 0;
+        let totalCajas = 0;
+        
+        bancosRaw.forEach(b => {
+            if (b.nombre.toLowerCase().includes('caja')) {
+                cajas.push(b);
+                totalCajas += b.saldo_actual || 0;
+            } else {
+                bancosFormales.push(b);
+                totalBancos += b.saldo_actual || 0;
+            }
+        });
+        
+        const totalEfectivo = totalBancos + totalCajas;
+        
+        let bancosHTML = bancosFormales.map(b => `
+            <div class="fin-row sub-row">
+                <span class="fin-label">${b.nombre}</span>
+                <span class="fin-value">${App.formatMoney(b.saldo_actual || 0)}</span>
+            </div>
+        `).join('');
+        
+        let cajasHTML = cajas.map(c => `
+            <div class="fin-row sub-row">
+                <span class="fin-label">${c.nombre}</span>
+                <span class="fin-value">${App.formatMoney(c.saldo_actual || 0)}</span>
+            </div>
+        `).join('');
+
+        // 2. Cuentas por Cobrar (Activo No Corriente)
+        const cuentasCobrar = State.cuentasCobrarData || [];
+        const cobrarPorCliente = {};
+        cuentasCobrar.forEach(c => {
+            const p = parseFloat(c.pendiente) || 0;
+            if (p > 0) {
+                const nombre = c.cliente || 'S/N';
+                cobrarPorCliente[nombre] = (cobrarPorCliente[nombre] || 0) + p;
+            }
+        });
+        let totalCobrar = 0;
+        let cobrarHTML = '';
+        for (const [cli, monto] of Object.entries(cobrarPorCliente)) {
+            totalCobrar += monto;
+            cobrarHTML += `
+                <div class="fin-row sub-row">
+                    <span class="fin-label">${cli}</span>
+                    <span class="fin-value">${App.formatMoney(monto)}</span>
+                </div>
+            `;
+        }
+        if (!cobrarHTML) cobrarHTML = '<div class="fin-row sub-row"><span class="fin-label" style="color:var(--text-secondary);font-style:italic;">Sin cuentas por cobrar</span><span></span></div>';
+
+        const totalActivos = totalEfectivo + totalCobrar;
+
+        // 3. Cuentas por Pagar (Pasivos)
+        const cuentasPagar = State.cuentasPagarData || [];
+        const pagarPorCliente = {};
+        cuentasPagar.forEach(c => {
+            const p = parseFloat(c.pendiente) || 0;
+            if (p > 0) {
+                const nombre = c.cliente || 'S/N';
+                pagarPorCliente[nombre] = (pagarPorCliente[nombre] || 0) + p;
+            }
+        });
+        let totalPagar = 0;
+        let pagarHTML = '';
+        for (const [cli, monto] of Object.entries(pagarPorCliente)) {
+            totalPagar += monto;
+            pagarHTML += `
+                <div class="fin-row sub-row">
+                    <span class="fin-label">${cli}</span>
+                    <span class="fin-value">${App.formatMoney(monto)}</span>
+                </div>
+            `;
+        }
+        if (!pagarHTML) pagarHTML = '<div class="fin-row sub-row"><span class="fin-label" style="color:var(--text-secondary);font-style:italic;">Sin cuentas por pagar</span><span></span></div>';
+
+        const totalPasivos = totalPagar;
+
+        // 4. Patrimonio
+        const capital = totalActivos - totalPasivos;
+
+        return `
+            <style>
+                .fin-header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+                .fin-title { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin: 0; }
+                .fin-subtitle { color: var(--text-secondary); font-size: 0.85rem; margin: 4px 0 0 0; }
+                
+                .fin-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 24px;
+                }
+                
+                @media (max-width: 900px) {
+                    .fin-grid { grid-template-columns: 1fr; }
+                }
+
+                .fin-col {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 20px;
+                }
+
+                .fin-group {
+                    background: rgba(var(--primary-rgb), 0.02);
+                    border: 1px solid var(--border-color);
+                    border-radius: 16px;
+                    overflow: hidden;
+                }
+
+                .fin-row {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 12px 16px;
+                    border-bottom: 1px solid rgba(0,0,0,0.05);
+                }
+                [data-theme="dark"] .fin-row {
+                    border-bottom: 1px solid rgba(255,255,255,0.05);
+                }
+                .fin-row:last-child { border-bottom: none; }
+
+                .fin-row.main-header {
+                    background: linear-gradient(135deg, rgba(var(--primary-rgb),0.1), rgba(var(--primary-rgb),0.15));
+                    font-weight: 800;
+                    font-size: 1.1rem;
+                    color: var(--primary);
+                }
+                
+                .fin-row.main-header.pasivo {
+                    background: linear-gradient(135deg, rgba(var(--danger-rgb),0.1), rgba(var(--danger-rgb),0.15));
+                    color: var(--danger);
+                }
+                
+                .fin-row.main-header.patrimonio {
+                    background: linear-gradient(135deg, rgba(var(--success-rgb),0.1), rgba(var(--success-rgb),0.15));
+                    color: var(--success);
+                }
+
+                .fin-row.sub-header {
+                    background: rgba(var(--primary-rgb), 0.05);
+                    font-weight: 700;
+                    font-size: 0.95rem;
+                }
+
+                .fin-row.sub-header.warning {
+                    background: rgba(234, 179, 8, 0.1);
+                    color: #ca8a04;
+                }
+                [data-theme="dark"] .fin-row.sub-header.warning { color: #facc15; }
+
+                .fin-row.sub-row {
+                    padding-left: 32px;
+                    font-size: 0.85rem;
+                    color: var(--text-secondary);
+                }
+                .fin-row.sub-row:hover {
+                    background: rgba(var(--primary-rgb), 0.05);
+                }
+
+                .fin-label { text-transform: uppercase; letter-spacing: 0.5px; }
+                .fin-value { font-family: monospace; font-size: 1rem; }
+
+                .fin-total-box {
+                    padding: 16px;
+                    border-radius: 12px;
+                    font-weight: 800;
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 1.2rem;
+                    color: white;
+                }
+                
+                .fin-scrollable-list {
+                    max-height: 250px;
+                    overflow-y: auto;
+                }
+                
+                /* --- PRINT STYLES --- */
+                @media print {
+                    @page { margin: 0; } /* Set margin to 0 to remove browser default headers/footers (URL, Date) */
+                    body { background: white !important; margin: 0 !important; padding: 0 !important; }
+                    .sidebar, .header, .fin-header button { display: none !important; }
+                    .dashboard-layout { display: block !important; padding: 0 !important; margin: 0 !important; }
+                    .main-content-wrapper, .main-content { 
+                        margin: 0 !important; 
+                        padding: 1.5cm !important; /* Add padding here instead of page margin */
+                        width: 100% !important; 
+                        max-width: none !important; 
+                        box-sizing: border-box;
+                    }
+                    
+                    /* Flatten the grid for standard vertical balance sheet format */
+                    .fin-grid { display: block !important; }
+                    .fin-col { margin-bottom: 30px !important; display: block !important; }
+                    
+                    .fin-group { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ddd; margin-bottom: 20px !important; }
+                    .fin-row.main-header, .fin-row.sub-header, .fin-total-box, .stat-icon {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    .fin-total-box { box-shadow: none !important; border: 2px solid #333; margin-top: 10px; }
+                    .fin-scrollable-list { max-height: none !important; overflow: visible !important; }
+                    
+                    /* Ensure tables and rows don't break across pages */
+                    .fin-row { break-inside: avoid; page-break-inside: avoid; }
+                }
+            </style>
+
+            <div class="fin-header animate-fadeInDown">
+                <div>
+                    <h2 class="fin-title">Estado de Situación Financiera</h2>
+                    <p class="fin-subtitle">Balance General estructurado automáticamente según normativas contables.</p>
+                </div>
+                <div>
+                    <button class="btn btn-secondary" onclick="window.print()" style="display:flex; align-items:center; gap:8px;">
+                        ${Icons.pdf ? Icons.pdf(18) : 'PDF'} Exportar Reporte
+                    </button>
+                </div>
+            </div>
+
+            <div class="fin-grid animate-fadeInUp">
+                
+                <!-- COLUMNA IZQUIERDA: ACTIVOS -->
+                <div class="fin-col">
+                    
+                    <div class="fin-group">
+                        <div class="fin-row main-header">
+                            <span class="fin-label">ACTIVO CORRIENTE</span>
+                            <span class="fin-value">${App.formatMoney(totalEfectivo)}</span>
+                        </div>
+                        
+                        <div class="fin-row sub-header warning">
+                            <span class="fin-label">EFECTIVO Y EQUIVALENTES (Bancos)</span>
+                            <span class="fin-value">${App.formatMoney(totalBancos)}</span>
+                        </div>
+                        <div class="fin-scrollable-list">
+                            ${bancosHTML}
+                        </div>
+
+                        <div class="fin-row sub-header warning">
+                            <span class="fin-label">CAJA GENERAL</span>
+                            <span class="fin-value">${App.formatMoney(totalCajas)}</span>
+                        </div>
+                        <div class="fin-scrollable-list">
+                            ${cajasHTML}
+                        </div>
+                    </div>
+
+                    <div class="fin-group">
+                        <div class="fin-row main-header" style="background: rgba(var(--primary-rgb),0.05);">
+                            <span class="fin-label">ACTIVO NO CORRIENTE</span>
+                            <span class="fin-value">${App.formatMoney(totalCobrar)}</span>
+                        </div>
+                        
+                        <div class="fin-row sub-header">
+                            <span class="fin-label">CUENTAS POR COBRAR</span>
+                            <span class="fin-value">${App.formatMoney(totalCobrar)}</span>
+                        </div>
+                        <div class="fin-scrollable-list">
+                            ${cobrarHTML}
+                        </div>
+                    </div>
+
+                    <div class="fin-total-box" style="background: var(--success); box-shadow: 0 4px 15px rgba(var(--success-rgb), 0.3);">
+                        <span class="fin-label">TOTAL ACTIVOS</span>
+                        <span class="fin-value">${App.formatMoney(totalActivos)}</span>
+                    </div>
+
+                </div>
+
+                <!-- COLUMNA DERECHA: PASIVOS Y PATRIMONIO -->
+                <div class="fin-col">
+                    
+                    <div class="fin-group">
+                        <div class="fin-row main-header pasivo">
+                            <span class="fin-label">PASIVO CORRIENTE</span>
+                            <span class="fin-value">${App.formatMoney(totalPagar)}</span>
+                        </div>
+                        
+                        <div class="fin-row sub-header" style="background: rgba(var(--danger-rgb),0.05); color: var(--danger);">
+                            <span class="fin-label">CUENTAS POR PAGAR</span>
+                            <span class="fin-value">${App.formatMoney(totalPagar)}</span>
+                        </div>
+                        <div class="fin-scrollable-list">
+                            ${pagarHTML}
+                        </div>
+                    </div>
+
+                    <div class="fin-group">
+                        <div class="fin-row main-header patrimonio">
+                            <span class="fin-label">PATRIMONIO</span>
+                            <span class="fin-value">${App.formatMoney(capital)}</span>
+                        </div>
+                        
+                        <div class="fin-row sub-header" style="background: rgba(var(--success-rgb),0.05); color: var(--success);">
+                            <span class="fin-label">CAPITAL</span>
+                            <span class="fin-value">${App.formatMoney(capital)}</span>
+                        </div>
+                    </div>
+
+                    <div style="flex:1;"></div>
+
+                    <div class="fin-total-box" style="background: var(--text-primary); color: var(--bg-body); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);">
+                        <span class="fin-label">PASIVO MÁS PATRIMONIO</span>
+                        <span class="fin-value">${App.formatMoney(totalPasivos + capital)}</span>
+                    </div>
+
+                </div>
+
+            </div>
+        `;
     }
+
 };
 
 if (typeof window !== 'undefined') {

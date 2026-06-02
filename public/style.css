@@ -2667,3 +2667,12 @@ input.is-invalid, select.is-invalid {
     animation: fadeIn 0.2s ease-in-out;
 }
 
+/* Fix date picker calendar icon color in dark mode */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+    opacity: 0.6;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}

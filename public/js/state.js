@@ -13,7 +13,9 @@ const State = {
     theme: localStorage.getItem('theme') || 'light',
     clientEditingId: null,
     clientTab: 'active', // 'active' | 'archived'
+    clientSortAsc: true, // Default sort direction
     showClientForm: false,
+    currentClientActivities: [],
     editingCuentasCobrarId: null,
     editingCuentasPagarId: null,
     showSettingsModal: false,

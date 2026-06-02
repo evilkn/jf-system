@@ -2,7 +2,7 @@ const LIMITS = {
     'General': Infinity,
     'Tercera Edad': Infinity,
     'Rimpe P.': 20000,
-    'F.Publica': Infinity
+    'Sector Público': Infinity
 };
 
 const Store = {
@@ -10,7 +10,7 @@ const Store = {
     usuarios: [],
     clientes: [],
     configuraciones: {
-        regimenes: ['General', 'Tercera Edad', 'Rimpe P.', 'F.Publica'],
+        regimenes: ['General', 'Tercera Edad', 'Rimpe P.', 'Sector Público', 'Rimpe / Negocio Popular', 'Rimpe / Emprendedor', 'Contribuyente Especial', 'Grandes Empresas', 'Atención Prioritaria'],
         formas: ['Mensual', 'Anual'],
         sino: ['Sí', 'No']
     },
@@ -246,8 +246,12 @@ const Store = {
                 const ventaNeta = (data.subt15 || 0) + (data.subt0 || 0);
                 meta.mensual[ym].sales += ventaNeta;
                 if (!meta.clientes[data.clientId]) meta.clientes[data.clientId] = {};
+                
                 if (!meta.clientes[data.clientId][y]) meta.clientes[data.clientId][y] = { sales: 0 };
+                if (!meta.clientes[data.clientId][ym]) meta.clientes[data.clientId][ym] = { sales: 0 };
+                
                 meta.clientes[data.clientId][y].sales += ventaNeta;
+                meta.clientes[data.clientId][ym].sales += ventaNeta;
             } else if (data.tipo === 'compra') {
                 meta.mensual[ym].purchases += (data.subt15 || 0) + (data.subt0 || 0) + (data.subt5 || 0);
             }
