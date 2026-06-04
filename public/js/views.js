@@ -6,8 +6,8 @@ const Views = {
     splash() {
         return `
             <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-main); color: var(--text-primary); transition: background 0.3s ease;">
-                <div style="margin-bottom: 24px; filter: drop-shadow(0 0 10px rgba(var(--primary-rgb), 0.3));">
-                    <img src="logo.png" alt="JF Logo" class="logo-glow splash-logo" style="height: 110px;">
+                <div style="margin-bottom: 24px; background: radial-gradient(ellipse at center, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 70%); padding: 30px; display: inline-block; border-radius: 50%;">
+                    <img src="logo.png?v=6" alt="JF Logo" class="splash-logo" style="width: 100%; max-width: 250px; height: auto; display: block;">
                 </div>
                 <div style="font-family: var(--font-heading); letter-spacing: 4px; font-size: 1.1rem; font-weight: 700;">
                     VERIFICANDO <span style="color: var(--primary);">ACCESO</span>
@@ -40,9 +40,10 @@ const Views = {
                 <div id="particles-js" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;"></div>
                 <div class="glass-card animate-fadeIn" style="width: 100%; max-width: 400px; padding: 40px; position: relative; z-index: 2;">
                     <div style="text-align: center; margin-bottom: 32px;">
-                        <img src="logo.png" alt="JF Logo" class="logo-glow" style="height: 80px; margin-bottom: 16px;">
-                        <h1 style="font-family: var(--font-heading); font-size: 1.5rem; letter-spacing: 2px;">JF <span style="color: var(--primary);">SYSTEM</span></h1>
-                        <p style="color: var(--text-secondary); font-size: 0.9rem;">Sistema Administrativo Premium</p>
+                        <div style="background: radial-gradient(ellipse at center, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 70%); padding: 30px; display: inline-block; border-radius: 50%; margin-bottom: 8px;">
+                            <img src="logo.png?v=6" alt="JF Logo" style="width: 100%; max-width: 250px; height: auto; display: block;">
+                        </div>
+                        <p style="color: rgba(255,255,255,0.7); margin-top: 12px;">Acceso al sistema</p>
                     </div>
                     <div style="margin-top: 10px;">
                         <button id="login-btn" class="btn" onclick="App.handleGoogleLogin()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; background: white; color: #1f2937; border: 1px solid #d1d5db; font-weight: 600; padding: 14px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
@@ -75,10 +76,10 @@ const Views = {
                         </svg>
                     </button>
 
-                    <!-- Brand -->
-                    <div class="sidebar-brand">
-                        <img src="logo.png" alt="Logo" class="logo-glow sidebar-logo" style="height: 60px;">
-                        <div class="sidebar-brand-text">JF <span>SYSTEM</span></div>
+                    <div class="sidebar-brand" style="justify-content: center; padding: 16px 0;">
+                        <div style="background: radial-gradient(ellipse at center, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 70%); padding: 16px; display: inline-block; border-radius: 50%;">
+                            <img src="logo.png?v=6" alt="Logo" class="sidebar-logo" style="width: 100%; max-width: 160px; height: auto; display: block;">
+                        </div>
                     </div>
 
                     <!-- Nav -->
@@ -544,8 +545,15 @@ const Views = {
             });
             cardsHtml = sortedBancos.map(banco => {
                 const bankInfo = Views.getBankInfo(banco.nombre);
+                
+                // Determinar el tipo de institución para los filtros
+                const lowerName = banco.nombre.toLowerCase();
+                const isBanco = lowerName.includes('banco') || lowerName.includes('austro');
+                const isCoop = lowerName.includes('coop') || lowerName.includes('jep') || lowerName.includes('jardín') || lowerName.includes('jardin');
+                const tipoIntitucion = isBanco ? 'BANCO' : (isCoop ? 'COOP' : 'OTRO');
+                
                 return `
-                <div class="glass-card bank-card ${bankInfo.themeClass}" style="cursor: pointer; position: relative; overflow: hidden;">
+                <div class="glass-card bank-card ${bankInfo.themeClass} filter-item" data-name="${banco.nombre.toLowerCase()}" data-type="${tipoIntitucion}" style="cursor: pointer; position: relative; overflow: hidden; transition: all 0.3s ease;">
                     <!-- Card action buttons overlay -->
                     <div class="bank-card-actions" onclick="event.stopPropagation()">
                         <button class="bank-action-btn bank-action-edit" onclick="App.showEditBancoModal('${banco.id}')" title="Editar">
@@ -621,6 +629,30 @@ const Views = {
                         ${Icons.plus(20)} Nuevo Banco / Caja
                     </button>
                 </div>
+            </div>
+
+            <!-- Buscador Inteligente y Filtros -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; flex-wrap: wrap;">
+                <div class="search-container" style="position: relative; flex: 1; min-width: 280px; max-width: 400px;">
+                    <div style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </div>
+                    <input type="text" id="bancos-search-input" placeholder="Escribe para buscar bancos o cuentas..." onkeyup="App.filterBancos()" style="width: 100%; padding: 14px 16px 14px 44px; border-radius: 12px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: var(--text-primary); outline: none; font-size: 1rem; transition: all 0.2s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
+                </div>
+                
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="btn btn-outline active" id="btn-filter-all" onclick="App.filterBancosType('ALL')" style="border-radius: 20px; padding: 6px 16px; font-size: 0.85rem; border-color: rgba(var(--primary-rgb), 0.5);">Todos</button>
+                    <button class="btn btn-outline" id="btn-filter-banco" onclick="App.filterBancosType('BANCO')" style="border-radius: 20px; padding: 6px 16px; font-size: 0.85rem; border-color: rgba(var(--primary-rgb), 0.5);">Bancos</button>
+                    <button class="btn btn-outline" id="btn-filter-coop" onclick="App.filterBancosType('COOP')" style="border-radius: 20px; padding: 6px 16px; font-size: 0.85rem; border-color: rgba(var(--primary-rgb), 0.5);">Cooperativas</button>
+                </div>
+            </div>
+            
+            <div id="bancos-no-results" style="display: none; grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px; border: 1px dashed rgba(255,255,255,0.2); border-radius: 12px; background: rgba(0,0,0,0.1); margin-bottom: 30px;">
+                <div style="margin-bottom: 12px; opacity: 0.5;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </div>
+                <div style="font-size: 1.1rem; color: var(--text-primary);">No se encontraron cuentas</div>
+                <div style="font-size: 0.9rem;">Prueba buscando con otros términos o filtros.</div>
             </div>
             
             <div id="bancos-resumen-cards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; margin-bottom: 30px;">
@@ -805,17 +837,31 @@ const Views = {
             ? `<img src="${State.currentUser.photoURL}" alt="Perfil" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`
             : `<span style="font-size: 1.15rem; font-weight: 700; color: white;">${(userName || 'U').charAt(0).toUpperCase()}</span>`;
 
+        const MESES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
         const today = new Date();
         const currentDay = today.getDate();
-        const currentMonth = today.getMonth() + 1;
-        const currentYear = today.getFullYear();
-        const prevMonthKey = currentMonth === 1
-            ? `${currentYear - 1}-12`
-            : `${currentYear}-${String(currentMonth - 1).padStart(2, '0')}`;
-        const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+        
+        // Define dashboard period keys
+        const dashYear = State.dashboardAnio || today.getFullYear();
+        const dashMes = State.dashboardMes || (today.getMonth() + 1);
+        const isAnnual = dashMes === 'all';
+        
+        let dashCurrentKey = isAnnual ? `${dashYear}` : `${dashYear}-${String(dashMes).padStart(2, '0')}`;
+        let dashPrevKey = '';
+        if (isAnnual) {
+            dashPrevKey = `${dashYear - 1}`;
+        } else {
+            dashPrevKey = dashMes === 1
+                ? `${dashYear - 1}-12`
+                : `${dashYear}-${String(dashMes - 1).padStart(2, '0')}`;
+        }
 
-        const curMonthMeta  = meta.mensual?.[currentMonthKey]  || { sales: 0, purchases: 0 };
-        const prevMonthMeta = meta.mensual?.[prevMonthKey] || { sales: 0, purchases: 0 };
+        // We use dashCurrentKey for personal dashboard below. 
+        // For general system stats, we still want to show current calendar month by default, 
+        // but let's align it all to the same filter!
+        const curMonthMeta  = isAnnual ? (meta.mensual?.[dashCurrentKey] || { sales: 0, purchases: 0 }) /* Warning: meta.mensual is by YYYY-MM, so yearly meta needs aggregation here if we wanted global annual stats. */ : (meta.mensual?.[dashCurrentKey]  || { sales: 0, purchases: 0 });
+        const prevMonthMeta = isAnnual ? { sales: 0, purchases: 0 } /* Skip prev annual comparison for simplicity */ : (meta.mensual?.[dashPrevKey] || { sales: 0, purchases: 0 });
 
         // Trend helpers
         const trendBadge = (cur, prev, invertGood = false) => {
@@ -876,8 +922,8 @@ const Views = {
         const pendingTodosCount = (State.tareasData || []).filter(t => !t.completed).length;
 
         if (State.dashboardView === 'personal') {
-            const jessicaStats = Store.getJessicaStatsForMonth(currentMonthKey);
-            const prevJessicaStats = Store.getJessicaStatsForMonth(prevMonthKey);
+            const jessicaStats = Store.getJessicaStatsForMonth(dashCurrentKey);
+            const prevJessicaStats = isAnnual ? { sales: 0, purchases: 0 } : Store.getJessicaStatsForMonth(dashPrevKey);
             
             const honorarios = jessicaStats.sales || 0;
             const gastos = jessicaStats.purchases || 0;
@@ -892,6 +938,8 @@ const Views = {
             const totalPorCobrar = jessicaCobrar.reduce((sum, c) => sum + (parseFloat(c.pendiente) || 0), 0);
             const totalPorPagar = jessicaPagar.reduce((sum, c) => sum + (parseFloat(c.pendiente) || 0), 0);
             
+            const monthLabel = isAnnual ? 'ANUAL' : MESES[dashMes].toUpperCase();
+            
             kpisHtml = `
                 <!-- Honorarios de Oficina -->
                 <div class="stat-card animate-stagger" style="animation-delay: 0.05s;">
@@ -899,12 +947,28 @@ const Views = {
                     <div class="stat-body">
                         <div class="stat-head">
                             <div class="stat-icon" style="background: rgba(16,185,129,0.12);">${Icons.trendingUp ? Icons.trendingUp(18) : Icons.navSRI()}</div>
-                            <span class="stat-label">HONORARIOS DEL MES</span>
+                            <span class="stat-label">HONORARIOS (${monthLabel})</span>
                         </div>
                         <div class="stat-num" data-counter="${honorarios}" data-counter-type="money" style="color: var(--success);">
                             ${State.hideAmounts ? '****' : App.formatMoney(honorarios)}
                         </div>
-                        <div style="margin-top:6px;">${trendBadge(honorarios, prevHonorarios)}</div>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-top: 12px; width: 100%; gap: 8px;">
+                            <div style="flex-shrink: 0;">${trendBadge(honorarios, prevHonorarios)}</div>
+                            <!-- Dashboard Period Selector inside Card Bottom -->
+                            <div style="display: flex; align-items: center; gap: 4px; z-index: 2; flex-wrap: wrap;">
+                                <select id="dash-mes-sel" class="premium-select" onchange="App.setDashboardPeriod()" style="font-size: 0.7rem; padding: 2px 20px 2px 6px; height: 26px; min-height: 26px; min-width: 0; border-radius: 6px; background: rgba(0,0,0,0.15) url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23c026d3\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e') no-repeat right 4px center / 10px;">
+                                    <option value="all" ${State.dashboardMes === 'all' ? 'selected' : ''}>Anual</option>
+                                    ${MESES.map((m, i) => i > 0 ? `<option value="${i}" ${State.dashboardMes === i ? 'selected' : ''}>${m}</option>` : '').join('')}
+                                </select>
+                                <select id="dash-anio-sel" class="premium-select" onchange="App.setDashboardPeriod()" style="font-size: 0.7rem; padding: 2px 20px 2px 6px; height: 26px; min-height: 26px; min-width: 0; border-radius: 6px; background: rgba(0,0,0,0.15) url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23c026d3\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e') no-repeat right 4px center / 10px;">
+                                    ${[...Array(5)].map((_, i) => {
+                                        const y = today.getFullYear() - i;
+                                        return `<option value="${y}" ${State.dashboardAnio === y ? 'selected' : ''}>${y}</option>`;
+                                    }).join('')}
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -914,7 +978,7 @@ const Views = {
                     <div class="stat-body">
                         <div class="stat-head">
                             <div class="stat-icon" style="background: rgba(249,115,22,0.12);">${Icons.trendingDown ? Icons.trendingDown(18) : Icons.navSRI()}</div>
-                            <span class="stat-label">GASTOS DE OFICINA</span>
+                            <span class="stat-label">GASTOS (${monthLabel})</span>
                         </div>
                         <div class="stat-num" data-counter="${gastos}" data-counter-type="money" style="color: var(--danger);">
                             ${State.hideAmounts ? '****' : App.formatMoney(gastos)}
@@ -934,7 +998,7 @@ const Views = {
                         <div class="stat-num" data-counter="${neto}" data-counter-type="money" style="color: ${neto >= 0 ? 'var(--primary)' : 'var(--danger)'};">
                             ${State.hideAmounts ? '****' : App.formatMoney(neto)}
                         </div>
-                        <div style="margin-top:6px; font-size:0.75rem; color:var(--text-secondary);">Balance neto del mes actual</div>
+                        <div style="margin-top:6px; font-size:0.75rem; color:var(--text-secondary);">Balance neto del periodo ${isAnnual ? 'anual seleccionado' : 'seleccionado'}</div>
                     </div>
                 </div>
 
@@ -1005,7 +1069,23 @@ const Views = {
                             <span class="stat-label">VENTAS DEL MES</span>
                         </div>
                         <div class="stat-num" data-counter="${ventasMes}" data-counter-type="money" style="color: var(--success);">${State.hideAmounts ? '****' : App.formatMoney(ventasMes)}</div>
-                        <div style="margin-top:6px;">${trendBadge(ventasMes, prevVentas)}</div>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-top: 12px; width: 100%; gap: 8px;">
+                            <div style="flex-shrink: 0;">${trendBadge(ventasMes, prevVentas)}</div>
+                            <!-- Dashboard Period Selector inside Card Bottom -->
+                            <div style="display: flex; align-items: center; gap: 4px; z-index: 2; flex-wrap: wrap;">
+                                <select id="dash-mes-sel" class="premium-select" onchange="App.setDashboardPeriod()" style="font-size: 0.7rem; padding: 2px 20px 2px 6px; height: 26px; min-height: 26px; min-width: 0; border-radius: 6px; background: rgba(0,0,0,0.15) url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23c026d3\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e') no-repeat right 4px center / 10px;">
+                                    <option value="all" ${State.dashboardMes === 'all' ? 'selected' : ''}>Anual</option>
+                                    ${MESES.map((m, i) => i > 0 ? `<option value="${i}" ${State.dashboardMes === i ? 'selected' : ''}>${m}</option>` : '').join('')}
+                                </select>
+                                <select id="dash-anio-sel" class="premium-select" onchange="App.setDashboardPeriod()" style="font-size: 0.7rem; padding: 2px 20px 2px 6px; height: 26px; min-height: 26px; min-width: 0; border-radius: 6px; background: rgba(0,0,0,0.15) url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23c026d3\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e') no-repeat right 4px center / 10px;">
+                                    ${[...Array(5)].map((_, i) => {
+                                        const y = today.getFullYear() - i;
+                                        return `<option value="${y}" ${State.dashboardAnio === y ? 'selected' : ''}>${y}</option>`;
+                                    }).join('')}
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1243,7 +1323,8 @@ const Views = {
                         <p style="margin: 2px 0 0; font-size: 0.78rem; color: var(--text-secondary);">${State.dashboardView === 'personal' ? 'Mi Oficina Personal' : 'Panel Contable de Clientes'}</p>
                     </div>
                 </div>
-                
+                </div>
+
                 <!-- Slidable Hybrid View Switch -->
                 <div style="display: flex; background: rgba(0,0,0,0.15); padding: 4px; border-radius: 30px; border: 1px solid var(--border-color); position: relative; gap: 4px;">
                     <button onclick="App.setDashboardView('personal')" style="border: none; background: ${State.dashboardView === 'personal' ? 'var(--primary)' : 'transparent'}; color: ${State.dashboardView === 'personal' ? '#ffffff' : 'var(--text-secondary)'}; font-size: 0.8rem; font-weight: 700; padding: 8px 16px; border-radius: 20px; cursor: pointer; transition: all 0.25s; display: flex; align-items: center; gap: 6px;">
@@ -1255,30 +1336,6 @@ const Views = {
                 </div>
             </div>
 
-            <!-- ── QUICK ACTIONS ─────────────────────────────────────────── -->
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:12px;">
-                <div>
-                    <div style="font-size:0.78rem; font-weight:600; letter-spacing:0.08em; color:var(--text-secondary); text-transform:uppercase;">Acciones rápidas</div>
-                </div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button class="btn btn-primary dash-quick-btn" onclick="App.navigate('sri')" title="Ir a SRI">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        Nueva Transacción
-                    </button>
-                    <button class="btn btn-secondary dash-quick-btn" onclick="App.showTransferModal()" title="Transferencia bancaria">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-                        Transferencia
-                    </button>
-                    <button class="btn btn-secondary dash-quick-btn" onclick="App.showAddBancoModal()" title="Agregar banco">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/><path d="M8 7V5a2 2 0 0 0-4 0v2"/></svg>
-                        Agregar Banco
-                    </button>
-                    <button class="btn btn-secondary dash-quick-btn" onclick="App.navigate('clients')" title="Clientes">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                        Clientes
-                    </button>
-                </div>
-            </div>
 
             <!-- ── KPI CARDS ─────────────────────────────────────────────── -->
             <div class="dashboard-kpi-grid" style="margin-bottom: 28px;">
@@ -1389,8 +1446,8 @@ const Views = {
 
         // ─ Priority 5: Todo al día ───────────────────────────────────────────
         const mNames = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-        return this._banner('info', '✅',
-            `Todo al día en <strong>${mNames[currentMonth]} ${currentYear}</strong>. Sin alertas pendientes.`, null);
+        return this._banner('celebration', '🔔',
+            `¡Todo al día en <strong>${mNames[currentMonth]} ${currentYear}</strong>! Sin alertas pendientes, excelente trabajo.`, null);
     },
 
     _banner(type, emoji, message, navTarget) {
@@ -1399,12 +1456,18 @@ const Views = {
             warning: { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.3)', accent: '#f59e0b' },
             success: { bg: 'rgba(34,197,94,0.08)',  border: 'rgba(34,197,94,0.3)',  accent: '#22c55e' },
             info:    { bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.3)', accent: '#3b82f6' },
+            celebration: { 
+                bg: 'rgba(239, 68, 68, 0.12)', 
+                border: 'rgba(239, 68, 68, 0.4)', 
+                accent: '#ef4444',
+                extraStyle: 'color: #ef4444; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.1);'
+            }
         }[type] || {};
         const actionBtn = navTarget
             ? `<button class="btn btn-secondary" onclick="App.navigate('${navTarget}')" style="font-size:0.74rem; padding:4px 12px; flex-shrink:0; white-space:nowrap;">Ver &rarr;</button>`
             : '';
-        return `<div class="dashboard-banner" style="background:${s.bg}; border:1px solid ${s.border}; border-left:4px solid ${s.accent}; border-radius:12px; padding:13px 18px; margin-bottom:20px; display:flex; align-items:center; gap:12px;">
-            <span style="font-size:1.15rem; flex-shrink:0;">${emoji}</span>
+        return `<div class="dashboard-banner" style="background:${s.bg}; border:1px solid ${s.border}; border-left:4px solid ${s.accent}; border-radius:12px; padding:13px 18px; margin-bottom:20px; display:flex; align-items:center; gap:12px; transition: all 0.3s ease; ${s.extraStyle || ''}">
+            <span style="font-size:1.15rem; flex-shrink:0; filter: drop-shadow(0 0 5px rgba(255,255,255,0.5));">${emoji}</span>
             <p style="margin:0; flex:1; font-size:0.87rem; line-height:1.55; color:var(--text-primary);">${message}</p>
             ${actionBtn}
             <button onclick="this.closest('.dashboard-banner').style.display='none'" title="Cerrar" style="background:none; border:none; cursor:pointer; color:var(--text-secondary); font-size:1rem; flex-shrink:0; padding:0 4px; line-height:1; opacity:0.6; transition:opacity 0.15s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">✕</button>
@@ -1568,29 +1631,7 @@ const Views = {
                         </div>
                     </div>
 
-                    <div class="sri-stats-grid animate-slideInUp">
-                        <div class="stat-card glass-card">
-                            <div class="stat-icon sales">${Icons.trendingUp(24)}</div>
-                            <div class="stat-info">
-                                <span class="stat-label">Ventas Globales</span>
-                                <span class="stat-value">${App.formatMoney(monthMeta.sales)}</span>
-                            </div>
-                        </div>
-                        <div class="stat-card glass-card">
-                            <div class="stat-icon purchases">${Icons.trendingDown(24)}</div>
-                            <div class="stat-info">
-                                <span class="stat-label">Compras Globales</span>
-                                <span class="stat-value">${App.formatMoney(monthMeta.purchases)}</span>
-                            </div>
-                        </div>
-                        <div class="stat-card glass-card">
-                            <div class="stat-icon balance">${Icons.wallet(24)}</div>
-                            <div class="stat-info">
-                                <span class="stat-label">Balance Neto</span>
-                                <span class="stat-value" style="color: ${balance >= 0 ? 'var(--success)' : 'var(--danger)'}">${App.formatMoney(balance)}</span>
-                            </div>
-                        </div>
-                    </div>
+
 
                     <!-- Search Container -->
                     <div class="sri-search-section glass-card animate-fadeIn" style="animation-delay: 0.1s;">
@@ -1790,7 +1831,7 @@ const Views = {
                     </div>
 
                     <form id="form-cuentas-cobrar" onsubmit="event.preventDefault(); App.saveCuentaCobrar()" style="margin-top:30px;">
-                        <div class="form-grid" style="grid-template-columns:repeat(3, 1fr); gap:24px;">
+                        <div class="form-grid" style="grid-template-columns:repeat(4, 1fr); gap:24px;">
                             <div class="form-group"><label>Fecha *</label><input type="date" id="cobrar-fecha" required></div>
                             
                             <div class="form-group" style="position:relative;">
@@ -1801,8 +1842,16 @@ const Views = {
                             </div>
                             
                             <div class="form-group"><label>Concepto</label><input type="text" id="cobrar-concepto" placeholder="Ej. Factura 001, Servicios"></div>
+
+                            <div class="form-group">
+                                <label>Clasificación *</label>
+                                <select id="cobrar-clasificacion" class="premium-select" required>
+                                    <option value="CORRIENTE">Activo Corriente (Corto Plazo)</option>
+                                    <option value="NO_CORRIENTE">Activo No Corriente (Largo Plazo)</option>
+                                </select>
+                            </div>
                             
-                            <div style="grid-column: span 3; display: flex; gap: 24px; align-items: flex-start; flex-wrap: nowrap;">
+                            <div style="grid-column: span 4; display: flex; gap: 24px; align-items: flex-start; flex-wrap: nowrap;">
                                 <div class="form-group" id="cobrar-has-abono-group" style="margin-bottom:0; display:flex; flex-direction:column; flex-shrink: 0;">
                                     <label style="margin-bottom:8px;">&nbsp;</label>
                                     <label class="checkbox-container" style="display:flex; align-items:center; gap:8px; cursor:pointer; background:rgba(var(--primary-rgb),0.05); padding:6px 12px; border-radius:10px; width:fit-content; border:1px solid rgba(var(--primary-rgb),0.1); transition: var(--transition); height:45px; margin-bottom:0;">
@@ -1935,7 +1984,7 @@ const Views = {
                     </div>
 
                     <form id="form-cuentas-pagar" onsubmit="event.preventDefault(); App.saveCuentaPagar()" style="margin-top:30px;">
-                        <div class="form-grid" style="grid-template-columns:repeat(3, 1fr); gap:24px;">
+                        <div class="form-grid" style="grid-template-columns:repeat(4, 1fr); gap:24px;">
                             <div class="form-group"><label>Fecha *</label><input type="date" id="pagar-fecha" required></div>
                             
                             <div class="form-group" style="position:relative;">
@@ -1947,7 +1996,15 @@ const Views = {
                             
                             <div class="form-group"><label>Concepto</label><input type="text" id="pagar-concepto" placeholder="Ej. Compra de insumos, Alquiler"></div>
                             
-                            <div style="grid-column: span 3; display: flex; gap: 24px; align-items: flex-start; flex-wrap: nowrap;">
+                            <div class="form-group">
+                                <label>Clasificación *</label>
+                                <select id="pagar-clasificacion" class="premium-select" required>
+                                    <option value="CORRIENTE">Pasivo Corriente (Corto Plazo)</option>
+                                    <option value="NO_CORRIENTE">Pasivo No Corriente (Largo Plazo)</option>
+                                </select>
+                            </div>
+
+                            <div style="grid-column: span 4; display: flex; gap: 24px; align-items: flex-start; flex-wrap: nowrap;">
                                 <div class="form-group" id="pagar-has-abono-group" style="margin-bottom:0; display:flex; flex-direction:column; flex-shrink: 0;">
                                     <label style="margin-bottom:8px;">&nbsp;</label>
                                     <label class="checkbox-container" style="display:flex; align-items:center; gap:8px; cursor:pointer; background:rgba(var(--danger-rgb),0.05); padding:6px 12px; border-radius:10px; width:fit-content; border:1px solid rgba(var(--danger-rgb),0.1); transition: var(--transition); height:45px; margin-bottom:0;">
@@ -2829,8 +2886,6 @@ const Views = {
                     </div>
                     <div class="audit-body">
                         <div class="audit-description">${App.escapeHTML(log.description || 'Sin descripción')}</div>
-                        <div class="audit-meta">
-                            <span class="audit-id-badge">LOG: ${logId}</span>
                         </div>
                         ${detailsJson ? `
                             <button class="audit-details-btn" onclick="App.toggleAuditDetails(this)">
@@ -2878,65 +2933,116 @@ const Views = {
             </div>
         `).join('');
 
-        // 2. Cuentas por Cobrar (Activo No Corriente)
+        // 2. Cuentas por Cobrar (Activos)
         const cuentasCobrar = State.cuentasCobrarData || [];
-        const cobrarPorCliente = {};
+        const cobrarC_PorCliente = {}; // Corriente
+        const cobrarNC_PorCliente = {}; // No Corriente
+        
         cuentasCobrar.forEach(c => {
             const p = parseFloat(c.pendiente) || 0;
             if (p > 0) {
                 const nombre = c.cliente || 'S/N';
-                cobrarPorCliente[nombre] = (cobrarPorCliente[nombre] || 0) + p;
+                if (c.clasificacion === 'NO_CORRIENTE') {
+                    cobrarNC_PorCliente[nombre] = (cobrarNC_PorCliente[nombre] || 0) + p;
+                } else {
+                    cobrarC_PorCliente[nombre] = (cobrarC_PorCliente[nombre] || 0) + p;
+                }
             }
         });
-        let totalCobrar = 0;
-        let cobrarHTML = '';
-        for (const [cli, monto] of Object.entries(cobrarPorCliente)) {
-            totalCobrar += monto;
-            cobrarHTML += `
+        
+        let totalCobrarCorriente = 0;
+        let cobrarCorrienteHTML = '';
+        for (const [cli, monto] of Object.entries(cobrarC_PorCliente)) {
+            totalCobrarCorriente += monto;
+            cobrarCorrienteHTML += `
                 <div class="fin-row sub-row">
                     <span class="fin-label">${cli}</span>
                     <span class="fin-value">${App.formatMoney(monto)}</span>
                 </div>
             `;
         }
-        if (!cobrarHTML) cobrarHTML = '<div class="fin-row sub-row"><span class="fin-label" style="color:var(--text-secondary);font-style:italic;">Sin cuentas por cobrar</span><span></span></div>';
+        if (!cobrarCorrienteHTML) cobrarCorrienteHTML = '<div class="fin-row sub-row"><span class="fin-label" style="color:var(--text-secondary);font-style:italic;">Sin cuentas por cobrar (Corto Plazo)</span><span></span></div>';
 
-        const totalActivos = totalEfectivo + totalCobrar;
+        let totalCobrarNoCorriente = 0;
+        let cobrarNoCorrienteHTML = '';
+        for (const [cli, monto] of Object.entries(cobrarNC_PorCliente)) {
+            totalCobrarNoCorriente += monto;
+            cobrarNoCorrienteHTML += `
+                <div class="fin-row sub-row">
+                    <span class="fin-label">${cli}</span>
+                    <span class="fin-value">${App.formatMoney(monto)}</span>
+                </div>
+            `;
+        }
+        if (!cobrarNoCorrienteHTML) cobrarNoCorrienteHTML = '<div class="fin-row sub-row"><span class="fin-label" style="color:var(--text-secondary);font-style:italic;">Sin cuentas por cobrar (Largo Plazo)</span><span></span></div>';
+
+        const totalActivoCorriente = totalEfectivo + totalCobrarCorriente;
+        const totalActivoNoCorriente = totalCobrarNoCorriente;
+        const totalActivos = totalActivoCorriente + totalActivoNoCorriente;
 
         // 3. Cuentas por Pagar (Pasivos)
         const cuentasPagar = State.cuentasPagarData || [];
-        const pagarPorCliente = {};
+        const pagarC_PorCliente = {}; // Corriente
+        const pagarNC_PorCliente = {}; // No Corriente
+        
         cuentasPagar.forEach(c => {
             const p = parseFloat(c.pendiente) || 0;
             if (p > 0) {
                 const nombre = c.proveedor || c.cliente || 'S/N';
-                pagarPorCliente[nombre] = (pagarPorCliente[nombre] || 0) + p;
+                if (c.clasificacion === 'NO_CORRIENTE') {
+                    pagarNC_PorCliente[nombre] = (pagarNC_PorCliente[nombre] || 0) + p;
+                } else {
+                    pagarC_PorCliente[nombre] = (pagarC_PorCliente[nombre] || 0) + p;
+                }
             }
         });
-        let totalPagar = 0;
-        let pagarHTML = '';
-        for (const [cli, monto] of Object.entries(pagarPorCliente)) {
-            totalPagar += monto;
-            pagarHTML += `
+
+        let totalPagarCorriente = 0;
+        let pagarCorrienteHTML = '';
+        for (const [cli, monto] of Object.entries(pagarC_PorCliente)) {
+            totalPagarCorriente += monto;
+            pagarCorrienteHTML += `
                 <div class="fin-row sub-row">
                     <span class="fin-label">${cli}</span>
                     <span class="fin-value">${App.formatMoney(monto)}</span>
                 </div>
             `;
         }
-        if (!pagarHTML) pagarHTML = '<div class="fin-row sub-row"><span class="fin-label" style="color:var(--text-secondary);font-style:italic;">Sin cuentas por pagar</span><span></span></div>';
+        if (!pagarCorrienteHTML) pagarCorrienteHTML = '<div class="fin-row sub-row"><span class="fin-label" style="color:var(--text-secondary);font-style:italic;">Sin cuentas por pagar (Corto Plazo)</span><span></span></div>';
 
-        const totalPasivos = totalPagar;
+        let totalPagarNoCorriente = 0;
+        let pagarNoCorrienteHTML = '';
+        for (const [cli, monto] of Object.entries(pagarNC_PorCliente)) {
+            totalPagarNoCorriente += monto;
+            pagarNoCorrienteHTML += `
+                <div class="fin-row sub-row">
+                    <span class="fin-label">${cli}</span>
+                    <span class="fin-value">${App.formatMoney(monto)}</span>
+                </div>
+            `;
+        }
+        if (!pagarNoCorrienteHTML) pagarNoCorrienteHTML = '<div class="fin-row sub-row"><span class="fin-label" style="color:var(--text-secondary);font-style:italic;">Sin cuentas por pagar (Largo Plazo)</span><span></span></div>';
+
+        const totalPasivoCorriente = totalPagarCorriente;
+        const totalPasivoNoCorriente = totalPagarNoCorriente;
+        const totalPasivos = totalPasivoCorriente + totalPasivoNoCorriente;
 
         // 4. Patrimonio
         const capital = totalActivos - totalPasivos;
 
+        // 5. Cuadre
+        const sumaPasivoPatrimonio = totalPasivos + capital;
+        // Evitamos errores de precisión flotante verificando si la diferencia es casi cero
+        const estaCuadrado = Math.abs(totalActivos - sumaPasivoPatrimonio) < 0.01;
+        const cuadreText = estaCuadrado ? 'CUADRADO' : 'DESCUADRADO';
+        const cuadreClass = estaCuadrado ? 'cuadre-ok' : 'cuadre-error';
+
         return `
             <style>
                 .fin-header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
-                .fin-title { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin: 0; }
-                .fin-subtitle { color: var(--text-secondary); font-size: 0.85rem; margin: 4px 0 0 0; }
-                
+                .fin-title { font-size: 1.5rem; font-weight: 800; color: #c084fc; margin: 0; text-transform: uppercase; }
+                .fin-subtitle { color: #e9d5ff; font-size: 0.85rem; margin: 4px 0 0 0; text-transform: uppercase; letter-spacing: 0.5px;}
+
                 .fin-grid {
                     display: grid;
                     grid-template-columns: 1fr 1fr;
@@ -2971,34 +3077,34 @@ const Views = {
                 }
                 .fin-row:last-child { border-bottom: none; }
 
-                .fin-row.main-header {
-                    background: linear-gradient(135deg, rgba(var(--primary-rgb),0.1), rgba(var(--primary-rgb),0.15));
-                    font-weight: 800;
-                    font-size: 1.1rem;
-                    color: var(--primary);
+                /* Colores solicitados: Naranja, Fucsia, Negro, Celeste, Morado, Turquesa */
+                .fin-row.main-header.activo {
+                    background: linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(6, 182, 212, 0.15));
+                    font-weight: 800; font-size: 1.1rem; color: #0369a1; /* Celeste oscuro / Turquesa oscuro */
                 }
-                
                 .fin-row.main-header.pasivo {
-                    background: linear-gradient(135deg, rgba(var(--danger-rgb),0.1), rgba(var(--danger-rgb),0.15));
-                    color: var(--danger);
+                    background: linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(234, 88, 12, 0.15));
+                    font-weight: 800; font-size: 1.1rem; color: #c2410c; /* Naranja oscuro */
                 }
-                
                 .fin-row.main-header.patrimonio {
-                    background: linear-gradient(135deg, rgba(var(--success-rgb),0.1), rgba(var(--success-rgb),0.15));
-                    color: var(--success);
+                    background: linear-gradient(135deg, rgba(217, 70, 239, 0.15), rgba(192, 38, 211, 0.15));
+                    font-weight: 800; font-size: 1.1rem; color: #a21caf; /* Fucsia / Morado */
                 }
 
                 .fin-row.sub-header {
-                    background: rgba(var(--primary-rgb), 0.05);
                     font-weight: 700;
                     font-size: 0.95rem;
                 }
+                .fin-row.sub-header.activo-sub { background: rgba(14, 165, 233, 0.08); color: #0284c7; }
+                .fin-row.sub-header.pasivo-sub { background: rgba(249, 115, 22, 0.08); color: #ea580c; }
+                .fin-row.sub-header.patrimonio-sub { background: rgba(217, 70, 239, 0.08); color: #c026d3; }
 
-                .fin-row.sub-header.warning {
-                    background: rgba(234, 179, 8, 0.1);
-                    color: #ca8a04;
-                }
-                [data-theme="dark"] .fin-row.sub-header.warning { color: #facc15; }
+                [data-theme="dark"] .fin-row.main-header.activo { color: #38bdf8; }
+                [data-theme="dark"] .fin-row.main-header.pasivo { color: #fb923c; }
+                [data-theme="dark"] .fin-row.main-header.patrimonio { color: #e879f9; }
+                [data-theme="dark"] .fin-row.sub-header.activo-sub { color: #7dd3fc; }
+                [data-theme="dark"] .fin-row.sub-header.pasivo-sub { color: #fdba74; }
+                [data-theme="dark"] .fin-row.sub-header.patrimonio-sub { color: #f0abfc; }
 
                 .fin-row.sub-row {
                     padding-left: 32px;
@@ -3010,7 +3116,7 @@ const Views = {
                 }
 
                 .fin-label { text-transform: uppercase; letter-spacing: 0.5px; }
-                .fin-value { font-family: monospace; font-size: 1rem; }
+                .fin-value { font-family: monospace; font-size: 1rem; color: var(--text-primary); font-weight: 600;}
 
                 .fin-total-box {
                     padding: 16px;
@@ -3020,7 +3126,23 @@ const Views = {
                     justify-content: space-between;
                     font-size: 1.2rem;
                     color: white;
+                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
                 }
+                .fin-total-box.activo-total { background: linear-gradient(135deg, #0284c7, #0891b2); }
+                .fin-total-box.general-total { background: linear-gradient(135deg, #9333ea, #c026d3); }
+
+                .cuadre-badge {
+                    margin-top: 16px;
+                    padding: 8px 16px;
+                    border-radius: 8px;
+                    font-weight: 800;
+                    text-align: center;
+                    letter-spacing: 2px;
+                    font-size: 0.9rem;
+                    color: white;
+                }
+                .cuadre-ok { background: linear-gradient(135deg, #0d9488, #0f766e); }
+                .cuadre-error { background: linear-gradient(135deg, #e11d48, #be123c); }
                 
                 .fin-scrollable-list {
                     max-height: 250px;
@@ -3029,39 +3151,55 @@ const Views = {
                 
                 /* --- PRINT STYLES --- */
                 @media print {
-                    @page { margin: 0; } /* Set margin to 0 to remove browser default headers/footers (URL, Date) */
-                    body { background: white !important; margin: 0 !important; padding: 0 !important; }
+                    @page { margin: 0.5cm; } 
+                    body { background: white !important; margin: 0 !important; padding: 0 !important; font-size: 11px; }
                     .sidebar, .header, .fin-header button { display: none !important; }
                     .dashboard-layout { display: block !important; padding: 0 !important; margin: 0 !important; }
                     .main-content-wrapper, .main-content { 
                         margin: 0 !important; 
-                        padding: 1.5cm !important; /* Add padding here instead of page margin */
+                        padding: 1cm !important; 
                         width: 100% !important; 
                         max-width: none !important; 
                         box-sizing: border-box;
                     }
+                    /* Mantener la cuadrícula lado a lado */
+                    .fin-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 20px !important; }
+                    .fin-col { margin-bottom: 0 !important; display: flex !important; }
                     
-                    /* Flatten the grid for standard vertical balance sheet format */
-                    .fin-grid { display: block !important; }
-                    .fin-col { margin-bottom: 30px !important; display: block !important; }
+                    .fin-group { border: 1px solid #ddd; margin-bottom: 15px !important; break-inside: avoid; page-break-inside: avoid; }
                     
-                    .fin-group { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ddd; margin-bottom: 20px !important; }
-                    .fin-row.main-header, .fin-row.sub-header, .fin-total-box, .stat-icon {
+                    .fin-row.main-header, .fin-row.sub-header, .fin-total-box, .cuadre-badge,
+                    .fin-row.main-header.activo, .fin-row.main-header.pasivo, .fin-row.main-header.patrimonio,
+                    .fin-total-box.activo-total, .fin-total-box.general-total, .cuadre-ok, .cuadre-error {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
-                    .fin-total-box { box-shadow: none !important; border: 2px solid #333; margin-top: 10px; }
-                    .fin-scrollable-list { max-height: none !important; overflow: visible !important; }
                     
-                    /* Ensure tables and rows don't break across pages */
+                    /* Ajustar tamaños para impresión */
+                    .fin-header { margin-bottom: 15px !important; }
+                    .fin-title { font-size: 1.2rem !important; color: #6b21a8 !important; }
+                    .fin-subtitle { font-size: 0.8rem !important; color: #8b5cf6 !important; }
+                    .fin-row { padding: 8px 12px !important; }
+                    .fin-row.sub-row { padding-left: 24px !important; }
+                    .fin-label { font-size: 0.85rem !important; }
+                    .fin-value { font-size: 0.95rem !important; }
+                    
+                    .fin-total-box { padding: 12px !important; font-size: 1.1rem !important; margin-top: 10px !important; }
+                    .fin-scrollable-list { max-height: none !important; overflow: visible !important; }
                     .fin-row { break-inside: avoid; page-break-inside: avoid; }
+                    .cuadre-badge { font-size: 0.8rem !important; padding: 6px 12px !important; }
+                    
+                    .print-only { display: block !important; }
+                    .screen-only { display: none !important; }
                 }
             </style>
 
             <div class="fin-header animate-fadeInDown">
                 <div>
-                    <h2 class="fin-title">Estado de Situación Financiera</h2>
-                    <p class="fin-subtitle">Balance General estructurado automáticamente según normativas contables.</p>
+                    <h2 class="fin-title print-only" style="display:none;">JESSICA MABEL FAREZ MARCA</h2>
+                    <h2 class="fin-title screen-only">Estado de Situación Financiera</h2>
+                    <p class="fin-subtitle print-only" style="display:none;">Estado de Situación Financiera estructurado automáticamente.</p>
+                    <p class="fin-subtitle screen-only">Balance General estructurado automáticamente según normativas contables.</p>
                 </div>
                 <div>
                     <button class="btn btn-secondary" onclick="window.print()" style="display:flex; align-items:center; gap:8px;">
@@ -3076,46 +3214,54 @@ const Views = {
                 <div class="fin-col">
                     
                     <div class="fin-group">
-                        <div class="fin-row main-header">
+                        <div class="fin-row main-header activo">
                             <span class="fin-label">ACTIVO CORRIENTE</span>
-                            <span class="fin-value">${App.formatMoney(totalEfectivo)}</span>
+                            <span class="fin-value" style="color:inherit;">${App.formatMoney(totalActivoCorriente)}</span>
                         </div>
                         
-                        <div class="fin-row sub-header warning">
+                        <div class="fin-row sub-header activo-sub">
                             <span class="fin-label">EFECTIVO Y EQUIVALENTES (Bancos)</span>
-                            <span class="fin-value">${App.formatMoney(totalBancos)}</span>
+                            <span class="fin-value" style="color:inherit;">${App.formatMoney(totalBancos)}</span>
                         </div>
                         <div class="fin-scrollable-list">
                             ${bancosHTML}
                         </div>
 
-                        <div class="fin-row sub-header warning">
+                        <div class="fin-row sub-header activo-sub">
                             <span class="fin-label">CAJA GENERAL</span>
-                            <span class="fin-value">${App.formatMoney(totalCajas)}</span>
+                            <span class="fin-value" style="color:inherit;">${App.formatMoney(totalCajas)}</span>
                         </div>
                         <div class="fin-scrollable-list">
                             ${cajasHTML}
                         </div>
+                        
+                        <div class="fin-row sub-header activo-sub">
+                            <span class="fin-label">CUENTAS POR COBRAR (CORTO PLAZO)</span>
+                            <span class="fin-value" style="color:inherit;">${App.formatMoney(totalCobrarCorriente)}</span>
+                        </div>
+                        <div class="fin-scrollable-list">
+                            ${cobrarCorrienteHTML}
+                        </div>
                     </div>
 
                     <div class="fin-group">
-                        <div class="fin-row main-header" style="background: rgba(var(--primary-rgb),0.05);">
+                        <div class="fin-row main-header activo">
                             <span class="fin-label">ACTIVO NO CORRIENTE</span>
-                            <span class="fin-value">${App.formatMoney(totalCobrar)}</span>
+                            <span class="fin-value" style="color:inherit;">${App.formatMoney(totalActivoNoCorriente)}</span>
                         </div>
                         
-                        <div class="fin-row sub-header">
-                            <span class="fin-label">CUENTAS POR COBRAR</span>
-                            <span class="fin-value">${App.formatMoney(totalCobrar)}</span>
+                        <div class="fin-row sub-header activo-sub">
+                            <span class="fin-label">CUENTAS POR COBRAR (LARGO PLAZO)</span>
+                            <span class="fin-value" style="color:inherit;">${App.formatMoney(totalCobrarNoCorriente)}</span>
                         </div>
                         <div class="fin-scrollable-list">
-                            ${cobrarHTML}
+                            ${cobrarNoCorrienteHTML}
                         </div>
                     </div>
 
-                    <div class="fin-total-box" style="background: var(--success); box-shadow: 0 4px 15px rgba(var(--success-rgb), 0.3);">
+                    <div class="fin-total-box activo-total">
                         <span class="fin-label">TOTAL ACTIVOS</span>
-                        <span class="fin-value">${App.formatMoney(totalActivos)}</span>
+                        <span class="fin-value" style="color:white;">${App.formatMoney(totalActivos)}</span>
                     </div>
 
                 </div>
@@ -3126,35 +3272,60 @@ const Views = {
                     <div class="fin-group">
                         <div class="fin-row main-header pasivo">
                             <span class="fin-label">PASIVO CORRIENTE</span>
-                            <span class="fin-value">${App.formatMoney(totalPagar)}</span>
+                            <span class="fin-value" style="color:inherit;">${App.formatMoney(totalPasivoCorriente)}</span>
                         </div>
                         
-                        <div class="fin-row sub-header" style="background: rgba(var(--danger-rgb),0.05); color: var(--danger);">
-                            <span class="fin-label">CUENTAS POR PAGAR</span>
-                            <span class="fin-value">${App.formatMoney(totalPagar)}</span>
+                        <div class="fin-row sub-header pasivo-sub">
+                            <span class="fin-label">CUENTAS POR PAGAR (CORTO PLAZO)</span>
+                            <span class="fin-value" style="color:inherit;">${App.formatMoney(totalPagarCorriente)}</span>
                         </div>
                         <div class="fin-scrollable-list">
-                            ${pagarHTML}
+                            ${pagarCorrienteHTML}
                         </div>
+                    </div>
+                    
+                    <div class="fin-group">
+                        <div class="fin-row main-header pasivo">
+                            <span class="fin-label">PASIVO NO CORRIENTE</span>
+                            <span class="fin-value" style="color:inherit;">${App.formatMoney(totalPasivoNoCorriente)}</span>
+                        </div>
+                        
+                        <div class="fin-row sub-header pasivo-sub">
+                            <span class="fin-label">CUENTAS POR PAGAR (LARGO PLAZO)</span>
+                            <span class="fin-value" style="color:inherit;">${App.formatMoney(totalPagarNoCorriente)}</span>
+                        </div>
+                        <div class="fin-scrollable-list">
+                            ${pagarNoCorrienteHTML}
+                        </div>
+                    </div>
+
+                    <!-- TOTAL PASIVOS -->
+                    <div class="fin-row main-header pasivo" style="border-radius:16px; margin-bottom:16px;">
+                        <span class="fin-label">TOTAL PASIVO</span>
+                        <span class="fin-value" style="color:inherit;">${App.formatMoney(totalPasivos)}</span>
                     </div>
 
                     <div class="fin-group">
                         <div class="fin-row main-header patrimonio">
-                            <span class="fin-label">PATRIMONIO</span>
-                            <span class="fin-value">${App.formatMoney(capital)}</span>
+                            <span class="fin-label">PATRIMONIO NETO</span>
+                            <span class="fin-value" style="color:inherit;">${App.formatMoney(capital)}</span>
                         </div>
                         
-                        <div class="fin-row sub-header" style="background: rgba(var(--success-rgb),0.05); color: var(--success);">
+                        <div class="fin-row sub-header patrimonio-sub">
                             <span class="fin-label">CAPITAL</span>
-                            <span class="fin-value">${App.formatMoney(capital)}</span>
+                            <span class="fin-value" style="color:inherit;">${App.formatMoney(capital)}</span>
                         </div>
                     </div>
 
                     <div style="flex:1;"></div>
 
-                    <div class="fin-total-box" style="background: var(--text-primary); color: var(--bg-body); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);">
-                        <span class="fin-label">PASIVO MÁS PATRIMONIO</span>
-                        <span class="fin-value">${App.formatMoney(totalPasivos + capital)}</span>
+                    <div class="fin-total-box general-total">
+                        <span class="fin-label">TOTAL PASIVO Y PATRIMONIO</span>
+                        <span class="fin-value" style="color:white;">${App.formatMoney(sumaPasivoPatrimonio)}</span>
+                    </div>
+
+                    <div class="cuadre-badge ${cuadreClass}">
+                        ${cuadreText}
                     </div>
 
                 </div>

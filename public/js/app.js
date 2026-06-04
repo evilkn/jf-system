@@ -49,6 +49,51 @@ const App = {
         localStorage.setItem('sidebar-collapsed', isNowCollapsed);
     },
 
+    currentBankFilterType: 'ALL',
+
+    filterBancosType(type) {
+        this.currentBankFilterType = type;
+        
+        // Update buttons styling
+        const btnAll = document.getElementById('btn-filter-all');
+        const btnBanco = document.getElementById('btn-filter-banco');
+        const btnCoop = document.getElementById('btn-filter-coop');
+        
+        if (btnAll) btnAll.classList.toggle('active', type === 'ALL');
+        if (btnBanco) btnBanco.classList.toggle('active', type === 'BANCO');
+        if (btnCoop) btnCoop.classList.toggle('active', type === 'COOP');
+        
+        this.filterBancos();
+    },
+
+    filterBancos() {
+        const searchInput = document.getElementById('bancos-search-input');
+        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+        const cards = document.querySelectorAll('#bancos-resumen-cards .filter-item');
+        
+        let visibleCount = 0;
+        
+        cards.forEach(card => {
+            const name = card.getAttribute('data-name') || '';
+            const type = card.getAttribute('data-type') || '';
+            
+            const matchesSearch = name.includes(searchTerm);
+            const matchesType = this.currentBankFilterType === 'ALL' || type === this.currentBankFilterType;
+            
+            if (matchesSearch && matchesType) {
+                card.style.display = 'block';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+        
+        const noResultsMsg = document.getElementById('bancos-no-results');
+        if (noResultsMsg) {
+            noResultsMsg.style.display = visibleCount === 0 ? 'block' : 'none';
+        }
+    },
+
     // Función de seguridad para prevenir XSS
     escapeHTML(str) {
         if (!str) return '';
@@ -380,6 +425,13 @@ const App = {
         const el = document.getElementById('sri-summary');
         if (el) el.innerHTML = Views.renderSRISummary();
     },
+    setDashboardPeriod() {
+        const m = document.getElementById('dash-mes-sel');
+        const a = document.getElementById('dash-anio-sel');
+        if (m) State.dashboardMes = m.value === 'all' ? 'all' : parseInt(m.value);
+        if (a) State.dashboardAnio = parseInt(a.value);
+        this.render();
+    },
 
     setSRIPeriod() {
         const m = document.getElementById('sri-mes-sel');
@@ -609,6 +661,7 @@ const App = {
             cliente: document.getElementById('cobrar-cliente').value,
             clienteId: document.getElementById('cobrar-cliente-id').value || null,
             concepto: document.getElementById('cobrar-concepto').value,
+            clasificacion: document.getElementById('cobrar-clasificacion').value || 'CORRIENTE',
             fecha: document.getElementById('cobrar-fecha').value,
             montoTotal: parseFloat(document.getElementById('cobrar-monto').value) || 0,
             pendiente: parseFloat(document.getElementById('cobrar-pendiente').value) || 0,
@@ -677,6 +730,8 @@ const App = {
         setTimeout(() => {
             document.getElementById('cobrar-cliente').value = record.cliente || '';
             document.getElementById('cobrar-concepto').value = record.concepto || '';
+            const clasificacionEl = document.getElementById('cobrar-clasificacion');
+            if (clasificacionEl) clasificacionEl.value = record.clasificacion || 'CORRIENTE';
             document.getElementById('cobrar-fecha').value = record.fecha || '';
             document.getElementById('cobrar-monto').value = record.montoTotal || 0;
             document.getElementById('cobrar-pendiente').value = record.pendiente || 0;
@@ -1002,6 +1057,7 @@ const App = {
             proveedor: document.getElementById('pagar-proveedor').value,
             proveedorId: document.getElementById('pagar-proveedor-id').value || null,
             concepto: document.getElementById('pagar-concepto').value,
+            clasificacion: document.getElementById('pagar-clasificacion').value || 'CORRIENTE',
             fecha: document.getElementById('pagar-fecha').value,
             montoTotal: parseFloat(document.getElementById('pagar-monto').value) || 0,
             pendiente: parseFloat(document.getElementById('pagar-pendiente').value) || 0,
@@ -1071,6 +1127,8 @@ const App = {
         setTimeout(() => {
             document.getElementById('pagar-proveedor').value = record.proveedor || '';
             document.getElementById('pagar-concepto').value = record.concepto || '';
+            const clasificacionEl = document.getElementById('pagar-clasificacion');
+            if (clasificacionEl) clasificacionEl.value = record.clasificacion || 'CORRIENTE';
             document.getElementById('pagar-fecha').value = record.fecha || '';
             document.getElementById('pagar-monto').value = record.montoTotal || 0;
             document.getElementById('pagar-pendiente').value = record.pendiente || 0;
@@ -3299,8 +3357,9 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         const salesData = Object.values(dataMap).map(v => v.sales);
         const purchaseData = Object.values(dataMap).map(v => v.purchases);
         const isDark = State.theme === 'dark';
-        const primaryColor = '#0ea5e9'; // Azure Blue
-        const secondaryColor = '#a855f7'; // Neon Purple
+        const isPersonal = State.dashboardView === 'personal';
+        const primaryColor = isPersonal ? '#0ea5e9' : '#14b8a6'; // Verde turquesa para Ventas
+        const secondaryColor = isPersonal ? '#a855f7' : '#fb7185'; // Rosa Coral para Compras
 
         if (this.currentChart) this.currentChart.destroy();
 

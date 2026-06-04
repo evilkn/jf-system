@@ -20,6 +20,8 @@ const State = {
     editingCuentasPagarId: null,
     showSettingsModal: false,
     dashboardView: localStorage.getItem('dashboardView') || 'personal',
+    dashboardMes: new Date().getMonth() + 1,
+    dashboardAnio: new Date().getFullYear(),
     tareasData: [],
     
     // Gestión de Cuentas Data & Modals
