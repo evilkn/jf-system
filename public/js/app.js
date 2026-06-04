@@ -1443,8 +1443,8 @@ const App = {
 
 
     calculateVentaIVA() {
-        const s15 = parseFloat(document.getElementById('venta-subt15')?.value) || 0;
-        const s0  = parseFloat(document.getElementById('venta-subt0')?.value)  || 0;
+        const s15 = parseFloat(document.getElementById('venta-subt15')?.value?.replace(',', '.')) || 0;
+        const s0  = parseFloat(document.getElementById('venta-subt0')?.value?.replace(',', '.'))  || 0;
         const iva = s15 * 0.15;
         const total = s15 + s0 + iva;
         const ivaEl   = document.getElementById('venta-iva');
@@ -1454,9 +1454,9 @@ const App = {
     },
 
     calculateCompraIVA() {
-        const s15 = parseFloat(document.getElementById('compra-subt15')?.value) || 0;
-        const s0  = parseFloat(document.getElementById('compra-subt0')?.value)  || 0;
-        const s5  = parseFloat(document.getElementById('compra-subt5')?.value)  || 0;
+        const s15 = parseFloat(document.getElementById('compra-subt15')?.value?.replace(',', '.')) || 0;
+        const s0  = parseFloat(document.getElementById('compra-subt0')?.value?.replace(',', '.'))  || 0;
+        const s5  = parseFloat(document.getElementById('compra-subt5')?.value?.replace(',', '.'))  || 0;
         const iva = (s15 * 0.15) + (s5 * 0.05);
         const total = s15 + s0 + s5 + iva;
         const ivaEl   = document.getElementById('compra-iva');
@@ -1483,6 +1483,8 @@ const App = {
         if (tipo === 'venta') {
             const fecha = document.getElementById('venta-fecha').value;
             const d = new Date(fecha + 'T00:00:00');
+            const vS15 = parseFloat(document.getElementById('venta-subt15').value?.replace(',', '.')) || 0;
+            const vS0  = parseFloat(document.getElementById('venta-subt0').value?.replace(',', '.'))  || 0;
             data = {
                 id: State.sriEditingId || 'sri_' + Date.now(),
                 tipo: 'venta',
@@ -1493,16 +1495,19 @@ const App = {
                 fecha,
                 mes:    d.getMonth() + 1,
                 anio:   d.getFullYear(),
-                subt15: parseFloat(document.getElementById('venta-subt15').value) || 0,
-                subt0:  parseFloat(document.getElementById('venta-subt0').value)  || 0,
-                iva:    parseFloat(document.getElementById('venta-iva').value)    || 0,
-                total:  parseFloat(document.getElementById('venta-total').value)  || 0,
+                subt15: vS15,
+                subt0:  vS0,
+                iva:    vS15 * 0.15,
+                total:  (vS15 * 1.15) + vS0,
                 anulada: document.getElementById('venta-anulada').checked,
                 updatedAt: new Date().toISOString()
             };
         } else {
             const fecha = document.getElementById('compra-fecha').value;
             const d = new Date(fecha + 'T00:00:00');
+            const cS15 = parseFloat(document.getElementById('compra-subt15').value?.replace(',', '.')) || 0;
+            const cS0  = parseFloat(document.getElementById('compra-subt0').value?.replace(',', '.'))  || 0;
+            const cS5  = parseFloat(document.getElementById('compra-subt5').value?.replace(',', '.'))  || 0;
             data = {
                 id: State.sriEditingId || 'sri_' + Date.now(),
                 tipo: 'compra',
@@ -1513,11 +1518,11 @@ const App = {
                 fecha,
                 mes:    d.getMonth() + 1,
                 anio:   d.getFullYear(),
-                subt15: parseFloat(document.getElementById('compra-subt15').value) || 0,
-                subt0:  parseFloat(document.getElementById('compra-subt0').value)  || 0,
-                subt5:  parseFloat(document.getElementById('compra-subt5').value)  || 0,
-                iva:    parseFloat(document.getElementById('compra-iva').value)    || 0,
-                total:  parseFloat(document.getElementById('compra-total').value)  || 0,
+                subt15: cS15,
+                subt0:  cS0,
+                subt5:  cS5,
+                iva:    (cS15 * 0.15) + (cS5 * 0.05),
+                total:  (cS15 * 1.15) + (cS5 * 1.05) + cS0,
                 updatedAt: new Date().toISOString()
             };
         }
@@ -1941,10 +1946,12 @@ const App = {
         let totS15=0, totS0=0, totIva=0, totTotal=0;
 
         registros.forEach(r => {
-            totS15   += r.subt15||0;
-            totS0    += r.subt0||0;
-            totIva   += r.iva||0;
-            totTotal += r.total||0;
+            if (!r.anulada) {
+                totS15   += r.subt15||0;
+                totS0    += r.subt0||0;
+                totIva   += r.iva||0;
+                totTotal += r.total||0;
+            }
 
             const tr = document.createElement('tr');
             if (r.anulada) tr.classList.add('row-anulada');

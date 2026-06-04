@@ -2909,7 +2909,7 @@ const Views = {
         cuentasPagar.forEach(c => {
             const p = parseFloat(c.pendiente) || 0;
             if (p > 0) {
-                const nombre = c.cliente || 'S/N';
+                const nombre = c.proveedor || c.cliente || 'S/N';
                 pagarPorCliente[nombre] = (pagarPorCliente[nombre] || 0) + p;
             }
         });
