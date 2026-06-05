@@ -6,8 +6,8 @@ const Views = {
     splash() {
         return `
             <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-main); color: var(--text-primary); transition: background 0.3s ease;">
-                <div style="margin-bottom: 24px; background: radial-gradient(ellipse at center, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 70%); padding: 30px; display: inline-block; border-radius: 50%;">
-                    <img src="logo.png?v=6" alt="JF Logo" class="splash-logo" style="width: 100%; max-width: 250px; height: auto; display: block;">
+                <div style="margin-bottom: 24px; padding: 20px; display: inline-block;">
+                    <img src="logo.png?v=6" alt="JF Logo" class="splash-logo" style="width: 100%; max-width: 250px; height: auto; display: block; filter: drop-shadow(0 0 15px rgba(255,255,255,0.15));">
                 </div>
                 <div style="font-family: var(--font-heading); letter-spacing: 4px; font-size: 1.1rem; font-weight: 700;">
                     VERIFICANDO <span style="color: var(--primary);">ACCESO</span>
@@ -40,10 +40,10 @@ const Views = {
                 <div id="particles-js" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;"></div>
                 <div class="glass-card animate-fadeIn" style="width: 100%; max-width: 400px; padding: 40px; position: relative; z-index: 2;">
                     <div style="text-align: center; margin-bottom: 32px;">
-                        <div style="background: radial-gradient(ellipse at center, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 70%); padding: 30px; display: inline-block; border-radius: 50%; margin-bottom: 8px;">
-                            <img src="logo.png?v=6" alt="JF Logo" style="width: 100%; max-width: 250px; height: auto; display: block;">
+                        <div style="padding: 20px; display: inline-block; margin-bottom: 8px;">
+                            <img src="logo.png?v=6" alt="JF Logo" style="width: 100%; max-width: 250px; height: auto; display: block; filter: drop-shadow(0 0 15px rgba(255,255,255,0.15));">
                         </div>
-                        <p style="color: rgba(255,255,255,0.7); margin-top: 12px;">Acceso al sistema</p>
+                        <p style="color: var(--text-secondary); margin-top: 12px; font-weight: 500;">Acceso al sistema</p>
                     </div>
                     <div style="margin-top: 10px;">
                         <button id="login-btn" class="btn" onclick="App.handleGoogleLogin()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; background: white; color: #1f2937; border: 1px solid #d1d5db; font-weight: 600; padding: 14px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
@@ -77,8 +77,8 @@ const Views = {
                     </button>
 
                     <div class="sidebar-brand" style="justify-content: center; padding: 16px 0;">
-                        <div style="background: radial-gradient(ellipse at center, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 70%); padding: 16px; display: inline-block; border-radius: 50%;">
-                            <img src="logo.png?v=6" alt="Logo" class="sidebar-logo" style="width: 100%; max-width: 160px; height: auto; display: block;">
+                        <div style="padding: 10px; display: inline-block;">
+                            <img src="logo.png?v=6" alt="Logo" class="sidebar-logo" style="width: 100%; max-width: 160px; height: auto; display: block; filter: drop-shadow(0 0 12px rgba(255,255,255,0.1));">
                         </div>
                     </div>
 
@@ -3126,32 +3126,48 @@ const Views = {
                 }
                 .fin-row:last-child { border-bottom: none; }
 
-                /* Colores solicitados: Naranja, Fucsia, Negro, Celeste, Morado, Turquesa */
+                /* Colores solicitados: Naranja, Verde, Fucsia */
                 .fin-row.main-header.activo {
-                    background: linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(6, 182, 212, 0.15));
-                    font-weight: 800; font-size: 1.1rem; color: #0369a1; /* Celeste oscuro / Turquesa oscuro */
+                    background: linear-gradient(135deg, rgba(242, 86, 0, 0.15), rgba(0, 210, 58, 0.15));
+                    font-weight: 800; font-size: 1.1rem; color: #F25600; 
                 }
                 .fin-row.main-header.pasivo {
                     background: linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(234, 88, 12, 0.15));
-                    font-weight: 800; font-size: 1.1rem; color: #c2410c; /* Naranja oscuro */
+                    font-weight: 800; font-size: 1.1rem; color: #c2410c; 
                 }
                 .fin-row.main-header.patrimonio {
                     background: linear-gradient(135deg, rgba(217, 70, 239, 0.15), rgba(192, 38, 211, 0.15));
-                    font-weight: 800; font-size: 1.1rem; color: #a21caf; /* Fucsia / Morado */
+                    font-weight: 800; font-size: 1.1rem; color: #a21caf; 
                 }
 
                 .fin-row.sub-header {
                     font-weight: 700;
                     font-size: 0.95rem;
                 }
-                .fin-row.sub-header.activo-sub { background: rgba(14, 165, 233, 0.08); color: #0284c7; }
-                .fin-row.sub-header.pasivo-sub { background: rgba(249, 115, 22, 0.08); color: #ea580c; }
-                .fin-row.sub-header.patrimonio-sub { background: rgba(217, 70, 239, 0.08); color: #c026d3; }
+                .fin-row.sub-header.activo-sub { 
+                    background: rgba(0, 0, 0, 0.1); 
+                    color: #008B27; 
+                }
+                .fin-row.sub-header.pasivo-sub { background: rgba(0, 0, 0, 0.1); color: #ea580c; }
+                .fin-row.sub-header.patrimonio-sub { background: rgba(0, 0, 0, 0.1); color: #c026d3; }
 
-                [data-theme="dark"] .fin-row.main-header.activo { color: #38bdf8; }
+                [data-theme="dark"] .fin-row.main-header.activo,
+                [data-theme="dark"] .fin-row.main-header.pasivo,
+                [data-theme="dark"] .fin-row.main-header.patrimonio,
+                [data-theme="dark"] .fin-row.sub-header.activo-sub,
+                [data-theme="dark"] .fin-row.sub-header.pasivo-sub,
+                [data-theme="dark"] .fin-row.sub-header.patrimonio-sub { 
+                    background: transparent;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+                }
+                
+                .bg-coral, [data-theme="dark"] .bg-coral { background: #FF6F61 !important; color: white !important; -webkit-text-fill-color: white !important; text-shadow: none !important; border: none !important; border-radius: 6px; margin-bottom: 2px;}
+                .bg-turquesa, [data-theme="dark"] .bg-turquesa { background: #0d9488 !important; color: white !important; -webkit-text-fill-color: white !important; text-shadow: none !important; border: none !important; border-radius: 6px; margin-bottom: 2px;}
+                .bg-naranja, [data-theme="dark"] .bg-naranja { background: #E34C0D !important; color: white !important; -webkit-text-fill-color: white !important; text-shadow: none !important; border: none !important; border-radius: 6px; margin-bottom: 2px;}
+
+
                 [data-theme="dark"] .fin-row.main-header.pasivo { color: #fb923c; }
                 [data-theme="dark"] .fin-row.main-header.patrimonio { color: #e879f9; }
-                [data-theme="dark"] .fin-row.sub-header.activo-sub { color: #7dd3fc; }
                 [data-theme="dark"] .fin-row.sub-header.pasivo-sub { color: #fdba74; }
                 [data-theme="dark"] .fin-row.sub-header.patrimonio-sub { color: #f0abfc; }
 
@@ -3166,6 +3182,12 @@ const Views = {
 
                 .fin-label { text-transform: uppercase; letter-spacing: 0.5px; }
                 .fin-value { font-family: monospace; font-size: 1rem; color: var(--text-primary); font-weight: 600;}
+                
+                [data-theme="dark"] .fin-value {
+                    color: #ffffff !important;
+                    -webkit-text-fill-color: #ffffff !important;
+                    text-shadow: none !important;
+                }
 
                 .fin-total-box {
                     padding: 16px;
@@ -3177,8 +3199,11 @@ const Views = {
                     color: white;
                     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
                 }
-                .fin-total-box.activo-total { background: linear-gradient(135deg, #0284c7, #0891b2); }
-                .fin-total-box.general-total { background: linear-gradient(135deg, #9333ea, #c026d3); }
+                .fin-total-box.activo-total { background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.05); }
+                [data-theme="dark"] .fin-total-box.activo-total { background: linear-gradient(135deg, rgba(20,20,20,0.8), rgba(0,0,0,0.9)); box-shadow: inset 0 0 20px rgba(255, 60, 0, 0.05); }
+                
+                .fin-total-box.general-total { background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.05); }
+                [data-theme="dark"] .fin-total-box.general-total { background: linear-gradient(135deg, rgba(20,20,20,0.8), rgba(0,0,0,0.9)); box-shadow: inset 0 0 20px rgba(192, 38, 211, 0.05); }
 
                 .cuadre-badge {
                     margin-top: 16px;
@@ -3225,6 +3250,8 @@ const Views = {
                     }
                     
                     /* Ajustar tamaños para impresión */
+                    .fin-row .fin-label, .fin-total-box .fin-label, .txt-color-1, .txt-color-2, .txt-color-3 { color: #000000 !important; -webkit-text-fill-color: #000000 !important; text-shadow: none !important; }
+                    .fin-row .fin-value, .fin-total-box .fin-value, .fin-value { color: #000000 !important; -webkit-text-fill-color: #000000 !important; font-weight: bold !important; text-shadow: none !important; }
                     .fin-header { margin-bottom: 15px !important; }
                     .fin-title { font-size: 1.2rem !important; color: #6b21a8 !important; }
                     .fin-subtitle { font-size: 0.8rem !important; color: #8b5cf6 !important; }
@@ -3266,12 +3293,12 @@ const Views = {
                 <div class="fin-col">
                     
                     <div class="fin-group">
-                        <div class="fin-row main-header activo">
+                        <div class="fin-row main-header activo bg-coral">
                             <span class="fin-label">ACTIVO CORRIENTE</span>
                             <span class="fin-value" style="color:inherit;">${App.formatMoney(totalActivoCorriente)}</span>
                         </div>
                         
-                        <div class="fin-row sub-header activo-sub">
+                        <div class="fin-row sub-header activo-sub bg-coral">
                             <span class="fin-label">EFECTIVO Y EQUIVALENTES (Bancos)</span>
                             <span class="fin-value" style="color:inherit;">${App.formatMoney(totalBancosCorrientes)}</span>
                         </div>
@@ -3279,7 +3306,7 @@ const Views = {
                             ${bancosHTML}
                         </div>
 
-                        <div class="fin-row sub-header activo-sub">
+                        <div class="fin-row sub-header activo-sub bg-turquesa">
                             <span class="fin-label">CAJA GENERAL</span>
                             <span class="fin-value" style="color:inherit;">${App.formatMoney(totalCajas)}</span>
                         </div>
@@ -3287,7 +3314,7 @@ const Views = {
                             ${cajasHTML}
                         </div>
                         
-                        <div class="fin-row sub-header activo-sub">
+                        <div class="fin-row sub-header activo-sub bg-turquesa">
                             <span class="fin-label">CUENTAS POR COBRAR (CORTO PLAZO)</span>
                             <span class="fin-value" style="color:inherit;">${App.formatMoney(totalCobrarCorriente)}</span>
                         </div>
@@ -3297,12 +3324,12 @@ const Views = {
                     </div>
 
                     <div class="fin-group">
-                        <div class="fin-row main-header activo">
+                        <div class="fin-row main-header activo bg-naranja">
                             <span class="fin-label">ACTIVO NO CORRIENTE</span>
                             <span class="fin-value" style="color:inherit;">${App.formatMoney(totalActivoNoCorriente)}</span>
                         </div>
                         
-                        <div class="fin-row sub-header activo-sub">
+                        <div class="fin-row sub-header activo-sub bg-naranja">
                             <span class="fin-label">CUENTAS POR COBRAR (LARGO PLAZO)</span>
                             <span class="fin-value" style="color:inherit;">${App.formatMoney(totalCobrarNoCorriente)}</span>
                         </div>
@@ -3310,7 +3337,7 @@ const Views = {
                             ${cobrarNoCorrienteHTML}
                         </div>
                         
-                        <div class="fin-row sub-header activo-sub">
+                        <div class="fin-row sub-header activo-sub bg-coral">
                             <span class="fin-label">INVERSIONES Y DEPÓSITOS (Largo Plazo)</span>
                             <span class="fin-value" style="color:inherit;">${App.formatMoney(totalBancosNoCorrientes)}</span>
                         </div>
@@ -3319,9 +3346,9 @@ const Views = {
                         </div>
                     </div>
 
-                    <div class="fin-total-box activo-total">
+                    <div class="fin-total-box bg-turquesa">
                         <span class="fin-label">TOTAL ACTIVOS</span>
-                        <span class="fin-value" style="color:white;">${App.formatMoney(totalActivos)}</span>
+                        <span class="fin-value" style="color:inherit;">${App.formatMoney(totalActivos)}</span>
                     </div>
 
                 </div>
@@ -3330,12 +3357,12 @@ const Views = {
                 <div class="fin-col">
                     
                     <div class="fin-group">
-                        <div class="fin-row main-header pasivo">
+                        <div class="fin-row main-header pasivo bg-naranja">
                             <span class="fin-label">PASIVO CORRIENTE</span>
                             <span class="fin-value" style="color:inherit;">${App.formatMoney(totalPasivoCorriente)}</span>
                         </div>
                         
-                        <div class="fin-row sub-header pasivo-sub">
+                        <div class="fin-row sub-header pasivo-sub bg-naranja">
                             <span class="fin-label">CUENTAS POR PAGAR (CORTO PLAZO)</span>
                             <span class="fin-value" style="color:inherit;">${App.formatMoney(totalPagarCorriente)}</span>
                         </div>
@@ -3345,12 +3372,12 @@ const Views = {
                     </div>
                     
                     <div class="fin-group">
-                        <div class="fin-row main-header pasivo">
+                        <div class="fin-row main-header pasivo bg-coral">
                             <span class="fin-label">PASIVO NO CORRIENTE</span>
                             <span class="fin-value" style="color:inherit;">${App.formatMoney(totalPasivoNoCorriente)}</span>
                         </div>
                         
-                        <div class="fin-row sub-header pasivo-sub">
+                        <div class="fin-row sub-header pasivo-sub bg-coral">
                             <span class="fin-label">CUENTAS POR PAGAR (LARGO PLAZO)</span>
                             <span class="fin-value" style="color:inherit;">${App.formatMoney(totalPagarNoCorriente)}</span>
                         </div>
@@ -3360,18 +3387,18 @@ const Views = {
                     </div>
 
                     <!-- TOTAL PASIVOS -->
-                    <div class="fin-row main-header pasivo" style="border-radius:16px; margin-bottom:16px;">
+                    <div class="fin-row main-header bg-turquesa" style="margin-bottom:16px;">
                         <span class="fin-label">TOTAL PASIVO</span>
                         <span class="fin-value" style="color:inherit;">${App.formatMoney(totalPasivos)}</span>
                     </div>
 
                     <div class="fin-group">
-                        <div class="fin-row main-header patrimonio">
+                        <div class="fin-row main-header bg-naranja">
                             <span class="fin-label">PATRIMONIO NETO</span>
                             <span class="fin-value" style="color:inherit;">${App.formatMoney(capital)}</span>
                         </div>
                         
-                        <div class="fin-row sub-header patrimonio-sub">
+                        <div class="fin-row sub-header bg-naranja">
                             <span class="fin-label">CAPITAL</span>
                             <span class="fin-value" style="color:inherit;">${App.formatMoney(capital)}</span>
                         </div>
@@ -3379,7 +3406,7 @@ const Views = {
 
                     <div style="flex:1;"></div>
 
-                    <div class="fin-total-box general-total">
+                    <div class="fin-total-box bg-coral">
                         <span class="fin-label">TOTAL PASIVO Y PATRIMONIO</span>
                         <span class="fin-value" style="color:white;">${App.formatMoney(sumaPasivoPatrimonio)}</span>
                     </div>

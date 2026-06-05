@@ -360,8 +360,8 @@ tr.row-anulada td {
 }
 
 .premium-select optgroup {
-    background-color: var(--bg-card);
-    color: var(--primary);
+    background-color: rgba(0, 0, 0, 0.4);
+    color: #FFFFFF; /* Pure White premium color */
     font-weight: 800;
     font-size: 0.85rem;
     padding: 10px 5px;
