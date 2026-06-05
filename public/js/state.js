@@ -82,6 +82,7 @@ const State = {
     reportType: 'cobrar', // 'cobrar' | 'pagar'
 
     // Bancos
+    selectedBancoId: null,
     showBancoModal: false,
     bancosData: [],
     editingBanco: null,

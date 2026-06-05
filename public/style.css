@@ -352,6 +352,23 @@ tr.row-anulada td {
     background-color: var(--bg-card);
 }
 
+.premium-select option {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    padding: 12px;
+    font-size: 1rem;
+}
+
+.premium-select optgroup {
+    background-color: var(--bg-card);
+    color: var(--primary);
+    font-weight: 800;
+    font-size: 0.85rem;
+    padding: 10px 5px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
 /* Conciliado table */
 .conciliado-table-wrap {
     overflow-x: auto;

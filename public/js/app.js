@@ -49,49 +49,9 @@ const App = {
         localStorage.setItem('sidebar-collapsed', isNowCollapsed);
     },
 
-    currentBankFilterType: 'ALL',
-
-    filterBancosType(type) {
-        this.currentBankFilterType = type;
-        
-        // Update buttons styling
-        const btnAll = document.getElementById('btn-filter-all');
-        const btnBanco = document.getElementById('btn-filter-banco');
-        const btnCoop = document.getElementById('btn-filter-coop');
-        
-        if (btnAll) btnAll.classList.toggle('active', type === 'ALL');
-        if (btnBanco) btnBanco.classList.toggle('active', type === 'BANCO');
-        if (btnCoop) btnCoop.classList.toggle('active', type === 'COOP');
-        
-        this.filterBancos();
-    },
-
-    filterBancos() {
-        const searchInput = document.getElementById('bancos-search-input');
-        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
-        const cards = document.querySelectorAll('#bancos-resumen-cards .filter-item');
-        
-        let visibleCount = 0;
-        
-        cards.forEach(card => {
-            const name = card.getAttribute('data-name') || '';
-            const type = card.getAttribute('data-type') || '';
-            
-            const matchesSearch = name.includes(searchTerm);
-            const matchesType = this.currentBankFilterType === 'ALL' || type === this.currentBankFilterType;
-            
-            if (matchesSearch && matchesType) {
-                card.style.display = 'block';
-                visibleCount++;
-            } else {
-                card.style.display = 'none';
-            }
-        });
-        
-        const noResultsMsg = document.getElementById('bancos-no-results');
-        if (noResultsMsg) {
-            noResultsMsg.style.display = visibleCount === 0 ? 'block' : 'none';
-        }
+    selectBanco(event) {
+        State.selectedBancoId = event.target.value;
+        App.render();
     },
 
     // Función de seguridad para prevenir XSS
@@ -2252,7 +2212,7 @@ const App = {
         <div id="conciliado-print-area">
             <div class="print-header" style="display:none;">
                 <div>
-                    <div class="ph-brand">JF SYSTEM</div>
+                    <div class="ph-brand"><img src="${window.location.origin + window.location.pathname.replace('index.html', '')}logo.png" style="height: 24px; object-fit: contain; filter: drop-shadow(0 0 2px rgba(255,255,255,0.8));"></div>
                     <div style="font-size:0.7rem;color:rgba(255,255,255,0.65);margin-top:2px;">Sistema de Gestión Contable</div>
                 </div>
                 <div class="ph-meta">
@@ -2591,7 +2551,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
 .pgf{margin-top:12px;padding-top:7px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:6.5pt;color:#9ca3af;}
 </style></head><body>
 <div class="hdr">
-  <div><div class="brand">JF SYSTEM</div><div class="sub">Sistema de Gestión Contable</div></div>
+  <div><div class="brand"><img src="${window.location.origin + window.location.pathname.replace('index.html', '')}logo.png" style="height: 30px; object-fit: contain; filter: drop-shadow(0 0 2px rgba(255,255,255,0.8));"></div><div class="sub">Sistema de Gestión Contable</div></div>
   <div><div class="meta-t">REPORTE CONCILIADO</div><div class="meta-i">Período: ${per}<br>Generado: ${fgen}</div></div>
 </div>
 <div class="cband">
@@ -3358,8 +3318,8 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         const purchaseData = Object.values(dataMap).map(v => v.purchases);
         const isDark = State.theme === 'dark';
         const isPersonal = State.dashboardView === 'personal';
-        const primaryColor = isPersonal ? '#0ea5e9' : '#14b8a6'; // Verde turquesa para Ventas
-        const secondaryColor = isPersonal ? '#a855f7' : '#fb7185'; // Rosa Coral para Compras
+        const primaryColor = '#14b8a6'; // Verde turquesa para Ventas / Honorarios
+        const secondaryColor = '#fb7185'; // Rosa Coral para Compras / Gastos
 
         if (this.currentChart) this.currentChart.destroy();
 
@@ -3970,9 +3930,11 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             <div style="font-family:'Inter', sans-serif; color:#1e293b; padding:5px 20px 20px 20px; background:white;">
                 <!-- Header más compacto y arriba -->
                 <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #8b5cf6; padding-bottom:10px; margin-bottom:20px;">
-                    <div>
-                        <h1 style="margin:0; color:#3b0764; font-size:22px; font-weight:800; letter-spacing:-0.5px;">JF SYSTEM</h1>
-                        <p style="margin:0; font-size:9px; color:#64748b; text-transform:uppercase; letter-spacing:1px;">Reporte Financiero Consolidado</p>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <img src="${window.location.origin + window.location.pathname.replace('index.html', '')}logo.png" style="height: 55px; object-fit: contain;">
+                        <div>
+                            <p style="margin:0; font-size:12px; color:#64748b; text-transform:uppercase; letter-spacing:1px; font-weight:700;">Reporte Financiero Consolidado</p>
+                        </div>
                     </div>
                     <div style="text-align:right;">
                         <h2 style="margin:0; font-size:13px; color:#1e293b; font-weight:700;">${client.name}</h2>
@@ -5029,7 +4991,7 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
             <div class="hdr-sub">Historial de Movimientos y Conciliación</div>
         </div>
         <div style="text-align:right;">
-            <div style="font-weight:700;">JF SYSTEM</div>
+            <div style="font-weight:700;"><img src="${window.location.origin + window.location.pathname.replace('index.html', '')}logo.png" style="height: 24px; object-fit: contain;"></div>
             <div style="font-size:8pt; opacity:0.8;">Gestión de Liquidez</div>
         </div>
     </div>
@@ -5244,10 +5206,12 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
         if (btn) { btn.disabled = true; btn.innerHTML = `${Icons.loading()} Guardando...`; }
 
         try {
+            const clasificacion = document.getElementById('edit-banco-clasificacion')?.value || 'corriente';
             const updates = {
                 nombre,
                 numero,
                 saldo_actual: saldo,
+                clasificacion: clasificacion,
                 ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
             };
             const timeout = new Promise((resolve) => setTimeout(resolve, 3000));
@@ -5290,11 +5254,13 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
         }
 
         try {
+            const clasificacion = document.getElementById('banco-clasificacion')?.value || 'corriente';
             await db.collection('cuentas_bancarias').add({
                 nombre,
                 numero: nroCuenta,
                 saldo_inicial: saldoInicial,
                 saldo_actual: saldoInicial,
+                clasificacion: clasificacion,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
             });

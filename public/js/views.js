@@ -361,6 +361,13 @@ const Views = {
                             <input type="text" id="banco-nombre-manual" placeholder="Ej. Caja Chica, Banco Pichincha..." required value="Banco Pichincha">
                         </div>
                         <div class="form-group">
+                            <label>Clasificación *</label>
+                            <select id="banco-clasificacion" class="premium-select" required>
+                                <option value="corriente">Activo Corriente (Efectivo y Equivalentes)</option>
+                                <option value="no_corriente">Activo No Corriente (Inversiones a Largo Plazo)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label>Saldo Inicial ($)</label>
                             <input type="number" step="0.01" id="banco-saldo-inicial" required placeholder="0.00" value="0.00">
                         </div>
@@ -395,6 +402,13 @@ const Views = {
                         <div class="form-group">
                             <label>Número de Cuenta (Opcional)</label>
                             <input type="text" id="edit-banco-numero" placeholder="Ej. 2200xxxxxx" value="${banco.numero || ''}" style="width:100%;">
+                        </div>
+                        <div class="form-group">
+                            <label>Clasificación *</label>
+                            <select id="edit-banco-clasificacion" class="premium-select" required style="width:100%;">
+                                <option value="corriente" ${banco.clasificacion !== 'no_corriente' ? 'selected' : ''}>Activo Corriente (Efectivo y Equivalentes)</option>
+                                <option value="no_corriente" ${banco.clasificacion === 'no_corriente' ? 'selected' : ''}>Activo No Corriente (Inversiones a Largo Plazo)</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label>Saldo Actual ($)</label>
@@ -535,6 +549,8 @@ const Views = {
     bancos() {
         const totalLiquidez = (State.bancosData || []).reduce((acc, b) => acc + (b.saldo_actual || 0), 0);
         let cardsHtml = '';
+        let optionsHtml = '<option value="">-- Seleccione una cuenta bancaria --</option>';
+        
         if (State.bancosData && State.bancosData.length > 0) {
             let sortedBancos = [...State.bancosData].sort((a, b) => {
                 const isCajaA = a.nombre.toLowerCase().includes('caja');
@@ -543,50 +559,76 @@ const Views = {
                 if (!isCajaA && isCajaB) return 1;
                 return a.nombre.localeCompare(b.nombre);
             });
-            cardsHtml = sortedBancos.map(banco => {
-                const bankInfo = Views.getBankInfo(banco.nombre);
-                
-                // Determinar el tipo de institución para los filtros
-                const lowerName = banco.nombre.toLowerCase();
-                const isBanco = lowerName.includes('banco') || lowerName.includes('austro');
-                const isCoop = lowerName.includes('coop') || lowerName.includes('jep') || lowerName.includes('jardín') || lowerName.includes('jardin');
-                const tipoIntitucion = isBanco ? 'BANCO' : (isCoop ? 'COOP' : 'OTRO');
-                
-                return `
-                <div class="glass-card bank-card ${bankInfo.themeClass} filter-item" data-name="${banco.nombre.toLowerCase()}" data-type="${tipoIntitucion}" style="cursor: pointer; position: relative; overflow: hidden; transition: all 0.3s ease;">
-                    <!-- Card action buttons overlay -->
-                    <div class="bank-card-actions" onclick="event.stopPropagation()">
-                        <button class="bank-action-btn bank-action-edit" onclick="App.showEditBancoModal('${banco.id}')" title="Editar">
-                            ${Icons.edit ? Icons.edit(14) : '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'}
-                        </button>
-                        <button class="bank-action-btn bank-action-delete" onclick="App.confirmarEliminarBanco('${banco.id}')" title="Eliminar">
-                            ${Icons.trash ? Icons.trash(14) : '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>'}
-                        </button>
-                    </div>
-                    <!-- Clickable area -->
-                    <div style="cursor: pointer;" onclick="App.openBancoDetail('${banco.id}')">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
-                            <h4 style="margin:0; font-size: 1.2rem; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.1); color: var(--text-primary);">${banco.nombre}</h4>
-                            <div class="bank-logo-container">
-                                ${bankInfo.icon}
+
+            const grupos = { BANCO: [], COOP: [], CAJA: [], OTRO: [] };
+            sortedBancos.forEach(b => {
+                const lowerName = b.nombre.toLowerCase();
+                if (lowerName.includes('caja')) grupos.CAJA.push(b);
+                else if (lowerName.includes('banco') || lowerName.includes('austro')) grupos.BANCO.push(b);
+                else if (lowerName.includes('coop') || lowerName.includes('jep') || lowerName.includes('jardín') || lowerName.includes('jardin')) grupos.COOP.push(b);
+                else grupos.OTRO.push(b);
+            });
+
+            const buildOptGroup = (label, arr) => {
+                if (arr.length === 0) return '';
+                return `<optgroup label="${label}">` + arr.map(b => `<option value="${b.id}" ${State.selectedBancoId === b.id ? 'selected' : ''}>${b.nombre}</option>`).join('') + `</optgroup>`;
+            };
+
+            optionsHtml += buildOptGroup('Bancos', grupos.BANCO);
+            optionsHtml += buildOptGroup('Cooperativas', grupos.COOP);
+            optionsHtml += buildOptGroup('Cajas', grupos.CAJA);
+            optionsHtml += buildOptGroup('Otras Cuentas', grupos.OTRO);
+
+            if (State.selectedBancoId) {
+                const banco = sortedBancos.find(b => b.id === State.selectedBancoId);
+                if (banco) {
+                    const bankInfo = Views.getBankInfo(banco.nombre);
+                    cardsHtml = `
+                    <div class="glass-card bank-card ${bankInfo.themeClass}" style="cursor: pointer; position: relative; overflow: hidden; transition: all 0.3s ease; max-width: 500px; margin: 0 auto;">
+                        <div class="bank-card-actions" onclick="event.stopPropagation()">
+                            <button class="bank-action-btn bank-action-edit" onclick="App.showEditBancoModal('${banco.id}')" title="Editar">
+                                ${Icons.edit ? Icons.edit(14) : '✎'}
+                            </button>
+                            <button class="bank-action-btn bank-action-delete" onclick="App.confirmarEliminarBanco('${banco.id}')" title="Eliminar">
+                                ${Icons.trash ? Icons.trash(14) : '🗑'}
+                            </button>
+                        </div>
+                        <div style="cursor: pointer;" onclick="App.openBancoDetail('${banco.id}')">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
+                                <h4 style="margin:0; font-size: 1.4rem; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.1); color: var(--text-primary);">${banco.nombre}</h4>
+                                <div class="bank-logo-container" style="transform: scale(1.1);">
+                                    ${bankInfo.icon}
+                                </div>
+                            </div>
+                            <div class="bank-balance" style="font-family: var(--font-mono); font-size: 2.8rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 16px; text-align: center;">
+                                ${State.hideAmounts ? '****' : App.formatMoney(banco.saldo_actual)}
+                            </div>
+                            <div style="font-size: 0.95rem; color: var(--text-secondary); display:flex; justify-content:space-between; align-items:center; padding-top: 16px; border-top: 1px solid var(--glass-border);">
+                                <span style="font-weight: 500;">Ver conciliación y transacciones</span>
+                                <div class="arrow-btn" style="background: rgba(var(--primary-rgb), 0.2);">${Icons.arrowRight()}</div>
                             </div>
                         </div>
-                        <div class="bank-balance" style="font-family: var(--font-mono); font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px;">
-                            ${State.hideAmounts ? '****' : App.formatMoney(banco.saldo_actual)}
-                        </div>
-                        <div style="font-size: 0.85rem; color: var(--text-secondary); display:flex; justify-content:space-between; align-items:center; padding-top: 16px; border-top: 1px solid var(--glass-border);">
-                            <span style="font-weight: 500;">Ver conciliación y transacciones</span>
-                            <div class="arrow-btn">${Icons.arrowRight()}</div>
-                        </div>
                     </div>
+                    `;
+                }
+            } else {
+                cardsHtml = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px;">
+                    <div style="margin-bottom: 24px; animation: float 6s ease-in-out infinite;">
+                        <img src="img/bancos-empty.png?v=2" alt="Bancos" style="width: 100%; max-width: 220px; height: auto; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.4));">
+                    </div>
+                    <h3 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 1.4rem; font-weight: 700; letter-spacing: -0.5px;">Ninguna cuenta seleccionada</h3>
+                    <p style="margin: 0; color: var(--text-secondary); font-size: 1.05rem; max-width: 400px; line-height: 1.5;">Despliegue el menú superior y seleccione una cuenta bancaria para visualizar su saldo y empezar a gestionar sus transacciones.</p>
                 </div>
-            `}).join('');
-
+                `;
+            }
         } else {
             cardsHtml = `
                 <div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px; border: 1px dashed rgba(255,255,255,0.2); border-radius: 12px; background: rgba(0,0,0,0.1);">
-                    <div style="margin-bottom: 12px; opacity: 0.5;">${Icons.bank()}</div>
-                    <div style="font-size: 1.1rem; margin-bottom: 8px; color: var(--text-primary);">Aún no hay bancos registrados</div>
+                    <div style="margin-bottom: 12px; opacity: 0.5;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                    </div>
+                    <div style="font-size: 1.1rem; color: var(--text-primary);">Aún no has registrado cuentas</div>
                     <div style="font-size: 0.9rem;">Haga clic en "Nuevo Banco" para empezar a registrar.</div>
                 </div>
             `;
@@ -631,31 +673,22 @@ const Views = {
                 </div>
             </div>
 
-            <!-- Buscador Inteligente y Filtros -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; flex-wrap: wrap;">
-                <div class="search-container" style="position: relative; flex: 1; min-width: 280px; max-width: 400px;">
-                    <div style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <!-- Selector de Cuenta Bancaria -->
+            <div style="display: flex; justify-content: center; margin-bottom: 40px;">
+                <div class="search-container" style="position: relative; width: 100%; max-width: 500px;">
+                    <div style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--primary);">
+                        ${Icons.navCuentas(20)}
                     </div>
-                    <input type="text" id="bancos-search-input" placeholder="Escribe para buscar bancos o cuentas..." onkeyup="App.filterBancos()" style="width: 100%; padding: 14px 16px 14px 44px; border-radius: 12px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: var(--text-primary); outline: none; font-size: 1rem; transition: all 0.2s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
-                </div>
-                
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <button class="btn btn-outline active" id="btn-filter-all" onclick="App.filterBancosType('ALL')" style="border-radius: 20px; padding: 6px 16px; font-size: 0.85rem; border-color: rgba(var(--primary-rgb), 0.5);">Todos</button>
-                    <button class="btn btn-outline" id="btn-filter-banco" onclick="App.filterBancosType('BANCO')" style="border-radius: 20px; padding: 6px 16px; font-size: 0.85rem; border-color: rgba(var(--primary-rgb), 0.5);">Bancos</button>
-                    <button class="btn btn-outline" id="btn-filter-coop" onclick="App.filterBancosType('COOP')" style="border-radius: 20px; padding: 6px 16px; font-size: 0.85rem; border-color: rgba(var(--primary-rgb), 0.5);">Cooperativas</button>
+                    <select id="bancos-dropdown" onchange="App.selectBanco(event)" class="premium-select" style="width: 100%; padding: 16px 16px 16px 48px; border-radius: 14px; border: 1px solid rgba(var(--primary-rgb), 0.3); background: rgba(var(--bg-card-rgb), 0.8); color: var(--text-primary); outline: none; font-size: 1.1rem; font-weight: 500; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.1); backdrop-filter: blur(10px); appearance: none;">
+                        ${optionsHtml}
+                    </select>
+                    <div style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
                 </div>
             </div>
             
-            <div id="bancos-no-results" style="display: none; grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px; border: 1px dashed rgba(255,255,255,0.2); border-radius: 12px; background: rgba(0,0,0,0.1); margin-bottom: 30px;">
-                <div style="margin-bottom: 12px; opacity: 0.5;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                </div>
-                <div style="font-size: 1.1rem; color: var(--text-primary);">No se encontraron cuentas</div>
-                <div style="font-size: 0.9rem;">Prueba buscando con otros términos o filtros.</div>
-            </div>
-            
-            <div id="bancos-resumen-cards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; margin-bottom: 30px;">
+            <div id="bancos-resumen-cards" style="display: block; margin-bottom: 30px;">
                 ${cardsHtml}
             </div>
 
@@ -1468,7 +1501,7 @@ const Views = {
             : '';
         return `<div class="dashboard-banner" style="background:${s.bg}; border:1px solid ${s.border}; border-left:4px solid ${s.accent}; border-radius:12px; padding:13px 18px; margin-bottom:20px; display:flex; align-items:center; gap:12px; transition: all 0.3s ease; ${s.extraStyle || ''}">
             <span style="font-size:1.15rem; flex-shrink:0; filter: drop-shadow(0 0 5px rgba(255,255,255,0.5));">${emoji}</span>
-            <p style="margin:0; flex:1; font-size:0.87rem; line-height:1.55; color:var(--text-primary);">${message}</p>
+            <p style="margin:0; flex:1; font-size:1.15rem; line-height:1.55; color:var(--text-primary);">${message}</p>
             ${actionBtn}
             <button onclick="this.closest('.dashboard-banner').style.display='none'" title="Cerrar" style="background:none; border:none; cursor:pointer; color:var(--text-secondary); font-size:1rem; flex-shrink:0; padding:0 4px; line-height:1; opacity:0.6; transition:opacity 0.15s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">✕</button>
         </div>`;
@@ -2901,10 +2934,12 @@ const Views = {
     estadosFinancieros() {
         // 1. Efectivo y Equivalentes
         const bancosRaw = State.bancosData || [];
-        const bancosFormales = [];
+        const bancosCorrientes = [];
+        const bancosNoCorrientes = [];
         const cajas = [];
         
-        let totalBancos = 0;
+        let totalBancosCorrientes = 0;
+        let totalBancosNoCorrientes = 0;
         let totalCajas = 0;
         
         bancosRaw.forEach(b => {
@@ -2912,19 +2947,33 @@ const Views = {
                 cajas.push(b);
                 totalCajas += b.saldo_actual || 0;
             } else {
-                bancosFormales.push(b);
-                totalBancos += b.saldo_actual || 0;
+                if (b.clasificacion === 'no_corriente') {
+                    bancosNoCorrientes.push(b);
+                    totalBancosNoCorrientes += b.saldo_actual || 0;
+                } else {
+                    bancosCorrientes.push(b);
+                    totalBancosCorrientes += b.saldo_actual || 0;
+                }
             }
         });
         
-        const totalEfectivo = totalBancos + totalCajas;
+        const totalEfectivo = totalBancosCorrientes + totalCajas;
         
-        let bancosHTML = bancosFormales.map(b => `
+        let bancosHTML = bancosCorrientes.map(b => `
             <div class="fin-row sub-row">
                 <span class="fin-label">${b.nombre}</span>
                 <span class="fin-value">${App.formatMoney(b.saldo_actual || 0)}</span>
             </div>
         `).join('');
+        if (!bancosHTML) bancosHTML = '<div class="fin-row sub-row"><span class="fin-label" style="color:var(--text-secondary);font-style:italic;">Sin bancos corrientes</span><span></span></div>';
+
+        let bancosNoCorrientesHTML = bancosNoCorrientes.map(b => `
+            <div class="fin-row sub-row">
+                <span class="fin-label">${b.nombre}</span>
+                <span class="fin-value">${App.formatMoney(b.saldo_actual || 0)}</span>
+            </div>
+        `).join('');
+        if (!bancosNoCorrientesHTML) bancosNoCorrientesHTML = '<div class="fin-row sub-row"><span class="fin-label" style="color:var(--text-secondary);font-style:italic;">Sin inversiones a largo plazo</span><span></span></div>';
         
         let cajasHTML = cajas.map(c => `
             <div class="fin-row sub-row">
@@ -2977,7 +3026,7 @@ const Views = {
         if (!cobrarNoCorrienteHTML) cobrarNoCorrienteHTML = '<div class="fin-row sub-row"><span class="fin-label" style="color:var(--text-secondary);font-style:italic;">Sin cuentas por cobrar (Largo Plazo)</span><span></span></div>';
 
         const totalActivoCorriente = totalEfectivo + totalCobrarCorriente;
-        const totalActivoNoCorriente = totalCobrarNoCorriente;
+        const totalActivoNoCorriente = totalCobrarNoCorriente + totalBancosNoCorrientes;
         const totalActivos = totalActivoCorriente + totalActivoNoCorriente;
 
         // 3. Cuentas por Pagar (Pasivos)
@@ -3195,11 +3244,14 @@ const Views = {
             </style>
 
             <div class="fin-header animate-fadeInDown">
-                <div>
-                    <h2 class="fin-title print-only" style="display:none;">JESSICA MABEL FAREZ MARCA</h2>
-                    <h2 class="fin-title screen-only">Estado de Situación Financiera</h2>
-                    <p class="fin-subtitle print-only" style="display:none;">Estado de Situación Financiera estructurado automáticamente.</p>
-                    <p class="fin-subtitle screen-only">Balance General estructurado automáticamente según normativas contables.</p>
+                <div style="display:flex; align-items:center; gap:15px;">
+                    <img src="${window.location.origin + window.location.pathname.replace('index.html', '')}logo.png" style="height: 55px; object-fit: contain;">
+                    <div>
+                        <h2 class="fin-title print-only" style="display:none;">JESSICA MABEL FAREZ MARCA</h2>
+                        <h2 class="fin-title screen-only">Estado de Situación Financiera</h2>
+                        <p class="fin-subtitle print-only" style="display:none;">Estado de Situación Financiera estructurado automáticamente.</p>
+                        <p class="fin-subtitle screen-only">Balance General estructurado automáticamente según normativas contables.</p>
+                    </div>
                 </div>
                 <div>
                     <button class="btn btn-secondary" onclick="window.print()" style="display:flex; align-items:center; gap:8px;">
@@ -3221,7 +3273,7 @@ const Views = {
                         
                         <div class="fin-row sub-header activo-sub">
                             <span class="fin-label">EFECTIVO Y EQUIVALENTES (Bancos)</span>
-                            <span class="fin-value" style="color:inherit;">${App.formatMoney(totalBancos)}</span>
+                            <span class="fin-value" style="color:inherit;">${App.formatMoney(totalBancosCorrientes)}</span>
                         </div>
                         <div class="fin-scrollable-list">
                             ${bancosHTML}
@@ -3256,6 +3308,14 @@ const Views = {
                         </div>
                         <div class="fin-scrollable-list">
                             ${cobrarNoCorrienteHTML}
+                        </div>
+                        
+                        <div class="fin-row sub-header activo-sub">
+                            <span class="fin-label">INVERSIONES Y DEPÓSITOS (Largo Plazo)</span>
+                            <span class="fin-value" style="color:inherit;">${App.formatMoney(totalBancosNoCorrientes)}</span>
+                        </div>
+                        <div class="fin-scrollable-list">
+                            ${bancosNoCorrientesHTML}
                         </div>
                     </div>
 
