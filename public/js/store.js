@@ -2,7 +2,7 @@ const LIMITS = {
     'General': Infinity,
     'Tercera Edad': Infinity,
     'Rimpe P.': 20000,
-    'F.Publica': Infinity
+    'Sector Público': Infinity
 };
 
 const Store = {
@@ -10,7 +10,7 @@ const Store = {
     usuarios: [],
     clientes: [],
     configuraciones: {
-        regimenes: ['General', 'Tercera Edad', 'Rimpe P.', 'F.Publica'],
+        regimenes: ['General', 'Tercera Edad', 'Rimpe P.', 'Sector Público', 'Rimpe / Negocio Popular', 'Rimpe / Emprendedor', 'Contribuyente Especial', 'Grandes Empresas', 'Atención Prioritaria'],
         formas: ['Mensual', 'Anual'],
         sino: ['Sí', 'No']
     },
@@ -47,17 +47,19 @@ const Store = {
                     if (!userDoc.exists) {
                         const newUserData = {
                             email: user.email,
+                            displayName: user.displayName || '',
                             role: 'lector', // Rol por defecto: Lector (Solo ver)
-                            photoURL: user.photoURL,
+                            photoURL: user.photoURL || '',
                             createdAt: new Date().toISOString(),
                             uid: user.uid // Guardamos el UID como referencia interna
                         };
                         await db.collection("usuarios").doc(user.email).set(newUserData);
                         userDoc = await db.collection("usuarios").doc(user.email).get();
                     } else {
-                        // Si ya existe, actualizamos la foto por si cambió en Google
+                        // Si ya existe, actualizamos la foto y el nombre por si cambió en Google
                         await db.collection("usuarios").doc(user.email).update({
-                            photoURL: user.photoURL,
+                            displayName: user.displayName || '',
+                            photoURL: user.photoURL || '',
                             lastLogin: new Date().toISOString()
                         }).catch(err => console.warn("No se pudo actualizar perfil:", err));
                     }
@@ -75,9 +77,11 @@ const Store = {
                         ...userData,
                         uid: user.uid, 
                         email: user.email, 
+                        displayName: user.displayName || userData.displayName || '',
                         photoURL: user.photoURL || userData.photoURL // Priorizamos Google pero fallamos a DB
                     };
 
+                    await this.checkAndCreateJessicaClient();
                     this.setupDataListeners(db, onUpdate);
                     State.currentRoute = 'dashboard';
                 } else {
@@ -97,6 +101,40 @@ const Store = {
                 onUpdate('auth');
             }
         });
+    },
+
+    async checkAndCreateJessicaClient() {
+        if (!State.currentUser) return;
+        const jessicaId = 'client_jessica_oficina';
+        try {
+            const doc = await db.collection("clientes").doc(jessicaId).get();
+            if (!doc.exists) {
+
+                const jessicaClient = {
+                    id: jessicaId,
+                    name: "Jéssica - JF Oficina Contable",
+                    ruc: "0706501608",
+                    regime: "General",
+                    frecuencia: "Mensual",
+                    diaMaximo: "28",
+                    novenoDigito: "0",
+                    oblIVA: "Si",
+                    oblRenta: "Si",
+                    oblATS: "No",
+                    oblGP: "No",
+                    oblSuperCia: "No",
+                    oblADI: "No",
+                    oblRebefics: "No",
+                    status: "active",
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+                await db.collection("clientes").doc(jessicaId).set(jessicaClient);
+
+            }
+        } catch (err) {
+            console.error("Error al verificar/crear cliente de Jéssica:", err);
+        }
     },
 
     setupDataListeners(db, onUpdate) {
@@ -145,6 +183,23 @@ const Store = {
             State.bancosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             onUpdate('bancos');
         }, (error) => console.error("Error en Bancos listener:", error));
+
+        // Firestore Listener: Tareas Pendientes (Oficina)
+        db.collection("tareas")
+            .where("userEmail", "==", user.email)
+            .orderBy("createdAt", "asc")
+            .onSnapshot((snapshot) => {
+                State.tareasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                onUpdate('tareas');
+            }, (error) => console.error("Error en Tareas listener:", error));
+
+        // Firestore Listener: Registros SRI de la Oficina (para el Dashboard Personal)
+        db.collection("sri_registros")
+            .where("clientId", "==", "client_jessica_oficina")
+            .onSnapshot((snapshot) => {
+                this.jessicaSriRegistros = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                onUpdate('jessica_sri');
+            }, (error) => console.error("Error en SRI Oficina listener:", error));
     },
 
     currentSriListener: null,
@@ -173,7 +228,7 @@ const Store = {
     },
 
     async rebuildDashboardMetadata() {
-        console.log("Reconstruyendo metadatos del dashboard desde cero...");
+
         const snapshot = await db.collection("sri_registros").get();
         let meta = { totalRegistros: 0, mensual: {}, clientes: {} };
 
@@ -191,15 +246,29 @@ const Store = {
                 const ventaNeta = (data.subt15 || 0) + (data.subt0 || 0);
                 meta.mensual[ym].sales += ventaNeta;
                 if (!meta.clientes[data.clientId]) meta.clientes[data.clientId] = {};
+                
                 if (!meta.clientes[data.clientId][y]) meta.clientes[data.clientId][y] = { sales: 0 };
+                if (!meta.clientes[data.clientId][ym]) meta.clientes[data.clientId][ym] = { sales: 0 };
+                
                 meta.clientes[data.clientId][y].sales += ventaNeta;
+                meta.clientes[data.clientId][ym].sales += ventaNeta;
             } else if (data.tipo === 'compra') {
                 meta.mensual[ym].purchases += (data.subt15 || 0) + (data.subt0 || 0) + (data.subt5 || 0);
             }
         });
 
         await db.collection("metadata").doc("dashboard").set(meta);
-        console.log("Metadatos reconstruidos con éxito.");
+
+    },
+
+    async saveCapital(valor) {
+        if (!State.currentUser) return;
+        try {
+            await db.collection("metadata").doc("dashboard").set({ capital: parseFloat(valor) || 0 }, { merge: true });
+            this.logAction('update', 'METADATA', 'Actualizado Capital Social', { valor });
+        } catch (err) {
+            console.error("Error al guardar capital:", err);
+        }
     },
 
     async loginWithGoogle() {
@@ -483,6 +552,36 @@ const Store = {
         } catch (e) {
             console.warn('loadConciliadoCreditos:', e);
         }
+    },
+
+    async saveTarea(data) {
+        if (data.id) {
+            await db.collection("tareas").doc(data.id).set(data, { merge: true });
+        } else {
+            const docRef = db.collection("tareas").doc();
+            data.id = docRef.id;
+            await docRef.set(data);
+        }
+    },
+
+    async deleteTarea(id) {
+        await db.collection("tareas").doc(id).delete();
+    },
+
+    getJessicaStatsForMonth(yearMonth) {
+        const regs = this.jessicaSriRegistros || [];
+        let sales = 0;
+        let purchases = 0;
+        
+        regs.forEach(r => {
+            if (!r.fecha || !r.fecha.startsWith(yearMonth)) return;
+            if (r.tipo === 'venta' && !r.anulada) {
+                sales += (r.subt15 || 0) + (r.subt0 || 0);
+            } else if (r.tipo === 'compra') {
+                purchases += (r.subt15 || 0) + (r.subt0 || 0) + (r.subt5 || 0);
+            }
+        });
+        return { sales, purchases };
     }
 };
 

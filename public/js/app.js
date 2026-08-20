@@ -28,13 +28,13 @@ const App = {
     },
 
     init() {
-        console.log('App Initializing...');
+
         // Set initial theme
         document.documentElement.setAttribute('data-theme', State.theme);
         
         // Initialize Store with Firestore and an update callback
         Store.init(db, (type) => {
-            console.log(`Store updated: ${type}`);
+
             this.render();
         });
 
@@ -47,6 +47,11 @@ const App = {
         if (!layout) return;
         const isNowCollapsed = layout.classList.toggle('sidebar-collapsed');
         localStorage.setItem('sidebar-collapsed', isNowCollapsed);
+    },
+
+    selectBanco(event) {
+        State.selectedBancoId = event.target.value;
+        App.render();
     },
 
     // Función de seguridad para prevenir XSS
@@ -154,6 +159,8 @@ const App = {
                 Store.listenToClientSRI(null, () => {}); 
             }
         }
+        
+        this.clearSRISelections();
 
         // Limpiar listener de Matriz si salimos de ella
         if (State.currentRoute === 'matriz' && route !== 'matriz') {
@@ -230,6 +237,7 @@ const App = {
             case 'matriz': return Views.matriz();
             case 'cuentas': return Views.cuentas();
             case 'bancos': return Views.bancos();
+            case 'finanzas': return Views.estadosFinancieros();
             case 'audit': return Views.auditLogs();
             default: return Views.dashboard();
         }
@@ -244,6 +252,8 @@ const App = {
             this.renderSRITable();
             if (State.sriActiveTab === 'conciliado') {
                 this.renderConciliadoPanel();
+            } else {
+                this.setupSRIValidationListeners();
             }
         }
         if (State.currentRoute === 'clients') {
@@ -257,6 +267,9 @@ const App = {
         }
         if (State.currentRoute === 'audit') {
             this.renderAuditLogs();
+        }
+        if (State.showDetalleModal && State.currentBancoId) {
+            this.openBancoDetail(State.currentBancoId, true);
         }
     },
 
@@ -303,6 +316,14 @@ const App = {
                 "retina_detect": true
             });
         }
+    },
+
+    formatMoney(amount) {
+        return '$' + this.formatNumber(amount);
+    },
+
+    removeAccents(str) {
+        return (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     },
 
     // --- Authentication ---
@@ -374,12 +395,21 @@ const App = {
         const el = document.getElementById('sri-summary');
         if (el) el.innerHTML = Views.renderSRISummary();
     },
+    setDashboardPeriod() {
+        const m = document.getElementById('dash-mes-sel');
+        const a = document.getElementById('dash-anio-sel');
+        if (m) State.dashboardMes = m.value === 'all' ? 'all' : parseInt(m.value);
+        if (a) State.dashboardAnio = parseInt(a.value);
+        this.render();
+    },
 
     setSRIPeriod() {
         const m = document.getElementById('sri-mes-sel');
         const a = document.getElementById('sri-anio-sel');
         if (m) State.sriMes  = parseInt(m.value);
         if (a) State.sriAnio = parseInt(a.value);
+        
+        this.clearSRISelections();
         
         if (!State.currentClientId) {
             // If on dashboard, re-render whole view to update global stats
@@ -425,6 +455,9 @@ const App = {
     },
 
     switchSRITab(tab) {
+        if (State.sriActiveTab !== tab && State.sriSelectedIds) {
+            this.clearSRISelections();
+        }
         State.sriActiveTab = tab;
         document.querySelectorAll('.sri-tab').forEach(t => t.classList.remove('sri-tab-active'));
         document.getElementById('tab-' + tab)?.classList.add('sri-tab-active');
@@ -603,6 +636,7 @@ const App = {
             cliente: document.getElementById('cobrar-cliente').value,
             clienteId: document.getElementById('cobrar-cliente-id').value || null,
             concepto: document.getElementById('cobrar-concepto').value,
+            clasificacion: document.getElementById('cobrar-clasificacion').value || 'CORRIENTE',
             fecha: document.getElementById('cobrar-fecha').value,
             montoTotal: parseFloat(document.getElementById('cobrar-monto').value) || 0,
             pendiente: parseFloat(document.getElementById('cobrar-pendiente').value) || 0,
@@ -671,6 +705,8 @@ const App = {
         setTimeout(() => {
             document.getElementById('cobrar-cliente').value = record.cliente || '';
             document.getElementById('cobrar-concepto').value = record.concepto || '';
+            const clasificacionEl = document.getElementById('cobrar-clasificacion');
+            if (clasificacionEl) clasificacionEl.value = record.clasificacion || 'CORRIENTE';
             document.getElementById('cobrar-fecha').value = record.fecha || '';
             document.getElementById('cobrar-monto').value = record.montoTotal || 0;
             document.getElementById('cobrar-pendiente').value = record.pendiente || 0;
@@ -921,30 +957,61 @@ const App = {
         this.render();
     },
 
-    openAbonoModal(id, type = 'cobrar') {
+    openAbonoModal(id, type = 'cobrar', editIdx = null) {
         State.abonoCurrentId = id;
         State.abonoType = type;
+        State.abonoEditIdx = editIdx;
         State.showAbonoModal = true;
         this.render();
         
         setTimeout(() => {
-            const now = new Date();
-            const offset = now.getTimezoneOffset() * 60000;
-            const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
-            const input = document.getElementById('abono-fecha');
-            if (input) input.value = localISOTime;
+            const collection = type === 'cobrar' ? State.cuentasCobrarData : State.cuentasPagarData;
+            const record = collection.find(c => c.id === id);
+            let targetAbono = null;
+            if (record && editIdx !== null && record.abonos && record.abonos[editIdx]) {
+                targetAbono = record.abonos[editIdx];
+            }
+
+            if (targetAbono) {
+                const inputFecha = document.getElementById('abono-fecha');
+                if (inputFecha) inputFecha.value = targetAbono.fecha;
+                const inputMonto = document.getElementById('abono-monto');
+                if (inputMonto) inputMonto.value = targetAbono.monto;
+                const method = targetAbono.metodo || 'Efectivo';
+                this.handleMethodCheck('abono', method);
+                const bankSelected = document.getElementById('abono-banco-selected');
+                const bankSearch = document.getElementById('abono-banco-search');
+                if (method === 'Transferencia') {
+                    if (bankSelected) bankSelected.value = targetAbono.banco || '';
+                    if (bankSearch) bankSearch.value = targetAbono.banco || '';
+                }
+            } else {
+                const now = new Date();
+                const offset = now.getTimezoneOffset() * 60000;
+                const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
+                const input = document.getElementById('abono-fecha');
+                if (input) input.value = localISOTime;
+                
+                const inputMonto = document.getElementById('abono-monto');
+                if (inputMonto) inputMonto.value = '';
+            }
         }, 50);
     },
 
     closeAbonoModal() {
         State.showAbonoModal = false;
         State.abonoCurrentId = null;
+        State.abonoEditIdx = null;
         this.render();
+        if (State.showDetalleModal && State.detalleRecord) {
+            this.renderDetalleModalContent();
+        }
     },
 
     async saveAbono() {
         const id = State.abonoCurrentId;
         const type = State.abonoType;
+        const editIdx = State.abonoEditIdx;
         const collection = type === 'cobrar' ? State.cuentasCobrarData : State.cuentasPagarData;
         const record = collection.find(c => c.id === id);
         if (!record) return;
@@ -955,7 +1022,9 @@ const App = {
         const banco = metodo === 'Transferencia' ? document.getElementById('abono-banco-selected').value : '';
 
         if (monto <= 0) return this.showToast('Monto inválido', 'warning');
-        if (monto > record.pendiente + 0.01) return this.showToast('El abono no puede exceder la deuda', 'warning');
+        
+        const oldMonto = (editIdx !== null && record.abonos && record.abonos[editIdx]) ? record.abonos[editIdx].monto : 0;
+        if (monto - oldMonto > record.pendiente + 0.01) return this.showToast('El abono no puede exceder la deuda', 'warning');
 
         const newAbono = {
             fecha: fecha,
@@ -964,7 +1033,13 @@ const App = {
             banco: banco
         };
 
-        const updatedAbonos = [...(record.abonos || []), newAbono];
+        let updatedAbonos = [...(record.abonos || [])];
+        if (editIdx !== null) {
+            updatedAbonos[editIdx] = newAbono;
+        } else {
+            updatedAbonos.push(newAbono);
+        }
+        
         const totalAbonado = updatedAbonos.reduce((sum, a) => sum + a.monto, 0);
         const newPendiente = Math.max(0, record.montoTotal - totalAbonado);
 
@@ -974,10 +1049,49 @@ const App = {
             } else {
                 await Store.saveCuentaPagar({ id, abonos: updatedAbonos, pendiente: newPendiente });
             }
-            this.showToast('Abono registrado con éxito', 'success');
+            this.showToast(editIdx !== null ? 'Abono actualizado' : 'Abono registrado con éxito', 'success');
             this.closeAbonoModal();
+            // Re-render detalle si está abierto
+            if (State.showDetalleModal && State.detalleRecord && State.detalleRecord.id === id) {
+                State.detalleRecord = { ...record, abonos: updatedAbonos, pendiente: newPendiente };
+                this.renderDetalleModalContent();
+            }
         } catch (e) {
             this.showToast('Error al registrar abono', 'danger');
+        }
+    },
+
+    async deleteAbono(type, id, abonoIdx) {
+        if (!(await this.confirmDialog({ 
+            title: '¿Eliminar abono?', 
+            message: 'El saldo pendiente se recalculará automáticamente. ¿Deseas continuar?' 
+        }))) return;
+
+        const collection = type === 'cobrar' ? State.cuentasCobrarData : State.cuentasPagarData;
+        const record = collection.find(c => c.id === id);
+        if (!record || !record.abonos || !record.abonos[abonoIdx]) return;
+
+        let updatedAbonos = [...record.abonos];
+        updatedAbonos.splice(abonoIdx, 1);
+
+        const totalAbonado = updatedAbonos.reduce((sum, a) => sum + a.monto, 0);
+        const newPendiente = Math.max(0, record.montoTotal - totalAbonado);
+
+        try {
+            if (type === 'cobrar') {
+                await Store.saveCuentaCobrar({ id, abonos: updatedAbonos, pendiente: newPendiente });
+            } else {
+                await Store.saveCuentaPagar({ id, abonos: updatedAbonos, pendiente: newPendiente });
+            }
+            this.showToast('Abono eliminado', 'info');
+            
+            // Re-render detalle si está abierto
+            if (State.showDetalleModal && State.detalleRecord && State.detalleRecord.id === id) {
+                State.detalleRecord = { ...record, abonos: updatedAbonos, pendiente: newPendiente };
+                this.renderDetalleModalContent();
+            }
+        } catch (e) {
+            this.showToast('Error al eliminar abono', 'danger');
         }
     },
 
@@ -996,6 +1110,7 @@ const App = {
             proveedor: document.getElementById('pagar-proveedor').value,
             proveedorId: document.getElementById('pagar-proveedor-id').value || null,
             concepto: document.getElementById('pagar-concepto').value,
+            clasificacion: document.getElementById('pagar-clasificacion').value || 'CORRIENTE',
             fecha: document.getElementById('pagar-fecha').value,
             montoTotal: parseFloat(document.getElementById('pagar-monto').value) || 0,
             pendiente: parseFloat(document.getElementById('pagar-pendiente').value) || 0,
@@ -1065,6 +1180,8 @@ const App = {
         setTimeout(() => {
             document.getElementById('pagar-proveedor').value = record.proveedor || '';
             document.getElementById('pagar-concepto').value = record.concepto || '';
+            const clasificacionEl = document.getElementById('pagar-clasificacion');
+            if (clasificacionEl) clasificacionEl.value = record.clasificacion || 'CORRIENTE';
             document.getElementById('pagar-fecha').value = record.fecha || '';
             document.getElementById('pagar-monto').value = record.montoTotal || 0;
             document.getElementById('pagar-pendiente').value = record.pendiente || 0;
@@ -1406,13 +1523,23 @@ const App = {
                                         </div>
                                     </div>
                                 </div>
-                                <div style="text-align:right;">
-                                    <div style="font-size:0.85rem; font-weight:700; color:var(--text-primary); text-transform:capitalize; margin-bottom:4px;">${a.metodo}</div>
-                                    ${isTransf ? `
-                                        <div style="font-size:0.75rem; color:${accentColor}; font-weight:700; display:flex; align-items:center; justify-content:flex-end; gap:6px;">
-                                            <span style="opacity:0.8;">${a.banco}</span>
-                                            ${this.getBankLogoHTML(a.banco, 14).replace('margin-right:8px;', 'margin-right:0;')}
-                                        </div>` : ''}
+                                <div style="display:flex; flex-direction:column; align-items:flex-end; justify-content:space-between;">
+                                    <div style="text-align:right;">
+                                        <div style="font-size:0.85rem; font-weight:700; color:var(--text-primary); text-transform:capitalize; margin-bottom:4px;">${a.metodo}</div>
+                                        ${isTransf ? `
+                                            <div style="font-size:0.75rem; color:${accentColor}; font-weight:700; display:flex; align-items:center; justify-content:flex-end; gap:6px;">
+                                                <span style="opacity:0.8;">${a.banco}</span>
+                                                ${this.getBankLogoHTML(a.banco, 14).replace('margin-right:8px;', 'margin-right:0;')}
+                                            </div>` : ''}
+                                    </div>
+                                    <div style="display:flex; gap:6px; margin-top:12px;">
+                                        <button class="icon-btn" onclick="App.openAbonoModal('${r.id}', '${type}', ${idx})" title="Editar Pago" style="color:var(--primary); transform:scale(0.8); background:rgba(255,255,255,0.05); border-radius:50%; width:28px; height:28px; transition:all 0.2s;">
+                                            ${Icons.edit()}
+                                        </button>
+                                        <button class="icon-btn" onclick="App.deleteAbono('${type}', '${r.id}', ${idx})" title="Eliminar Pago" style="color:var(--danger); transform:scale(0.8); background:rgba(255,255,255,0.05); border-radius:50%; width:28px; height:28px; transition:all 0.2s;">
+                                            ${Icons.delete()}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             `;
@@ -1437,8 +1564,8 @@ const App = {
 
 
     calculateVentaIVA() {
-        const s15 = parseFloat(document.getElementById('venta-subt15')?.value) || 0;
-        const s0  = parseFloat(document.getElementById('venta-subt0')?.value)  || 0;
+        const s15 = parseFloat(document.getElementById('venta-subt15')?.value?.replace(',', '.')) || 0;
+        const s0  = parseFloat(document.getElementById('venta-subt0')?.value?.replace(',', '.'))  || 0;
         const iva = s15 * 0.15;
         const total = s15 + s0 + iva;
         const ivaEl   = document.getElementById('venta-iva');
@@ -1448,9 +1575,9 @@ const App = {
     },
 
     calculateCompraIVA() {
-        const s15 = parseFloat(document.getElementById('compra-subt15')?.value) || 0;
-        const s0  = parseFloat(document.getElementById('compra-subt0')?.value)  || 0;
-        const s5  = parseFloat(document.getElementById('compra-subt5')?.value)  || 0;
+        const s15 = parseFloat(document.getElementById('compra-subt15')?.value?.replace(',', '.')) || 0;
+        const s0  = parseFloat(document.getElementById('compra-subt0')?.value?.replace(',', '.'))  || 0;
+        const s5  = parseFloat(document.getElementById('compra-subt5')?.value?.replace(',', '.'))  || 0;
         const iva = (s15 * 0.15) + (s5 * 0.05);
         const total = s15 + s0 + s5 + iva;
         const ivaEl   = document.getElementById('compra-iva');
@@ -1462,14 +1589,450 @@ const App = {
     // Keep legacy calculateIVA alias for backward compatibility
     calculateIVA() { this.calculateVentaIVA(); },
 
+    openSRIImportModal(tipo) {
+        if (!State.currentClientId) {
+            this.showToast('Selecciona un cliente primero', 'danger');
+            return;
+        }
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.txt';
+        fileInput.onchange = (e) => this.parseSRITxtFile(e, tipo);
+        fileInput.click();
+    },
+
+    closeSRIImportModal() {
+        State.showSriImportModal = false;
+        State.sriImportData = [];
+        this.render();
+    },
+
+    parseSRITxtFile(event, tipo) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                let content = e.target.result;
+                content = content.replace(/\0/g, ''); // Fix UTF-16 issues
+                const lines = content.split(/\r?\n/);
+                const data = [];
+                
+                let skipHeaders = true;
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    if (skipHeaders) { skipHeaders = false; continue; }
+                    
+                    const parts = line.split('\t');
+                    if (parts.length < 10) continue;
+
+                    const ruc = parts[0]?.trim();
+                    const proveedor = parts[1]?.trim();
+                    const factura = parts[3]?.trim();
+                    const fechaStr = parts[6]?.trim(); // DD/MM/YYYY
+                    const valorSinImpuestos = parseFloat(parts[8]?.replace(',','.') || 0);
+                    const iva = parseFloat(parts[9]?.replace(',','.') || 0);
+
+                    // Skip lines without valid dates
+                    if (!fechaStr || fechaStr.length < 8) continue; 
+                    const dateParts = fechaStr.includes('/') ? fechaStr.split('/') : fechaStr.split('-');
+                    if (dateParts.length !== 3) continue;
+                    
+                    const day = dateParts[0].padStart(2, '0');
+                    const month = dateParts[1].padStart(2, '0');
+                    const year = dateParts[2].substring(0, 4);
+                    
+                    if (parseInt(year) < 2000 || parseInt(year) > 2100) continue;
+                    
+                    let sub15 = iva / 0.15;
+                    
+                    if (sub15 > valorSinImpuestos) sub15 = valorSinImpuestos;
+                    if (Math.abs(valorSinImpuestos - sub15) <= 0.05) sub15 = valorSinImpuestos;
+                    
+                    const sub0 = valorSinImpuestos - sub15;
+
+                    const isDuplicate = Store.sriRegistros.some(r => r.ruc === ruc && r.factura === factura && r.tipo === tipo);
+
+                    data.push({
+                        id: 'sri_imp_' + Date.now() + '_' + i,
+                        tipo: tipo,
+                        clientId: State.currentClientId,
+                        factura: factura,
+                        proveedor: proveedor, 
+                        ruc: ruc,             
+                        fecha: `${year}-${month}-${day}`,
+                        mes: parseInt(month, 10),
+                        anio: parseInt(year, 10),
+                        subt15: parseFloat(sub15.toFixed(2)),
+                        subt0: parseFloat(sub0.toFixed(2)),
+                        subt5: 0,
+                        iva: parseFloat(iva.toFixed(2)),
+                        total: parseFloat((valorSinImpuestos + iva).toFixed(2)),
+                        anulada: false,
+                        _selected: !isDuplicate,
+                        _duplicate: isDuplicate
+                    });
+                }
+                
+                if (data.length === 0) {
+                    let debugInfo = lines.length > 0 ? lines[0].substring(0, 80) : 'vacio';
+                    let debugInfo2 = lines.length > 1 ? lines[1].substring(0, 80) : '';
+                    this.showToast('No se importó nada. Primera línea: ' + debugInfo + ' | Segunda: ' + debugInfo2, 'warning');
+                    return;
+                }
+
+                State.sriImportData = data;
+                State.showSriImportModal = true;
+                this.render();
+                setTimeout(() => this.renderSRIImportPreview(), 50);
+            } catch (err) {
+                this.showToast('Error procesando archivo: ' + err.message, 'danger');
+            }
+        };
+        reader.onerror = () => {
+            this.showToast('Error al leer el archivo TXT.', 'danger');
+        };
+        reader.readAsText(file, 'UTF-8');
+    },
+
+    renderSRIImportPreview() {
+        const content = document.getElementById('sri-import-content');
+        if (!content) return;
+
+        if (State.sriImportData.length === 0) {
+            content.innerHTML = '<div style="text-align:center; padding: 40px; color:var(--text-secondary);">No se encontraron facturas válidas. Revisa el archivo TXT.</div>';
+            document.getElementById('sri-import-stats').innerText = '';
+            return;
+        }
+
+        const query = this.removeAccents((State.sriImportSearchQuery || '').toLowerCase());
+
+        let html = `
+            <div style="margin-bottom: 12px;">
+                <input type="text" id="sri-import-search-input" placeholder="🔍 Buscar por Proveedor, Factura o RUC..." 
+                    oninput="App.setSRIImportSearch(this.value)" 
+                    value="${State.sriImportSearchQuery || ''}"
+                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;" id="sri-import-table">
+                <thead style="position: sticky; top: 0; background: var(--bg-card); z-index: 10; box-shadow: 0 1px 0 var(--border-color);">
+                    <tr>
+                        <th style="padding: 10px; text-align: left; width: 40px;"><input type="checkbox" checked onchange="App.toggleAllSRIImport(this.checked)"></th>
+                        <th style="padding: 10px; text-align: left;">Fecha</th>
+                        <th style="padding: 10px; text-align: left;">Factura</th>
+                        <th style="padding: 10px; text-align: left;">Proveedor</th>
+                        <th style="padding: 10px; text-align: right;">Subt 15%</th>
+                        <th style="padding: 10px; text-align: right;">Subt 0%</th>
+                        <th style="padding: 10px; text-align: right;">IVA</th>
+                        <th style="padding: 10px; text-align: right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        let selectedCount = 0;
+        let totalVal = 0;
+        let visibleCount = 0;
+
+        State.sriImportData.forEach((row, idx) => {
+            if (row._selected) {
+                selectedCount++;
+                totalVal += parseFloat(row.total || 0);
+            }
+
+            const searchStr = this.removeAccents(`${row.proveedor} ${row.factura} ${row.ruc}`.toLowerCase());
+            const isHidden = query && !searchStr.includes(query);
+            if (!isHidden) visibleCount++;
+
+            const badge = row._duplicate ? `<span style="background:var(--warning); color:#fff; font-size:0.65rem; padding:2px 4px; border-radius:3px; margin-left:6px; white-space:nowrap;" title="Esta factura ya está registrada en el sistema">⚠️ Ya registrada</span>` : '';
+            const trStyle = row._duplicate ? 'background-color: rgba(255, 193, 7, 0.08);' : '';
+
+            html += `
+                <tr style="border-bottom: 1px solid var(--border-color); ${trStyle} ${isHidden ? 'display:none;' : ''}">
+                    <td style="padding: 10px;"><input type="checkbox" ${row._selected ? 'checked' : ''} ${row._duplicate ? 'title="Duplicada"' : ''} onchange="App.toggleSRIImportRow(${idx}, this.checked)"></td>
+                    <td style="padding: 10px;">${row.fecha}</td>
+                    <td style="padding: 10px;">${row.factura}</td>
+                    <td style="padding: 10px;">
+                        <div style="font-weight: 500;">${row.proveedor} ${badge}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">${row.ruc}</div>
+                    </td>
+                    <td style="padding: 8px; text-align: right;">$${this.formatNumber(row.subt15)}</td>
+                    <td style="padding: 8px; text-align: right;">$${this.formatNumber(row.subt0)}</td>
+                    <td style="padding: 8px; text-align: right;">$${this.formatNumber(row.iva)}</td>
+                    <td style="padding: 8px; text-align: right; font-weight: 600;">$${this.formatNumber(row.total)}</td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table>`;
+        content.innerHTML = html;
+
+        const statsEl = document.getElementById('sri-import-stats');
+        if(statsEl) {
+            statsEl.innerText = `${selectedCount} facturas seleccionadas (Total: $${this.formatNumber(totalVal)}). Mostrando ${visibleCount}.`;
+        }
+
+        // Restore focus to search input if it exists
+        if (query) {
+            const input = document.getElementById('sri-import-search-input');
+            if (input) {
+                input.focus();
+                // Move cursor to end
+                const val = input.value;
+                input.value = '';
+                input.value = val;
+            }
+        }
+    },
+
+    setSRIImportSearch(query) {
+        if (this._sriImportSearchTimeout) clearTimeout(this._sriImportSearchTimeout);
+        this._sriImportSearchTimeout = setTimeout(() => {
+            State.sriImportSearchQuery = query;
+            this.renderSRIImportPreview();
+        }, 300);
+    },
+
+    toggleAllSRIImport(checked) {
+        const query = this.removeAccents((State.sriImportSearchQuery || '').toLowerCase());
+        State.sriImportData.forEach(row => {
+            if (query) {
+                const searchStr = this.removeAccents(`${row.proveedor} ${row.factura} ${row.ruc}`.toLowerCase());
+                if (!searchStr.includes(query)) return; // skip if hidden
+            }
+            row._selected = checked;
+        });
+        this.renderSRIImportPreview();
+    },
+
+    toggleSRIImportRow(idx, checked) {
+        if (State.sriImportData[idx]) {
+            State.sriImportData[idx]._selected = checked;
+            this.renderSRIImportPreview();
+        }
+    },
+
+    async confirmSRIImport() {
+        const toImport = State.sriImportData.filter(r => r._selected);
+        if (toImport.length === 0) {
+            this.showToast('No hay facturas seleccionadas', 'warning');
+            return;
+        }
+
+        try {
+            const batch = firebase.firestore().batch();
+            toImport.forEach(row => {
+                const docId = 'sri_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                const docRef = firebase.firestore().collection('sri_registros').doc(docId);
+                const cleanRow = { ...row, id: docId };
+                delete cleanRow._selected;
+                cleanRow.timestamp = firebase.firestore.FieldValue.serverTimestamp();
+                batch.set(docRef, cleanRow);
+            });
+
+            this.showToast('Importando...', 'info');
+            await batch.commit();
+            
+            this.showToast(`¡${toImport.length} facturas importadas con éxito!`, 'success');
+            this.closeSRIImportModal();
+            
+            // Listener in store.js updates automatically
+            this.render();
+        } catch (error) {
+            console.error('Error importando:', error);
+            this.showToast('Error al importar: ' + error.message, 'danger');
+        }
+    },
+
+    clearSRISelections() {
+        State.sriSelectedIds.clear();
+        State.sriSelectAllVenta = false;
+        State.sriSelectAllCompra = false;
+        State.sriSearch_compra = '';
+        State.sriSearch_venta = '';
+        State.sriImportSearchQuery = '';
+    },
+
+    setSRISearch(query, type) {
+        if (this._sriSearchTimeout) clearTimeout(this._sriSearchTimeout);
+        this._sriSearchTimeout = setTimeout(() => {
+            State[`sriSearch_${type}`] = this.removeAccents(query).toLowerCase();
+            if (type === 'venta') {
+                this.renderVentasTable();
+            } else if (type === 'compra') {
+                this.renderComprasTable();
+            }
+            this.updateSRISummary();
+        }, 300);
+    },
+
+    setSRISort(col, type) {
+        const current = State[`sriSort_${type}`] || { col: 'fecha', dir: 'desc' };
+        if (current.col === col) {
+            current.dir = current.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+            current.col = col;
+            current.dir = 'asc';
+        }
+        State[`sriSort_${type}`] = current;
+        if (type === 'venta') this.renderVentasTable();
+        else this.renderComprasTable();
+    },
+
+    getSRISortIcon(col, type) {
+        const current = State[`sriSort_${type}`] || { col: 'fecha', dir: 'desc' };
+        if (current.col !== col) return '<span style="opacity:0.3; font-size: 0.85em; margin-left: 4px;">↕</span>';
+        return current.dir === 'asc' 
+            ? '<span style="color: var(--primary); font-size: 0.85em; margin-left: 4px;">↑</span>' 
+            : '<span style="color: var(--primary); font-size: 0.85em; margin-left: 4px;">↓</span>';
+    },
+
+    toggleSRIRow(id, checked) {
+        if (!State.sriSelectedIds) State.sriSelectedIds = new Set();
+        if (checked) {
+            State.sriSelectedIds.add(id);
+        } else {
+            State.sriSelectedIds.delete(id);
+            // Si desmarcamos uno, ya no están todos seleccionados
+            if (State.sriActiveTab === 'ventas') State.sriSelectAllVenta = false;
+            if (State.sriActiveTab === 'compras') State.sriSelectAllCompra = false;
+        }
+        this.render(); // Para mostrar/ocultar el action bar
+    },
+
+    toggleAllSRIRows(tipo, checked) {
+        if (!State.sriSelectedIds) State.sriSelectedIds = new Set();
+        const registros = Store.get('sri_registros')
+            .filter(r => r.clientId === State.currentClientId && r.tipo === tipo
+                      && r.mes === State.sriMes && r.anio === State.sriAnio);
+        
+        if (tipo === 'venta') State.sriSelectAllVenta = checked;
+        if (tipo === 'compra') State.sriSelectAllCompra = checked;
+
+        registros.forEach(r => {
+            if (checked) {
+                State.sriSelectedIds.add(r.id);
+            } else {
+                State.sriSelectedIds.delete(r.id);
+            }
+        });
+        this.render();
+    },
+
+    async deleteSelectedSRIRows() {
+        if (!State.sriSelectedIds || State.sriSelectedIds.size === 0) return;
+        
+        const ids = Array.from(State.sriSelectedIds);
+        const count = ids.length;
+
+        // Guardar copia exacta en cache
+        const registros = Store.get('sri_registros');
+        const toDelete = registros.filter(r => State.sriSelectedIds.has(r.id));
+        State.sriUndoCache = [...toDelete];
+
+        try {
+            const batch = firebase.firestore().batch();
+            ids.forEach(id => {
+                const docRef = firebase.firestore().collection('sri_registros').doc(id);
+                batch.delete(docRef);
+            });
+
+            this.clearSRISelections();
+            this.render(); // Render inmediato para que desaparezcan visualmente
+            
+            await batch.commit();
+
+            // Mostrar el toast flotante con deshacer
+            this.showUndoToast(`🗑️ ${count} facturas eliminadas.`);
+
+        } catch (e) {
+            console.error(e);
+            this.showToast('Error al eliminar facturas', 'danger');
+        }
+    },
+
+    showUndoToast(msg) {
+        if (State.sriUndoTimeout) clearTimeout(State.sriUndoTimeout);
+
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        
+        const toastId = 'undo-toast-' + Date.now();
+        const toast = document.createElement('div');
+        toast.id = toastId;
+        toast.className = `toast premium-toast toast-info animate-slideInRight`;
+        toast.style.background = '#2c3e50';
+        toast.style.color = '#fff';
+        toast.style.display = 'flex';
+        toast.style.alignItems = 'center';
+        toast.style.justifyContent = 'space-between';
+        
+        toast.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span>${msg}</span>
+            </div>
+            <button onclick="App.undoSRIDelete('${toastId}')" style="background:none; border:none; color:#f39c12; font-weight:700; cursor:pointer; font-size:0.9rem; padding:4px 8px; border-radius:4px; transition:0.2s;">DESHACER</button>
+        `;
+        
+        container.appendChild(toast);
+        
+        State.sriUndoTimeout = setTimeout(() => {
+            const el = document.getElementById(toastId);
+            if (el) {
+                el.style.animation = 'slideOutRight 0.3s forwards';
+                setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 300);
+            }
+            State.sriUndoCache = [];
+        }, 10000);
+    },
+
+    async undoSRIDelete(toastId) {
+        if (!State.sriUndoCache || State.sriUndoCache.length === 0) return;
+
+        if (State.sriUndoTimeout) clearTimeout(State.sriUndoTimeout);
+        const el = document.getElementById(toastId);
+        if (el) {
+            el.style.animation = 'slideOutRight 0.3s forwards';
+            setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 300);
+        }
+
+        try {
+            const batch = firebase.firestore().batch();
+            State.sriUndoCache.forEach(row => {
+                const docRef = firebase.firestore().collection('sri_registros').doc(row.id);
+                batch.set(docRef, row);
+            });
+
+            this.showToast('Restaurando...', 'info');
+            await batch.commit();
+
+            this.showToast('¡Facturas restauradas con éxito!', 'success');
+            State.sriUndoCache = [];
+        } catch (e) {
+            console.error(e);
+            this.showToast('Error al restaurar', 'danger');
+        }
+    },
+
     async handleSRISubmit(e, tipo) {
         e.preventDefault();
+        
+        // Ejecutar validaciones robustas antes de procesar el guardado
+        if (!this.validateSRIForm(tipo)) {
+            this.showToast('Por favor, corrige los errores en el formulario antes de guardar.', 'danger');
+            return;
+        }
+
         const isEditing = !!State.sriEditingId;
         let data;
 
         if (tipo === 'venta') {
             const fecha = document.getElementById('venta-fecha').value;
             const d = new Date(fecha + 'T00:00:00');
+            const vS15 = parseFloat(document.getElementById('venta-subt15').value?.replace(',', '.')) || 0;
+            const vS0  = parseFloat(document.getElementById('venta-subt0').value?.replace(',', '.'))  || 0;
             data = {
                 id: State.sriEditingId || 'sri_' + Date.now(),
                 tipo: 'venta',
@@ -1480,16 +2043,19 @@ const App = {
                 fecha,
                 mes:    d.getMonth() + 1,
                 anio:   d.getFullYear(),
-                subt15: parseFloat(document.getElementById('venta-subt15').value) || 0,
-                subt0:  parseFloat(document.getElementById('venta-subt0').value)  || 0,
-                iva:    parseFloat(document.getElementById('venta-iva').value)    || 0,
-                total:  parseFloat(document.getElementById('venta-total').value)  || 0,
+                subt15: vS15,
+                subt0:  vS0,
+                iva:    vS15 * 0.15,
+                total:  (vS15 * 1.15) + vS0,
                 anulada: document.getElementById('venta-anulada').checked,
                 updatedAt: new Date().toISOString()
             };
         } else {
             const fecha = document.getElementById('compra-fecha').value;
             const d = new Date(fecha + 'T00:00:00');
+            const cS15 = parseFloat(document.getElementById('compra-subt15').value?.replace(',', '.')) || 0;
+            const cS0  = parseFloat(document.getElementById('compra-subt0').value?.replace(',', '.'))  || 0;
+            const cS5  = parseFloat(document.getElementById('compra-subt5').value?.replace(',', '.'))  || 0;
             data = {
                 id: State.sriEditingId || 'sri_' + Date.now(),
                 tipo: 'compra',
@@ -1500,11 +2066,11 @@ const App = {
                 fecha,
                 mes:    d.getMonth() + 1,
                 anio:   d.getFullYear(),
-                subt15: parseFloat(document.getElementById('compra-subt15').value) || 0,
-                subt0:  parseFloat(document.getElementById('compra-subt0').value)  || 0,
-                subt5:  parseFloat(document.getElementById('compra-subt5').value)  || 0,
-                iva:    parseFloat(document.getElementById('compra-iva').value)    || 0,
-                total:  parseFloat(document.getElementById('compra-total').value)  || 0,
+                subt15: cS15,
+                subt0:  cS0,
+                subt5:  cS5,
+                iva:    (cS15 * 0.15) + (cS5 * 0.05),
+                total:  (cS15 * 1.15) + (cS5 * 1.05) + cS0,
                 updatedAt: new Date().toISOString()
             };
         }
@@ -1524,30 +2090,385 @@ const App = {
         if (panel === 'ventas' || !panel) {
             const f = document.getElementById('sri-form-ventas');
             if (f) f.reset();
+            ['venta-factura', 'venta-ruc', 'venta-subt15', 'venta-subt0'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) this.clearFieldError(el);
+            });
         }
         if (panel === 'compras' || !panel) {
             const f = document.getElementById('sri-form-compras');
             if (f) f.reset();
+            ['compra-factura', 'compra-ruc', 'compra-subt15', 'compra-subt0', 'compra-subt5'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) this.clearFieldError(el);
+            });
         }
         State.sriEditingId   = null;
         State.sriEditingTipo = null;
     },
+
+    // ─────────────────────────────────────────────
+    // VALIDACIONES Y FORMATEADORES SRI (COMPRA Y VENTA)
+    // ─────────────────────────────────────────────
+
+    validateEcuadorianId(idStr) {
+        if (!/^\d+$/.test(idStr)) return { valid: false, msg: 'Debe contener solo números.' };
+        if (idStr.length > 13) {
+            return { valid: false, msg: 'Debe tener máximo 13 dígitos.' };
+        }
+        return { valid: true };
+    },
+
+    formatFactura(val) {
+        let numbers = val.replace(/\D/g, '');
+        if (numbers.length > 15) numbers = numbers.slice(0, 15);
+        
+        let formatted = '';
+        if (numbers.length > 0) {
+            formatted += numbers.slice(0, 3);
+        }
+        if (numbers.length > 3) {
+            formatted += '-' + numbers.slice(3, 6);
+        }
+        if (numbers.length > 6) {
+            formatted += '-' + numbers.slice(6, 15);
+        }
+        return formatted;
+    },
+
+    showFieldError(el, errorMsg) {
+        if (!el) return;
+        el.classList.add('is-invalid');
+        const parent = el.closest('.form-group');
+        if (parent) {
+            let errEl = parent.querySelector('.validation-error-msg');
+            if (!errEl) {
+                errEl = document.createElement('span');
+                errEl.className = 'validation-error-msg';
+                parent.appendChild(errEl);
+            }
+            errEl.textContent = errorMsg;
+        }
+    },
+
+    clearFieldError(el) {
+        if (!el) return;
+        el.classList.remove('is-invalid');
+        const parent = el.closest('.form-group');
+        if (parent) {
+            const errEl = parent.querySelector('.validation-error-msg');
+            if (errEl) {
+                errEl.remove();
+            }
+        }
+    },
+
+    setupSRIValidationListeners() {
+        // Formatos de Facturas
+        ['venta-factura', 'compra-factura'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el.dataset.listenerAttached) {
+                el.dataset.listenerAttached = 'true';
+                
+                el.addEventListener('keydown', (e) => {
+                    const isControlKey = e.key === 'Backspace' || e.key === 'Delete' || 
+                                         e.key === 'Tab' || e.key === 'Escape' || 
+                                         e.key === 'Enter' || e.key.startsWith('Arrow');
+                    const isNumber = /^\d$/.test(e.key);
+                    
+                    if (!isControlKey && !isNumber) {
+                        e.preventDefault();
+                    }
+                });
+
+                el.addEventListener('input', () => {
+                    const start = el.selectionStart;
+                    const oldLength = el.value.length;
+                    
+                    const formatted = this.formatFactura(el.value);
+                    el.value = formatted;
+                    
+                    const newLength = formatted.length;
+                    let newCursor = start + (newLength - oldLength);
+                    if (newCursor < 0) newCursor = 0;
+                    el.setSelectionRange(newCursor, newCursor);
+
+                    // Validación en tiempo real
+                    if (formatted.replace(/\D/g, '').length === 15) {
+                        this.clearFieldError(el);
+                    } else if (formatted.length > 0) {
+                        this.showFieldError(el, 'Formato: 001-001-000000001 (15 dígitos).');
+                    } else {
+                        this.clearFieldError(el);
+                    }
+                });
+
+                el.addEventListener('blur', () => {
+                    const val = el.value.trim();
+                    if (val && val.replace(/\D/g, '').length !== 15) {
+                        this.showFieldError(el, 'Debe tener exactamente 15 dígitos.');
+                    } else {
+                        this.clearFieldError(el);
+                    }
+                });
+            }
+        });
+
+        // RUC / Cédula
+        ['venta-ruc', 'compra-ruc'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el.dataset.listenerAttached) {
+                el.dataset.listenerAttached = 'true';
+
+                el.addEventListener('keydown', (e) => {
+                    const isControlKey = e.key === 'Backspace' || e.key === 'Delete' || 
+                                         e.key === 'Tab' || e.key === 'Escape' || 
+                                         e.key === 'Enter' || e.key.startsWith('Arrow');
+                    const isNumber = /^\d$/.test(e.key);
+                    
+                    if (!isControlKey && !isNumber) {
+                        e.preventDefault();
+                    }
+                });
+
+                el.addEventListener('input', () => {
+                    let val = el.value.replace(/\D/g, '');
+                    if (val.length > 13) val = val.slice(0, 13);
+                    el.value = val;
+
+                    if (val.length > 0) {
+                        const res = this.validateEcuadorianId(val);
+                        if (res.valid) {
+                            this.clearFieldError(el);
+                        } else {
+                            this.showFieldError(el, res.msg);
+                        }
+                    } else {
+                        this.clearFieldError(el);
+                    }
+                });
+
+                el.addEventListener('blur', () => {
+                    const val = el.value.trim();
+                    if (val) {
+                        const res = this.validateEcuadorianId(val);
+                        if (!res.valid) {
+                            this.showFieldError(el, res.msg);
+                        } else {
+                            this.clearFieldError(el);
+                        }
+                    } else {
+                        this.clearFieldError(el);
+                    }
+                });
+            }
+        });
+
+        // Subtotales numéricos
+        ['venta-subt15', 'venta-subt0', 'compra-subt15', 'compra-subt0', 'compra-subt5'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el.dataset.listenerAttached) {
+                el.dataset.listenerAttached = 'true';
+
+                el.addEventListener('keydown', (e) => {
+                    const isControlKey = e.key === 'Backspace' || e.key === 'Delete' || 
+                                         e.key === 'Tab' || e.key === 'Escape' || 
+                                         e.key === 'Enter' || e.key.startsWith('Arrow');
+                    const isNumber = /^\d$/.test(e.key);
+                    const isDot = e.key === '.';
+
+                    if (isDot && el.value.includes('.')) {
+                        e.preventDefault();
+                        return;
+                    }
+
+                    if (!isControlKey && !isNumber && !isDot) {
+                        e.preventDefault();
+                    }
+                });
+
+                el.addEventListener('input', () => {
+                    const val = parseFloat(el.value) || 0;
+                    if (val < 0) {
+                        el.value = '0.00';
+                        this.showFieldError(el, 'El subtotal no puede ser negativo.');
+                    } else {
+                        this.clearFieldError(el);
+                    }
+                });
+            }
+        });
+    },
+
+    validateSRIForm(tipo) {
+        let isValid = true;
+
+        if (tipo === 'venta') {
+            const facturaEl = document.getElementById('venta-factura');
+            const rucEl = document.getElementById('venta-ruc');
+            const subt15El = document.getElementById('venta-subt15');
+            const subt0El  = document.getElementById('venta-subt0');
+            const fechaEl  = document.getElementById('venta-fecha');
+
+            if (fechaEl && fechaEl.value) {
+                const year = parseInt(fechaEl.value.split('-')[0]);
+                if (year < 2000 || year > 2100) {
+                    this.showFieldError(fechaEl, 'El año debe ser válido (entre 2000 y 2100).');
+                    isValid = false;
+                } else {
+                    this.clearFieldError(fechaEl);
+                }
+            } else if (fechaEl) {
+                this.showFieldError(fechaEl, 'La fecha es obligatoria.');
+                isValid = false;
+            }
+
+            if (facturaEl) {
+                const fVal = facturaEl.value.trim();
+                if (!fVal) {
+                    this.showFieldError(facturaEl, 'El número de factura es requerido.');
+                    isValid = false;
+                } else if (fVal.replace(/\D/g, '').length !== 15) {
+                    this.showFieldError(facturaEl, 'El número de factura debe tener exactamente 15 dígitos.');
+                    isValid = false;
+                } else {
+                    this.clearFieldError(facturaEl);
+                }
+            }
+
+            if (rucEl) {
+                const rVal = rucEl.value.trim();
+                if (rVal) {
+                    const res = this.validateEcuadorianId(rVal);
+                    if (!res.valid) {
+                        this.showFieldError(rucEl, res.msg);
+                        isValid = false;
+                    } else {
+                        this.clearFieldError(rucEl);
+                    }
+                } else {
+                    this.clearFieldError(rucEl);
+                }
+            }
+
+            const s15 = parseFloat(subt15El?.value) || 0;
+            const s0  = parseFloat(subt0El?.value)  || 0;
+            if (s15 === 0 && s0 === 0) {
+                if (subt15El) this.showFieldError(subt15El, 'Debes ingresar al menos un subtotal mayor a cero.');
+                if (subt0El) this.showFieldError(subt0El, 'Debes ingresar al menos un subtotal mayor a cero.');
+                isValid = false;
+            } else {
+                if (subt15El) this.clearFieldError(subt15El);
+                if (subt0El) this.clearFieldError(subt0El);
+            }
+        } else {
+            const facturaEl = document.getElementById('compra-factura');
+            const rucEl = document.getElementById('compra-ruc');
+            const subt15El = document.getElementById('compra-subt15');
+            const subt0El  = document.getElementById('compra-subt0');
+            const subt5El  = document.getElementById('compra-subt5');
+            const fechaEl  = document.getElementById('compra-fecha');
+
+            if (fechaEl && fechaEl.value) {
+                const year = parseInt(fechaEl.value.split('-')[0]);
+                if (year < 2000 || year > 2100) {
+                    this.showFieldError(fechaEl, 'El año debe ser válido (entre 2000 y 2100).');
+                    isValid = false;
+                } else {
+                    this.clearFieldError(fechaEl);
+                }
+            } else if (fechaEl) {
+                this.showFieldError(fechaEl, 'La fecha es obligatoria.');
+                isValid = false;
+            }
+
+            if (facturaEl) {
+                const fVal = facturaEl.value.trim();
+                if (!fVal) {
+                    this.showFieldError(facturaEl, 'El número de factura es requerido.');
+                    isValid = false;
+                } else if (fVal.replace(/\D/g, '').length !== 15) {
+                    this.showFieldError(facturaEl, 'El número de factura debe tener exactamente 15 dígitos.');
+                    isValid = false;
+                } else {
+                    this.clearFieldError(facturaEl);
+                }
+            }
+
+            if (rucEl) {
+                const rVal = rucEl.value.trim();
+                if (rVal) {
+                    const res = this.validateEcuadorianId(rVal);
+                    if (!res.valid) {
+                        this.showFieldError(rucEl, res.msg);
+                        isValid = false;
+                    } else {
+                        this.clearFieldError(rucEl);
+                    }
+                } else {
+                    this.clearFieldError(rucEl);
+                }
+            }
+
+            const s15 = parseFloat(subt15El?.value) || 0;
+            const s0  = parseFloat(subt0El?.value)  || 0;
+            const s5  = parseFloat(subt5El?.value)  || 0;
+            if (s15 === 0 && s0 === 0 && s5 === 0) {
+                if (subt15El) this.showFieldError(subt15El, 'Debes ingresar al menos un subtotal mayor a cero.');
+                if (subt0El) this.showFieldError(subt0El, 'Debes ingresar al menos un subtotal mayor a cero.');
+                if (subt5El) this.showFieldError(subt5El, 'Debes ingresar al menos un subtotal mayor a cero.');
+                isValid = false;
+            } else {
+                if (subt15El) this.clearFieldError(subt15El);
+                if (subt0El) this.clearFieldError(subt0El);
+                if (subt5El) this.clearFieldError(subt5El);
+            }
+        }
+
+        return isValid;
+    },
+
 
     renderVentasTable() {
         const tbody = document.getElementById('sri-ventas-body');
         const tfoot = document.getElementById('sri-ventas-foot');
         if (!tbody) return;
 
-        const registros = Store.get('sri_registros')
+        let registros = Store.get('sri_registros')
             .filter(r => r.clientId === State.currentClientId && r.tipo === 'venta'
-                      && r.mes === State.sriMes && r.anio === State.sriAnio)
-            .sort((a,b) => a.fecha > b.fecha ? -1 : 1);
+                      && r.mes === State.sriMes && r.anio === State.sriAnio);
+
+        const sort = State.sriSort_venta || { col: 'fecha', dir: 'desc' };
+        registros.sort((a, b) => {
+            let valA = a[sort.col] ?? '';
+            let valB = b[sort.col] ?? '';
+            
+            if (sort.col === 'nombre') { valA = a.clienteNombre || ''; valB = b.clienteNombre || ''; }
+            if (sort.col === 'ruc') { valA = a.rucCedula || ''; valB = b.rucCedula || ''; }
+            if (sort.col === 'subt0' || sort.col === 'subt15' || sort.col === 'iva' || sort.col === 'total') {
+                valA = parseFloat(valA) || 0; valB = parseFloat(valB) || 0;
+            } else if (typeof valA === 'string' && typeof valB === 'string') {
+                valA = valA.toLowerCase(); valB = valB.toLowerCase();
+            }
+
+            if (valA < valB) return sort.dir === 'asc' ? -1 : 1;
+            if (valA > valB) return sort.dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        const query = this.removeAccents((State.sriSearch_venta || '').toLowerCase());
+        if (query) {
+            registros = registros.filter(r => {
+                const text = this.removeAccents(`${r.factura || ''} ${r.clienteNombre || ''} ${r.rucCedula || ''}`.toLowerCase());
+                return text.includes(query);
+            });
+        }
 
         const isAdmin = State.currentUser?.role === 'admin';
         const fmt = n => this.formatMoney(n);
 
         if (registros.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${isAdmin?10:9}" style="border:none;padding:0;">
+            tbody.innerHTML = `<tr><td colspan="${isAdmin?11:10}" style="border:none;padding:0;">
                 <div class="empty-state">
                     <div class="empty-state-icon">${Icons.emptyDocument()}</div>
                     <div class="empty-state-title">Sin ventas en este período</div>
@@ -1562,15 +2483,19 @@ const App = {
         let totS15=0, totS0=0, totIva=0, totTotal=0;
 
         registros.forEach(r => {
-            totS15   += r.subt15||0;
-            totS0    += r.subt0||0;
-            totIva   += r.iva||0;
-            totTotal += r.total||0;
+            if (!r.anulada) {
+                totS15   += r.subt15||0;
+                totS0    += r.subt0||0;
+                totIva   += r.iva||0;
+                totTotal += r.total||0;
+            }
 
             const tr = document.createElement('tr');
             if (r.anulada) tr.classList.add('row-anulada');
             tr.dataset.id = r.id;
+            const isChecked = State.sriSelectedIds && State.sriSelectedIds.has(r.id);
             tr.innerHTML = `
+                <td style="text-align: center;"><input type="checkbox" onchange="App.toggleSRIRow('${r.id}', this.checked)" ${isChecked ? 'checked' : ''}></td>
                 <td style="font-family:var(--font-mono);font-size:0.82rem;">${this.escapeHTML(r.factura||'')}</td>
                 <td>${this.escapeHTML(r.clienteNombre||'-')}</td>
                 <td style="font-family:var(--font-mono);">${this.escapeHTML(r.rucCedula||'-')}</td>
@@ -1602,7 +2527,7 @@ const App = {
         tbody.replaceChildren(fragment);
 
         if (tfoot) tfoot.innerHTML = `<tr class="sri-tfoot-row">
-            <td colspan="4" style="text-align:right;font-weight:700;">TOTALES (${registros.length} reg.):</td>
+            <td colspan="5" style="text-align:right;font-weight:700;">TOTALES (${registros.length} reg.):</td>
             <td style="text-align:right;">${fmt(totS15)}</td>
             <td style="text-align:right;">${fmt(totS0)}</td>
             <td style="text-align:right;color:var(--primary);">${fmt(totIva)}</td>
@@ -1617,16 +2542,40 @@ const App = {
         const tfoot = document.getElementById('sri-compras-foot');
         if (!tbody) return;
 
-        const registros = Store.get('sri_registros')
+        let registros = Store.get('sri_registros')
             .filter(r => r.clientId === State.currentClientId && r.tipo === 'compra'
-                      && r.mes === State.sriMes && r.anio === State.sriAnio)
-            .sort((a,b) => a.fecha > b.fecha ? -1 : 1);
+                      && r.mes === State.sriMes && r.anio === State.sriAnio);
+
+        const sort = State.sriSort_compra || { col: 'fecha', dir: 'desc' };
+        registros.sort((a, b) => {
+            let valA = a[sort.col] ?? '';
+            let valB = b[sort.col] ?? '';
+            
+            if (sort.col === 'nombre') { valA = a.proveedor || ''; valB = b.proveedor || ''; }
+            if (sort.col === 'subt0' || sort.col === 'subt15' || sort.col === 'subt5' || sort.col === 'iva' || sort.col === 'total') {
+                valA = parseFloat(valA) || 0; valB = parseFloat(valB) || 0;
+            } else if (typeof valA === 'string' && typeof valB === 'string') {
+                valA = valA.toLowerCase(); valB = valB.toLowerCase();
+            }
+
+            if (valA < valB) return sort.dir === 'asc' ? -1 : 1;
+            if (valA > valB) return sort.dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        const query = this.removeAccents((State.sriSearch_compra || '').toLowerCase());
+        if (query) {
+            registros = registros.filter(r => {
+                const text = this.removeAccents(`${r.factura || ''} ${r.proveedor || ''} ${r.ruc || ''}`.toLowerCase());
+                return text.includes(query);
+            });
+        }
 
         const isAdmin = State.currentUser?.role === 'admin';
         const fmt = n => this.formatMoney(n);
 
         if (registros.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${isAdmin?10:9}" style="border:none;padding:0;">
+            tbody.innerHTML = `<tr><td colspan="${isAdmin?11:10}" style="border:none;padding:0;">
                 <div class="empty-state">
                     <div class="empty-state-icon">${Icons.emptyDocument()}</div>
                     <div class="empty-state-title">Sin compras en este período</div>
@@ -1649,7 +2598,9 @@ const App = {
 
             const tr = document.createElement('tr');
             tr.dataset.id = r.id;
+            const isChecked = State.sriSelectedIds && State.sriSelectedIds.has(r.id);
             tr.innerHTML = `
+                <td style="text-align: center;"><input type="checkbox" onchange="App.toggleSRIRow('${r.id}', this.checked)" ${isChecked ? 'checked' : ''}></td>
                 <td style="font-family:var(--font-mono);font-size:0.82rem;">${this.escapeHTML(r.factura||'')}</td>
                 <td>${this.escapeHTML(r.proveedor||'-')}</td>
                 <td style="font-family:var(--font-mono);">${this.escapeHTML(r.ruc||'-')}</td>
@@ -1681,7 +2632,7 @@ const App = {
         tbody.replaceChildren(fragment);
 
         if (tfoot) tfoot.innerHTML = `<tr class="sri-tfoot-row">
-            <td colspan="4" style="text-align:right;font-weight:700;">TOTALES (${registros.length} reg.):</td>
+            <td colspan="5" style="text-align:right;font-weight:700;">TOTALES (${registros.length} reg.):</td>
             <td style="text-align:right;">${fmt(totS15)}</td>
             <td style="text-align:right;">${fmt(totS0)}</td>
             <td style="text-align:right;">${fmt(totS5)}</td>
@@ -1700,6 +2651,13 @@ const App = {
     editSRI(id) {
         const r = Store.get('sri_registros').find(x => x.id === id);
         if (!r) return;
+        
+        // Limpiar errores visuales previos antes de cargar datos a editar
+        ['venta-factura', 'venta-ruc', 'venta-subt15', 'venta-subt0', 'compra-factura', 'compra-ruc', 'compra-subt15', 'compra-subt0', 'compra-subt5'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) this.clearFieldError(el);
+        });
+
         State.sriEditingId   = id;
         State.sriEditingTipo = r.tipo;
 
@@ -1801,7 +2759,7 @@ const App = {
         <div id="conciliado-print-area">
             <div class="print-header" style="display:none;">
                 <div>
-                    <div class="ph-brand">JF SYSTEM</div>
+                    <div class="ph-brand"><img src="${window.location.origin + window.location.pathname.replace('index.html', '')}logo.png" style="height: 24px; object-fit: contain; filter: drop-shadow(0 0 2px rgba(255,255,255,0.8));"></div>
                     <div style="font-size:0.7rem;color:rgba(255,255,255,0.65);margin-top:2px;">Sistema de Gestión Contable</div>
                 </div>
                 <div class="ph-meta">
@@ -1850,11 +2808,12 @@ const App = {
                         <thead>
                             <tr>
                                 <th rowspan="2" style="text-align:left;min-width:110px;">Mes</th>
-                                <th colspan="3" class="group-ventas">VENTAS</th>
+                                <th colspan="4" class="group-ventas">VENTAS</th>
                                 <th colspan="6" class="group-compras">COMPRAS</th>
                             </tr>
                             <tr>
                                 <th class="group-ventas">Sub.15%</th>
+                                <th class="group-ventas">Sub.0%</th>
                                 <th class="group-ventas">IVA 15%</th>
                                 <th class="group-ventas">Total</th>
                                 <th class="group-compras">Sub.15%</th>
@@ -1910,7 +2869,7 @@ const App = {
         }
 
         // Acumuladores totales
-        let sumVS15=0, sumVIva=0, sumVTot=0;
+        let sumVS15=0, sumVS0=0, sumVIva=0, sumVTot=0;
         let sumCS15=0, sumCS5=0, sumCS0=0, sumCIva15=0, sumCIva5=0, sumCTot=0;
 
         const fmt = n => this.formatNumber(n);
@@ -1920,6 +2879,7 @@ const App = {
             const comprasMes = all.filter(r => r.tipo==='compra' && r.mes===mes && r.anio===anio);
 
             const vS15  = ventasMes.reduce((s,r)  => s+(r.subt15||0), 0);
+            const vS0   = ventasMes.reduce((s,r)  => s+(r.subt0||0),  0);
             const vIva  = ventasMes.reduce((s,r)  => s+(r.iva||0),    0);
             const vTot  = ventasMes.reduce((s,r)  => s+(r.total||0),  0);
 
@@ -1942,16 +2902,17 @@ const App = {
             });
             const cTot   = comprasMes.reduce((s,r)=> s+(r.total||0),  0);
 
-            sumVS15  += vS15;  sumVIva += vIva;  sumVTot += vTot;
+            sumVS15  += vS15;  sumVS0 += vS0;  sumVIva += vIva;  sumVTot += vTot;
             sumCS15  += cS15;  sumCS5  += cS5;   sumCS0  += cS0;
             sumCIva15+= cIva15;sumCIva5+= cIva5; sumCTot += cTot;
 
-            const hasData = vS15||vIva||vTot||cS15||cS5||cS0||cTot;
+            const hasData = vS15||vS0||vIva||vTot||cS15||cS5||cS0||cTot;
             const opacity = hasData ? '' : 'opacity:0.35;';
 
             return `<tr style="${opacity}">
                 <td class="mes-col">${MESES[mes-1]}</td>
                 <td>${fmt(vS15)}</td>
+                <td>${fmt(vS0)}</td>
                 <td style="color:var(--success);font-weight:600;">${fmt(vIva)}</td>
                 <td style="font-weight:700;">${fmt(vTot)}</td>
                 <td>${fmt(cS15)}</td>
@@ -1968,6 +2929,7 @@ const App = {
         tfoot.innerHTML = `<tr class="conciliado-suman">
             <td class="mes-col">SUMAN</td>
             <td>${fmt(sumVS15)}</td>
+            <td>${fmt(sumVS0)}</td>
             <td style="color:var(--success);">${fmt(sumVIva)}</td>
             <td>${fmt(sumVTot)}</td>
             <td>${fmt(sumCS15)}</td>
@@ -2060,13 +3022,13 @@ const App = {
             mesesEnRango.push({ mes: State.conciliadoPeriodo, anio: State.conciliadoAnio });
         }
 
-        let sumVS15=0,sumVIva=0,sumVTot=0,sumCS15=0,sumCS5=0,sumCS0=0,sumCIva15=0,sumCIva5=0,sumCTot=0;
+        let sumVS15=0,sumVS0=0,sumVIva=0,sumVTot=0,sumCS15=0,sumCS5=0,sumCS0=0,sumCIva15=0,sumCIva5=0,sumCTot=0;
         const fmt = n => this.formatNumber(n);
 
         const rowsHTML = mesesEnRango.map(({mes, anio}) => {
             const V = all.filter(r => r.tipo==='venta'  && !r.anulada && r.mes===mes && r.anio===anio);
             const C = all.filter(r => r.tipo==='compra' && r.mes===mes && r.anio===anio);
-            const vS15=V.reduce((s,r)=>s+(r.subt15||0),0), vIva=V.reduce((s,r)=>s+(r.iva||0),0), vTot=V.reduce((s,r)=>s+(r.total||0),0);
+            const vS15=V.reduce((s,r)=>s+(r.subt15||0),0), vS0=V.reduce((s,r)=>s+(r.subt0||0),0), vIva=V.reduce((s,r)=>s+(r.iva||0),0), vTot=V.reduce((s,r)=>s+(r.total||0),0);
             const cS15=C.reduce((s,r)=>s+(r.subt15||0),0), cS5=C.reduce((s,r)=>s+(r.subt5||0),0), cS0=C.reduce((s,r)=>s+(r.subt0||0),0);
             
             let cIva15 = 0;
@@ -2083,12 +3045,12 @@ const App = {
                 }
             });
             const cTot=C.reduce((s,r)=>s+(r.total||0),0);
-            sumVS15+=vS15;sumVIva+=vIva;sumVTot+=vTot;
+            sumVS15+=vS15;sumVS0+=vS0;sumVIva+=vIva;sumVTot+=vTot;
             sumCS15+=cS15;sumCS5+=cS5;sumCS0+=cS0;sumCIva15+=cIva15;sumCIva5+=cIva5;sumCTot+=cTot;
-            const e = !vS15&&!vIva&&!vTot&&!cS15&&!cS5&&!cS0&&!cTot;
+            const e = !vS15&&!vS0&&!vIva&&!vTot&&!cS15&&!cS5&&!cS0&&!cTot;
             return `<tr style="${e?'opacity:0.38;':''}">
                 <td class="mc">${MESES[mes-1]}</td>
-                <td>${fmt(vS15)}</td><td class="iv">${fmt(vIva)}</td><td class="b">${fmt(vTot)}</td>
+                <td>${fmt(vS15)}</td><td>${fmt(vS0)}</td><td class="iv">${fmt(vIva)}</td><td class="b">${fmt(vTot)}</td>
                 <td>${fmt(cS15)}</td><td>${fmt(cS5)}</td><td>${fmt(cS0)}</td>
                 <td class="ic">${fmt(cIva15)}</td><td class="ic">${fmt(cIva5)}</td><td class="b">${fmt(cTot)}</td>
             </tr>`;
@@ -2140,7 +3102,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
 .pgf{margin-top:12px;padding-top:7px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:6.5pt;color:#9ca3af;}
 </style></head><body>
 <div class="hdr">
-  <div><div class="brand">JF SYSTEM</div><div class="sub">Sistema de Gestión Contable</div></div>
+  <div><div class="brand"><img src="${window.location.origin + window.location.pathname.replace('index.html', '')}logo.png" style="height: 30px; object-fit: contain; filter: drop-shadow(0 0 2px rgba(255,255,255,0.8));"></div><div class="sub">Sistema de Gestión Contable</div></div>
   <div><div class="meta-t">REPORTE CONCILIADO</div><div class="meta-i">Período: ${per}<br>Generado: ${fgen}</div></div>
 </div>
 <div class="cband">
@@ -2152,11 +3114,11 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
   <thead>
     <tr>
       <th class="hm" rowspan="2">Mes</th>
-      <th class="hv" colspan="3">VENTAS</th>
+      <th class="hv" colspan="4">VENTAS</th>
       <th class="hc" colspan="6">COMPRAS</th>
     </tr>
     <tr>
-      <th class="hv">Sub.15%</th><th class="hv">IVA 15%</th><th class="hv">Total</th>
+      <th class="hv">Sub.15%</th><th class="hv">Sub.0%</th><th class="hv">IVA 15%</th><th class="hv">Total</th>
       <th class="hc">Sub.15%</th><th class="hc">Sub.5%</th><th class="hc">Sub.0%</th>
       <th class="hc">IVA 15%</th><th class="hc">IVA 5%</th><th class="hc">Total</th>
     </tr>
@@ -2165,7 +3127,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
   <tfoot>
     <tr class="sum">
       <td class="mc">SUMAN</td>
-      <td>${fmt(sumVS15)}</td><td class="iv">${fmt(sumVIva)}</td><td class="b">${fmt(sumVTot)}</td>
+      <td>${fmt(sumVS15)}</td><td>${fmt(sumVS0)}</td><td class="iv">${fmt(sumVIva)}</td><td class="b">${fmt(sumVTot)}</td>
       <td>${fmt(sumCS15)}</td><td>${fmt(sumCS5)}</td><td>${fmt(sumCS0)}</td>
       <td class="ic">${fmt(sumCIva15)}</td><td class="ic">${fmt(sumCIva5)}</td><td class="b">${fmt(sumCTot)}</td>
     </tr>
@@ -2198,15 +3160,19 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
     toggleClientForm(show) {
         State.showClientForm = show;
         if (!show) State.clientEditingId = null;
+        State.currentClientActivities = [];
         this.render();
+        if (show) setTimeout(() => this.renderClientActivities(), 0);
     },
 
     editClient(id) {
         if (!id) return;
         State.clientEditingId = id;
         State.showClientForm = true;
-        console.log('[editClient] Editando cliente ID:', id);
+        const c = Store.get('clientes').find(x => x.id === id);
+        State.currentClientActivities = c && c.actividades ? JSON.parse(JSON.stringify(c.actividades)) : [];
         this.render();
+        setTimeout(() => this.renderClientActivities(), 0);
     },
 
     async archiveClient(id, archive) {
@@ -2279,6 +3245,51 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         return dias[novenoDigito] || null;
     },
 
+    renderClientActivities() {
+        const container = document.getElementById('client-activities-list');
+        if (!container) return;
+        if (State.currentClientActivities.length === 0) {
+            container.innerHTML = '<div style="font-size:0.75rem; color:var(--text-secondary); font-style:italic;">No hay actividades registradas.</div>';
+            return;
+        }
+        container.innerHTML = State.currentClientActivities.map((act, i) => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:rgba(var(--text-rgb),0.03); border-radius:6px; margin-bottom:6px; border:1px solid var(--border-color);">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:0.7rem; font-weight:700; background:var(--primary); color:white; padding:2px 6px; border-radius:4px;">${act.tarifa}</span>
+                    <span style="font-size:0.75rem; color:var(--text-color);">${App.escapeHTML(act.name)}</span>
+                </div>
+                <button type="button" class="btn-icon" style="color:var(--danger); display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px;" onclick="App.removeClientActivity(${i})" title="Eliminar">${Icons.trash(14)}</button>
+            </div>
+        `).join('');
+    },
+
+    addClientActivity() {
+        const nameInput = document.getElementById('new-activity-name');
+        const tarifaInput = document.getElementById('new-activity-tarifa');
+        const name = nameInput.value.trim();
+        const tarifa = tarifaInput.value;
+        if (!name) {
+            this.showToast('Por favor, ingresa el nombre de la actividad', 'warning');
+            return;
+        }
+        State.currentClientActivities.push({ name, tarifa });
+        nameInput.value = '';
+        tarifaInput.value = '15%'; // default
+        this.renderClientActivities();
+    },
+
+    removeClientActivity(index) {
+        State.currentClientActivities.splice(index, 1);
+        this.renderClientActivities();
+    },
+
+    toggleSuperCiaFields(value, prefix) {
+        const container = document.getElementById(`${prefix}-super-cia-container`);
+        if (container) {
+            container.style.display = value === 'Si' ? 'block' : 'none';
+        }
+    },
+
     async handleClientSubmit(e) {
         e.preventDefault();
 
@@ -2288,7 +3299,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         const isEditing = !!editingId;
         const docId = editingId || ('client_' + Date.now());
 
-        console.log('[handleClientSubmit] Modo:', isEditing ? 'EDITAR' : 'NUEVO', '| ID:', docId);
+
 
         const ruc = document.getElementById('client-ruc').value.trim();
         const diaDeclaracion = this.calculateDeclarationDay(ruc);
@@ -2298,6 +3309,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             name: document.getElementById('client-name').value.trim(),
             ruc: ruc,
             regime: document.getElementById('client-regime').value,
+            tipo: document.getElementById('client-tipo').value,
             frecuencia: document.getElementById('client-frecuencia').value,
             claveSRI: document.getElementById('client-clave-sri').value,
             arrastreInicial: parseFloat(document.getElementById('client-arrastre-inicial')?.value) || 0,
@@ -2311,6 +3323,25 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             oblADI:      document.getElementById('client-adi').value,
             oblGP:       document.getElementById('client-gp').value,
             oblRebefics: document.getElementById('client-rebefics').value,
+            superCiaUser: document.getElementById('client-super-cia-user')?.value.trim() || '',
+            superCiaPass: document.getElementById('client-super-cia-pass')?.value || '',
+            actividades: State.currentClientActivities,
+            // Contacto y Acceso
+            correo:      document.getElementById('client-correo')?.value.trim() || '',
+            telefono:    document.getElementById('client-telefono')?.value.trim() || '',
+            direccion:   document.getElementById('client-direccion')?.value.trim() || '',
+            contrasena:  document.getElementById('client-contrasena')?.value || '',
+            // Facturación
+            factUsuario: document.getElementById('client-fact-usuario')?.value.trim() || '',
+            factClave:   document.getElementById('client-fact-clave')?.value || '',
+            factNumComp: document.getElementById('client-fact-num')?.value.trim() || '',
+            factEmitido: document.getElementById('client-fact-emi')?.value || '',
+            factCaduca:  document.getElementById('client-fact-cad')?.value || '',
+            // Firma Digital
+            firmaClave:   document.getElementById('client-firma-clave')?.value || '',
+            firmaEmision: document.getElementById('client-firma-emi')?.value || '',
+            firmaCaduca:  document.getElementById('client-firma-cad')?.value || '',
+            firmaTiempo:  document.getElementById('client-firma-tiempo')?.value || '1',
             updatedAt: new Date().toISOString()
         };
 
@@ -2329,6 +3360,30 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             console.error("Error al guardar cliente:", err);
             this.showToast('Error al guardar cliente', 'danger');
         }
+    },
+
+    toggleClientSort() {
+        State.clientSortAsc = !State.clientSortAsc;
+        this.render();
+    },
+
+    switchClientFormTab(tabId) {
+        const tabs = ['tributario', 'personal', 'facturacion', 'firma'];
+        tabs.forEach(t => {
+            const btn = document.getElementById(`tab-btn-${t}`);
+            const content = document.getElementById(`tab-${t}`);
+            if (btn && content) {
+                if (t === tabId) {
+                    content.style.display = 'block';
+                    btn.style.background = 'var(--primary)';
+                    btn.style.color = 'white';
+                } else {
+                    content.style.display = 'none';
+                    btn.style.background = 'transparent';
+                    btn.style.color = 'var(--text-secondary)';
+                }
+            }
+        });
     },
 
     renderClientsTable() {
@@ -2399,15 +3454,21 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
 
         const isAdmin = State.currentUser?.role === 'admin';
 
-        tbody.innerHTML = clients.map(c => `
+        const sortedClients = clients.sort((a, b) => {
+            const nameA = (a.name || '').toLowerCase();
+            const nameB = (b.name || '').toLowerCase();
+            const cmp = nameA.localeCompare(nameB);
+            return State.clientSortAsc ? cmp : -cmp;
+        });
+
+        tbody.innerHTML = sortedClients.map(c => `
             <tr>
                 <td style="font-weight: 600;">${this.escapeHTML(c.name)}</td>
                 <td style="font-family:var(--font-mono);">${this.escapeHTML(c.ruc)}</td>
                 <td><span class="badge" style="background: rgba(var(--primary-rgb), 0.1); color: var(--primary); padding: 4px 8px; border-radius: 4px;">${this.escapeHTML(c.regime)}</span></td>
                 <td><span class="badge" style="background: rgba(100, 100, 100, 0.1); color: var(--text-secondary); padding: 4px 8px; border-radius: 4px;">${this.escapeHTML(c.frecuencia || 'Mensual')}</span></td>
                 <td style="font-weight: bold; font-family: var(--font-mono);">${c.diaMaximo || '-'}</td>
-                <td style="text-align:center;">${statusDot(c.firmaCaduca)}</td>
-                <td style="text-align:center;">${statusDot(c.factCaduca)}</td>
+                <td style="text-align:center;"><span class="badge" style="background: rgba(var(--primary-rgb), 0.05); color: var(--text-primary); padding: 4px 8px; border-radius: 4px; font-weight:600;">${this.escapeHTML(c.tipo || 'P. Natural')}</span></td>
                 <td>
                     <div style="display: flex; gap: 4px; flex-wrap: nowrap;">
                         <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.75rem; display:inline-flex;align-items:center;gap:6px; white-space:nowrap;" onclick="App.openFicha('${c.id}')">${Icons.ficha(14)} Ficha</button>
@@ -2790,7 +3851,12 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             const d = new Date();
             d.setMonth(d.getMonth() - i);
             const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            const monthMeta = meta.mensual[key] || { sales: 0, purchases: 0 };
+            let monthMeta;
+            if (State.dashboardView === 'personal') {
+                monthMeta = Store.getJessicaStatsForMonth(key);
+            } else {
+                monthMeta = meta.mensual[key] || { sales: 0, purchases: 0 };
+            }
             dataMap[key] = {
                 label: `${months[d.getMonth()]}`,
                 sales: monthMeta.sales || 0,
@@ -2801,39 +3867,31 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         const labels = Object.values(dataMap).map(v => v.label);
         const salesData = Object.values(dataMap).map(v => v.sales);
         const purchaseData = Object.values(dataMap).map(v => v.purchases);
-
         const isDark = State.theme === 'dark';
-        const primaryColor = '#3b82f6';
-        const dangerColor = '#ef4444';
+        const isPersonal = State.dashboardView === 'personal';
+        const primaryColor = '#14b8a6'; // Verde turquesa para Ventas / Honorarios
+        const secondaryColor = '#fb7185'; // Rosa Coral para Compras / Gastos
 
         if (this.currentChart) this.currentChart.destroy();
 
         this.currentChart = new Chart(ctx, {
-            type: 'line',
+            type: 'bar',
             data: {
                 labels,
                 datasets: [
                     {
-                        label: 'Ventas',
+                        label: State.dashboardView === 'personal' ? 'Honorarios' : 'Ventas',
                         data: salesData,
-                        borderColor: primaryColor,
-                        backgroundColor: primaryColor + '20',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 3,
-                        pointRadius: 4,
-                        pointBackgroundColor: primaryColor
+                        backgroundColor: primaryColor,
+                        borderRadius: 6,
+                        borderWidth: 0,
                     },
                     {
-                        label: 'Compras',
+                        label: State.dashboardView === 'personal' ? 'Gastos' : 'Compras',
                         data: purchaseData,
-                        borderColor: dangerColor,
-                        backgroundColor: dangerColor + '20',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 3,
-                        pointRadius: 4,
-                        pointBackgroundColor: dangerColor
+                        backgroundColor: secondaryColor,
+                        borderRadius: 6,
+                        borderWidth: 0,
                     }
                 ]
             },
@@ -2864,7 +3922,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                             color: isDark ? 'rgba(255,255,255,0.6)' : '#64748b',
                             callback: (value) => this.formatMoney(value)
                         },
-                        grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
+                        grid: { display: false }
                     },
                     x: {
                         ticks: { color: isDark ? 'rgba(255,255,255,0.6)' : '#64748b' },
@@ -2875,6 +3933,107 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         });
         // Animate KPI counters after chart paint
         setTimeout(() => this.animateCounters(), 80);
+        
+        // Inicializar el nuevo gráfico circular
+        this.initTopClientesChart();
+    },
+
+    initTopClientesChart() {
+        const ctx = document.getElementById('topClientesChart')?.getContext('2d');
+        if (!ctx) return;
+        
+        // Solo aplica para la vista personal
+        if (State.dashboardView !== 'personal') return;
+
+        const meta = Store.get('dashboardMeta') || { clientes: {} };
+        const periodMap = { '3M': 3, '6M': 6, '1A': 12 };
+        const numMonths = periodMap[State.chartPeriod || '6M'] || 6;
+
+        // Collect all year-months for the selected period
+        const targetMonths = [];
+        for (let i = numMonths - 1; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            targetMonths.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+        }
+
+        // Aggregate sales per client for the target months
+        const clientSales = {};
+        Object.entries(meta.clientes || {}).forEach(([clientId, clientData]) => {
+            let total = 0;
+            targetMonths.forEach(ym => {
+                if (clientData[ym]) total += (clientData[ym].sales || 0);
+            });
+            if (total > 0) {
+                clientSales[clientId] = total;
+            }
+        });
+
+        // Sort and get Top 5
+        const sortedClients = Object.entries(clientSales)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+
+        // Find names for those clients
+        const labels = sortedClients.map(c => {
+            const clientMatch = Store.clientes.find(cli => cli.id === c[0]);
+            return clientMatch ? clientMatch.name.substring(0, 15) + (clientMatch.name.length > 15 ? '...' : '') : 'Desconocido';
+        });
+        const data = sortedClients.map(c => c[1]);
+
+        if (this.currentTopChart) this.currentTopChart.destroy();
+        
+        if (labels.length === 0) {
+            // Mostrar mensaje si no hay datos
+            if (this.currentTopChart) this.currentTopChart.destroy();
+            return;
+        }
+
+        const isDark = State.theme === 'dark';
+        const colors = [
+            '#a855f7', // Neon Purple
+            '#0ea5e9', // Azure Blue
+            '#3b82f6', // Primary Blue
+            '#6366f1', // Indigo
+            '#14b8a6'  // Teal
+        ];
+
+        this.currentTopChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{
+                    data,
+                    backgroundColor: colors,
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            color: isDark ? '#ffffff' : '#1e293b',
+                            font: { family: 'Inter', weight: '500', size: 11 },
+                            boxWidth: 12,
+                            padding: 15
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleFont: { family: 'Inter' },
+                        bodyFont: { family: 'Inter' },
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: { label: ctx => ' ' + this.formatMoney(ctx.raw) }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
     },
 
     setChartPeriod(period) {
@@ -2894,6 +4053,86 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 btn.style.borderColor = '';
             }
         });
+    },
+
+    setDashboardView(view) {
+        State.dashboardView = view;
+        localStorage.setItem('dashboardView', view);
+        this.render();
+    },
+
+    async addTodo() {
+
+        const input = document.getElementById('new-todo-input');
+        if (!input) {
+            console.warn("No se encontró el elemento input con ID 'new-todo-input'.");
+            return;
+        }
+        const text = input.value.trim();
+
+        if (!text) return;
+        
+        try {
+            const email = State.currentUser?.email || '';
+
+            const newTodo = {
+                text,
+                completed: false,
+                userEmail: email,
+                createdAt: new Date().toISOString()
+            };
+            input.value = '';
+
+            await Store.saveTarea(newTodo);
+
+            this.showToast('Tarea agregada con éxito', 'success');
+        } catch (err) {
+            console.error("Error al agregar tarea:", err);
+            this.showToast('Error al agregar tarea', 'danger');
+        }
+    },
+
+    async toggleTodo(id, completed) {
+        try {
+            const todo = (State.tareasData || []).find(t => t.id === id);
+            if (!todo) return;
+            const updatedTodo = { ...todo, completed };
+            await Store.saveTarea(updatedTodo);
+            this.showToast(completed ? 'Tarea completada' : 'Tarea marcada como pendiente', 'success');
+        } catch (err) {
+            console.error("Error al actualizar tarea:", err);
+            this.showToast('Error al actualizar tarea', 'danger');
+        }
+    },
+
+    deleteTodo(id) {
+        const todo = (State.tareasData || []).find(t => t.id === id);
+        if (!todo) return;
+
+        // Create modal element
+        const modalHtml = Views.modalEliminarTarea(id, todo.text);
+        const div = document.createElement('div');
+        div.id = 'temp-delete-todo-container';
+        div.innerHTML = modalHtml;
+        document.body.appendChild(div);
+    },
+
+    closeDeleteTodoModal() {
+        const container = document.getElementById('temp-delete-todo-container');
+        if (container) {
+            container.remove();
+        }
+    },
+
+    async ejecutarEliminarTodo(id) {
+        this.closeDeleteTodoModal();
+        try {
+            await Store.deleteTarea(id);
+            this.showToast('Tarea eliminada', 'success');
+        } catch (err) {
+            console.error("Error al eliminar tarea:", err);
+            this.showToast('Error al eliminar tarea', 'danger');
+        }
     },
 
     animateCounters() {
@@ -2959,8 +4198,8 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         const dias = { '1':10,'2':10,'3':10,'4':16,'5':16,'6':16,'7':22,'8':22,'9':22,'0':28 };
         const diaMax = ninth ? (dias[ninth] || null) : null;
         const updates = {
-            name: document.getElementById('fich-name').value.trim(),
             ruc, regime: document.getElementById('fich-regime').value,
+            tipo: document.getElementById('fich-tipo').value,
             frecuencia: document.getElementById('fich-frecuencia').value,
             claveSRI: document.getElementById('fich-clave-sri').value,
             novenoDigito: ninth, diaMaximo: diaMax,
@@ -2971,6 +4210,8 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             oblADI:      document.getElementById('fich-adi').value,
             oblGP:       document.getElementById('fich-gp').value,
             oblRebefics: document.getElementById('fich-rebefics').value,
+            superCiaUser: document.getElementById('fich-super-cia-user')?.value.trim() || '',
+            superCiaPass: document.getElementById('fich-super-cia-pass')?.value || '',
             updatedAt: new Date().toISOString()
         };
         try {
@@ -3006,7 +4247,6 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         const c = Store.get('clientes').find(cl => cl.id === State.currentFichaClientId);
         if (!c) return;
         const updates = {
-            firmaUsuario: document.getElementById('firma-usuario').value.trim(),
             firmaClave:   document.getElementById('firma-clave').value,
             firmaEmision: document.getElementById('firma-emision').value,
             firmaCaduca:  document.getElementById('firma-caduca').value,
@@ -3223,6 +4463,9 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         // Ordenar movimientos por fecha descendente
         movimientos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
+        // Ordenar cuentas por fecha descendente (del más nuevo al más antiguo)
+        accounts.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
         const formatFullDate = (isoStr) => {
             if (!isoStr) return '—';
             const d = new Date(isoStr);
@@ -3241,9 +4484,11 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             <div style="font-family:'Inter', sans-serif; color:#1e293b; padding:5px 20px 20px 20px; background:white;">
                 <!-- Header más compacto y arriba -->
                 <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #8b5cf6; padding-bottom:10px; margin-bottom:20px;">
-                    <div>
-                        <h1 style="margin:0; color:#3b0764; font-size:22px; font-weight:800; letter-spacing:-0.5px;">JF SYSTEM</h1>
-                        <p style="margin:0; font-size:9px; color:#64748b; text-transform:uppercase; letter-spacing:1px;">Reporte Financiero Consolidado</p>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <img src="${window.location.origin + window.location.pathname.replace('index.html', '')}logo.png" style="height: 55px; object-fit: contain;">
+                        <div>
+                            <p style="margin:0; font-size:12px; color:#64748b; text-transform:uppercase; letter-spacing:1px; font-weight:700;">Reporte Financiero Consolidado</p>
+                        </div>
                     </div>
                     <div style="text-align:right;">
                         <h2 style="margin:0; font-size:13px; color:#1e293b; font-weight:700;">${client.name}</h2>
@@ -3579,16 +4824,28 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         }, 100);
     },
 
-    async openBancoDetail(bancoId) {
+    async openBancoDetail(bancoId, skipRender = false) {
         const banco = State.bancosData.find(b => b.id === bancoId);
         if (!banco) return;
         
+        State.currentBancoId = bancoId;
         State.showDetalleModal = true;
-        this.render();
+        
+        if (!skipRender) {
+            this.render();
+        }
 
         const contentDiv = document.getElementById('detalle-modal-content');
         if (contentDiv) {
             contentDiv.innerHTML = Views.bancoDetalleContent(banco);
+            const fechaInput = document.getElementById('mov-fecha');
+            if (fechaInput) {
+                const today = new Date();
+                const dd = String(today.getDate()).padStart(2, '0');
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const yyyy = today.getFullYear();
+                fechaInput.value = `${yyyy}-${mm}-${dd}`;
+            }
         }
 
         try {
@@ -3624,18 +4881,30 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             movsSnapshot.forEach(doc => {
                 const m = doc.data();
                 transacciones.push({
+                    id: doc.id,
                     tipo: m.tipo,
                     categoria: m.descripcion,
                     monto: m.monto || 0,
                     fecha: m.fecha,
                     metodo: 'Manual',
                     isPago: false,
-                    isAjuste: m.isAjuste
+                    isAjuste: m.isAjuste,
+                    origen: m.origen,
+                    transferenciaId: m.transferenciaId,
+                    transferenciaDestinoId: m.transferenciaDestinoId,
+                    transferenciaOrigenId: m.transferenciaOrigenId
                 });
             });
 
+            const parseDate = d => {
+                if (!d) return new Date(0);
+                if (typeof d.toDate === 'function') return d.toDate();
+                if (d.seconds) return new Date(d.seconds * 1000);
+                return new Date(d);
+            };
+
             // Sort merged results
-            transacciones.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+            transacciones.sort((a, b) => parseDate(b.fecha) - parseDate(a.fecha));
 
             if (transacciones.length === 0) {
                 listDiv.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-secondary);">No hay transacciones registradas.</div>';
@@ -3644,12 +4913,48 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
 
             let html = '';
             transacciones.slice(0, 50).forEach(t => {
-                const fecha = t.fecha ? new Date(t.fecha).toLocaleDateString() : 'N/A';
+                const parsed = parseDate(t.fecha);
+                const fecha = parsed && !isNaN(parsed.getTime()) && parsed.getTime() !== 0 ? parsed.toLocaleDateString() : 'N/A';
                 const color = t.tipo === 'ingreso' ? 'var(--success)' : (t.isAjuste ? 'var(--primary)' : 'var(--error)');
-                const signo = (t.tipo === 'ingreso' || t.monto > 0) ? '+' : '-';
+                const signo = (t.tipo === 'ingreso') ? '+' : '-';
                 const icon = t.isPago ? '💰' : (t.isAjuste ? '⚙️' : '📝');
                 const tag = t.tag || (t.isPago ? 'Ventas' : (t.isAjuste ? 'Conciliación' : ''));
                 
+                let actionsBtn = '';
+                if (t.id && (t.origen === 'manual' || t.origen === 'transferencia' || t.isAjuste)) {
+                    const deleteIcon = t.origen === 'transferencia' ? '🗑️' : '🗑️';
+                    const tooltip = t.origen === 'transferencia' ? 'Eliminar transferencia vinculada (se eliminará de ambas cuentas)' : (t.isAjuste ? 'Eliminar ajuste y recalcular saldo' : 'Eliminar movimiento');
+                    
+                    let editBtn = '';
+                    if (t.origen === 'manual') {
+                        const tJson = JSON.stringify({id: t.id, tipo: t.tipo, monto: Math.abs(t.monto), desc: t.categoria, tag: t.tag, fecha: t.fecha}).replace(/"/g, '&quot;');
+                        editBtn = `
+                            <button onclick="App.editMovementSetup('${bancoId}', '${tJson}')" 
+                                    style="background: none; border: none; cursor: pointer; opacity: 0.5; padding: 4px; font-size: 1.1rem; margin-right: 5px;" 
+                                    title="Editar movimiento"
+                                    onmouseover="this.style.opacity='1'" 
+                                    onmouseout="this.style.opacity='0.5'">
+                                ✏️
+                            </button>
+                        `;
+                    }
+
+                    const origenToPass = t.isAjuste ? 'ajuste' : t.origen;
+
+                    actionsBtn = `
+                        <div style="display:flex; gap: 4px;">
+                            ${editBtn}
+                            <button onclick="App.deleteBankMovement('${bancoId}', '${t.id}', '${origenToPass}', '${t.transferenciaId || ''}', '${t.transferenciaDestinoId || ''}', '${t.transferenciaOrigenId || ''}')" 
+                                    style="background: none; border: none; cursor: pointer; opacity: 0.5; padding: 4px; font-size: 1.1rem;" 
+                                    title="${tooltip}"
+                                    onmouseover="this.style.opacity='1'" 
+                                    onmouseout="this.style.opacity='0.5'">
+                                ${deleteIcon}
+                            </button>
+                        </div>
+                    `;
+                }
+
                 html += `
                     <div style="display:flex; justify-content:space-between; align-items:center; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
                         <div style="display:flex; align-items:center; gap:12px; flex: 1;">
@@ -3664,8 +4969,11 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                                 </div>
                             </div>
                         </div>
-                        <div style="font-weight: 800; font-family: var(--font-mono); color: ${color}; font-size: 1.05rem; white-space: nowrap; margin-left: 15px;">
-                            ${signo}${App.formatMoney(Math.abs(t.monto))}
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="font-weight: 800; font-family: var(--font-mono); color: ${color}; font-size: 1.05rem; white-space: nowrap; margin-left: 15px;">
+                                ${signo}${App.formatMoney(Math.abs(t.monto))}
+                            </div>
+                            ${actionsBtn}
                         </div>
                     </div>
                 `;
@@ -3680,6 +4988,7 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
 
     closeDetalleModal() {
         State.showDetalleModal = false;
+        State.currentBancoId = null;
         this.render();
     },
 
@@ -3772,6 +5081,106 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         }
     },
 
+    editMovementSetup(bancoId, tJsonStr) {
+        const t = JSON.parse(tJsonStr.replace(/&quot;/g, '"'));
+        State.editingMovement = { bancoId, ...t };
+        
+        document.getElementById('mov-tipo').value = t.tipo;
+        document.getElementById('mov-monto').value = t.monto;
+        document.getElementById('mov-desc').value = t.desc;
+        document.getElementById('mov-tag').value = t.tag || '';
+        
+        const fechaInput = document.getElementById('mov-fecha');
+        if (fechaInput && t.fecha) {
+            const d = new Date(t.fecha);
+            if (!isNaN(d.getTime())) {
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                fechaInput.value = `${yyyy}-${mm}-${dd}`;
+            }
+        }
+        
+        let formTitle = document.getElementById('form-movimiento-title');
+        if (!formTitle) {
+            const form = document.getElementById('mov-tipo').closest('form');
+            if (form && form.previousElementSibling && form.previousElementSibling.tagName === 'H3') {
+                formTitle = form.previousElementSibling;
+                formTitle.id = 'form-movimiento-title';
+            }
+        }
+        if (formTitle) formTitle.textContent = 'Editar Movimiento';
+        
+        let submitBtn = document.getElementById('btn-movimiento-submit');
+        if (!submitBtn) {
+            const form = document.getElementById('mov-tipo').closest('form');
+            if (form) submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.id = 'btn-movimiento-submit';
+        }
+        if (submitBtn) {
+            submitBtn.textContent = 'Actualizar Registro';
+            submitBtn.classList.remove('btn-primary');
+            submitBtn.style.background = 'var(--warning)';
+            submitBtn.style.color = 'black';
+        }
+        
+        let cancelBtn = document.getElementById('btn-movimiento-cancel');
+        if (!cancelBtn) {
+            cancelBtn = document.createElement('button');
+            cancelBtn.id = 'btn-movimiento-cancel';
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'btn btn-secondary';
+            cancelBtn.textContent = 'Cancelar Edición';
+            cancelBtn.style.marginTop = '8px';
+            cancelBtn.style.width = '100%';
+            cancelBtn.onclick = () => App.cancelEditMovement();
+            submitBtn.parentNode.appendChild(cancelBtn);
+        }
+        cancelBtn.style.display = 'block';
+    },
+
+    cancelEditMovement() {
+        State.editingMovement = null;
+        
+        document.getElementById('mov-tipo').value = 'ingreso';
+        document.getElementById('mov-monto').value = '';
+        document.getElementById('mov-desc').value = '';
+        document.getElementById('mov-tag').value = '';
+        
+        const fechaInput = document.getElementById('mov-fecha');
+        if (fechaInput) {
+            const today = new Date();
+            const dd = String(today.getDate()).padStart(2, '0');
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const yyyy = today.getFullYear();
+            fechaInput.value = `${yyyy}-${mm}-${dd}`;
+        }
+        
+        let formTitle = document.getElementById('form-movimiento-title');
+        if (!formTitle) {
+            const form = document.getElementById('mov-tipo').closest('form');
+            if (form && form.previousElementSibling && form.previousElementSibling.tagName === 'H3') {
+                formTitle = form.previousElementSibling;
+            }
+        }
+        if (formTitle) formTitle.textContent = 'Nuevo Movimiento';
+        
+        let submitBtn = document.getElementById('btn-movimiento-submit');
+        if (!submitBtn) {
+            const form = document.getElementById('mov-tipo').closest('form');
+            if (form) submitBtn = form.querySelector('button[type="submit"]');
+        }
+        if (submitBtn) {
+            submitBtn.textContent = 'Registrar Movimiento';
+            submitBtn.classList.add('btn-primary');
+            submitBtn.style.background = '';
+            submitBtn.style.color = '';
+        }
+        
+        const cancelBtn = document.getElementById('btn-movimiento-cancel');
+        if (cancelBtn) cancelBtn.style.display = 'none';
+    },
+
     async handleMovimientoSubmit(e, bancoId) {
         e.preventDefault();
         const tipo = document.getElementById('mov-tipo').value;
@@ -3779,10 +5188,29 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         const desc = document.getElementById('mov-desc').value;
         const tag = document.getElementById('mov-tag').value;
         const banco = State.bancosData.find(b => b.id === bancoId);
+        const fechaInputStr = document.getElementById('mov-fecha')?.value;
+        
+        let fechaISO = new Date().toISOString();
+        if (fechaInputStr) {
+            const [yyyy, mm, dd] = fechaInputStr.split('-');
+            const customDate = new Date();
+            customDate.setFullYear(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
+            fechaISO = customDate.toISOString();
+        }
 
-        if (!banco || isNaN(monto)) return;
+        if (!banco) return;
+        
+        if (isNaN(monto) || monto <= 0) {
+            this.showToast('Por favor, ingresa un monto válido mayor a 0', 'warning');
+            return;
+        }
 
-        const btn = e.target.querySelector('button');
+        if (!desc.trim()) {
+            this.showToast('Por favor, ingresa una descripción', 'warning');
+            return;
+        }
+
+        const btn = document.getElementById('btn-movimiento-submit') || e.target.querySelector('button[type="submit"]');
         const originalText = btn.innerHTML;
         btn.innerHTML = `${Icons.loading()} Procesando...`;
         btn.disabled = true;
@@ -3791,36 +5219,169 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             const batch = db.batch();
             const bancoRef = db.collection('cuentas_bancarias').doc(bancoId);
             
-            const factor = tipo === 'ingreso' ? 1 : -1;
-            const nuevoSaldo = (banco.saldo_actual || 0) + (monto * factor);
+            if (State.editingMovement) {
+                const oldT = State.editingMovement;
+                if (oldT.bancoId !== bancoId) return;
+                
+                const oldFactor = oldT.tipo === 'ingreso' ? 1 : -1;
+                const newFactor = tipo === 'ingreso' ? 1 : -1;
+                
+                const saldoSinOld = (banco.saldo_actual || 0) - (oldT.monto * oldFactor);
+                const nuevoSaldo = saldoSinOld + (monto * newFactor);
+                
+                batch.update(bancoRef, {
+                    saldo_actual: nuevoSaldo,
+                    ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                const movRef = bancoRef.collection('movimientos').doc(oldT.id);
+                batch.update(movRef, {
+                    tipo,
+                    monto,
+                    descripcion: desc,
+                    tag: tag || null,
+                    fecha: fechaISO
+                });
+                
+                const timeout = new Promise((resolve) => setTimeout(resolve, 2000));
+                await Promise.race([batch.commit(), timeout]);
+                this.showToast('Movimiento actualizado correctamente', 'success');
+                
+                this.cancelEditMovement();
+            } else {
+                const factor = tipo === 'ingreso' ? 1 : -1;
+                const nuevoSaldo = (banco.saldo_actual || 0) + (monto * factor);
 
-            batch.update(bancoRef, {
-                saldo_actual: nuevoSaldo,
-                ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
-            });
+                batch.update(bancoRef, {
+                    saldo_actual: nuevoSaldo,
+                    ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+                });
 
-            const movRef = bancoRef.collection('movimientos').doc();
-            batch.set(movRef, {
-                tipo,
-                monto,
-                descripcion: desc,
-                tag: tag || null,
-                fecha: new Date().toISOString(),
-                isAjuste: false,
-                origen: 'manual',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+                const movRef = bancoRef.collection('movimientos').doc();
+                batch.set(movRef, {
+                    tipo,
+                    monto,
+                    descripcion: desc,
+                    tag: tag || null,
+                    fecha: fechaISO,
+                    isAjuste: false,
+                    origen: 'manual',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
 
-            await batch.commit();
-            this.showToast('Movimiento registrado correctamente', 'success');
+                const timeout = new Promise((resolve) => setTimeout(resolve, 2000));
+                await Promise.race([batch.commit(), timeout]);
+                this.showToast('Movimiento registrado correctamente', 'success');
+            }
             
             // Re-render is handled by real-time listener
             this.openBancoDetail(bancoId);
         } catch (error) {
             console.error('Error recording movement:', error);
-            this.showToast('Error al registrar movimiento', 'error');
+            this.showToast('Error al procesar movimiento', 'error');
             btn.innerHTML = originalText;
             btn.disabled = false;
+        }
+    },
+
+    async deleteBankMovement(bancoId, movId, origen, transferenciaId, tDestinoId, tOrigenId) {
+        const message = origen === 'transferencia' 
+            ? 'Se eliminará este movimiento y su transferencia vinculada en la otra cuenta. Esto recalculará los saldos de ambas cuentas.'
+            : 'Se eliminará este movimiento y se recalculará el saldo del banco.';
+
+        const ok = await this.confirmDialog({
+            title: '¿Eliminar movimiento?',
+            message: message,
+            type: 'danger',
+            confirmText: 'Sí, eliminar',
+            cancelText: 'Cancelar'
+        });
+
+        if (!ok) return;
+
+        try {
+            const batch = db.batch();
+
+            if (origen === 'manual' || origen === 'ajuste') {
+                const movRef = db.collection('cuentas_bancarias').doc(bancoId).collection('movimientos').doc(movId);
+                const movDoc = await movRef.get();
+                if (!movDoc.exists) throw new Error('Movimiento no encontrado');
+                
+                const movData = movDoc.data();
+                const factor = movData.tipo === 'ingreso' ? -1 : 1; // Revertir
+                
+                const bancoRef = db.collection('cuentas_bancarias').doc(bancoId);
+                batch.update(bancoRef, {
+                    saldo_actual: firebase.firestore.FieldValue.increment(movData.monto * factor),
+                    ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                batch.delete(movRef);
+                
+                await batch.commit();
+                this.showToast(origen === 'ajuste' ? 'Ajuste eliminado correctamente' : 'Movimiento eliminado correctamente', 'success');
+
+                await Store.logAction('delete', 'BANCOS', `Eliminación de movimiento ${origen === 'ajuste' ? 'de ajuste' : 'manual'}`, {
+                    bancoId: bancoId,
+                    movimiento: movData.descripcion,
+                    monto: movData.monto
+                });
+            } else if (origen === 'transferencia') {
+                if (!transferenciaId || !tDestinoId || !tOrigenId) {
+                    throw new Error('Datos de transferencia incompletos');
+                }
+
+                // Buscar ambos movimientos usando el transferenciaId
+                const origenMovsSnapshot = await db.collection('cuentas_bancarias').doc(tOrigenId).collection('movimientos')
+                    .where('transferenciaId', '==', transferenciaId).get();
+                const destinoMovsSnapshot = await db.collection('cuentas_bancarias').doc(tDestinoId).collection('movimientos')
+                    .where('transferenciaId', '==', transferenciaId).get();
+
+                if (origenMovsSnapshot.empty && destinoMovsSnapshot.empty) {
+                    throw new Error('No se encontraron los movimientos de la transferencia');
+                }
+
+                // Rollback origen
+                if (!origenMovsSnapshot.empty) {
+                    const docO = origenMovsSnapshot.docs[0];
+                    const dataO = docO.data();
+                    const factorO = dataO.tipo === 'ingreso' ? -1 : 1;
+                    const bancoOrigenRef = db.collection('cuentas_bancarias').doc(tOrigenId);
+                    batch.update(bancoOrigenRef, {
+                        saldo_actual: firebase.firestore.FieldValue.increment(dataO.monto * factorO),
+                        ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    batch.delete(docO.ref);
+                }
+
+                // Rollback destino
+                if (!destinoMovsSnapshot.empty) {
+                    const docD = destinoMovsSnapshot.docs[0];
+                    const dataD = docD.data();
+                    const factorD = dataD.tipo === 'ingreso' ? -1 : 1;
+                    const bancoDestinoRef = db.collection('cuentas_bancarias').doc(tDestinoId);
+                    batch.update(bancoDestinoRef, {
+                        saldo_actual: firebase.firestore.FieldValue.increment(dataD.monto * factorD),
+                        ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    batch.delete(docD.ref);
+                }
+
+                await batch.commit();
+                this.showToast('Transferencia anulada y saldos revertidos', 'success');
+
+                await Store.logAction('delete', 'BANCOS', `Anulación de transferencia vinculada`, {
+                    transferenciaId: transferenciaId
+                });
+            }
+
+            // Refrescar modal si está abierto
+            if (State.showDetalleModal) {
+                this.openBancoDetail(bancoId);
+            }
+        } catch (error) {
+            console.error('Error al eliminar movimiento:', error);
+            this.showToast('Error al procesar la solicitud: ' + error.message, 'error');
         }
     },
 
@@ -3834,15 +5395,16 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
         this.showToast('Generando reporte PDF...', 'info');
 
         try {
+            const startDateStr = document.getElementById('export-desde')?.value;
+            const endDateStr = document.getElementById('export-hasta')?.value;
+
             const [pagosSnapshot, movsSnapshot] = await Promise.all([
                 db.collection('pagos')
                     .where('banco_destino', '==', banco.nombre)
                     .orderBy('fecha_pago', 'desc')
-                    .limit(100)
                     .get(),
                 db.collection('cuentas_bancarias').doc(bancoId).collection('movimientos')
                     .orderBy('fecha', 'desc')
-                    .limit(100)
                     .get()
             ]);
 
@@ -3873,19 +5435,54 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
                 });
             });
 
-            transacciones.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+            const parseDate = d => {
+                if (!d) return new Date(0);
+                if (typeof d.toDate === 'function') return d.toDate();
+                if (d.seconds) return new Date(d.seconds * 1000);
+                return new Date(d);
+            };
+
+            transacciones.sort((a, b) => parseDate(b.fecha) - parseDate(a.fecha));
+
+            let currentBal = banco.saldo_actual || 0;
+            transacciones.forEach(t => {
+                t.saldoDespues = currentBal;
+                const factor = t.tipo === 'ingreso' ? -1 : 1;
+                currentBal = currentBal + (Math.abs(t.monto) * factor);
+                t.saldoAntes = currentBal;
+            });
+
+            if (startDateStr) {
+                const [y, m, d] = startDateStr.split('-');
+                const localStartD = new Date(y, m - 1, d, 0, 0, 0, 0);
+                transacciones = transacciones.filter(t => parseDate(t.fecha) >= localStartD);
+            }
+            if (endDateStr) {
+                const [y, m, d] = endDateStr.split('-');
+                const localEndD = new Date(y, m - 1, d, 23, 59, 59, 999);
+                transacciones = transacciones.filter(t => parseDate(t.fecha) <= localEndD);
+            }
 
             const fmt = n => this.formatMoney(n);
             const rowsHTML = transacciones.map(t => {
-                const fecha = t.fecha ? new Date(t.fecha).toLocaleDateString() : 'N/A';
-                const color = t.tipo === 'ingreso' ? 'color:#065f46;' : (t.isAjuste ? 'color:#1e3a8a;' : 'color:#991b1b;');
-                const signo = (t.tipo === 'ingreso' || t.monto > 0) ? '+' : '-';
+                const parsed = parseDate(t.fecha);
+                const fecha = parsed && !isNaN(parsed.getTime()) && parsed.getTime() !== 0 ? parsed.toLocaleDateString() : 'N/A';
+                
+                let inStr = '';
+                let outStr = '';
+                if (t.tipo === 'ingreso') {
+                    inStr = `<span style="color:#065f46; font-weight:bold;">${fmt(Math.abs(t.monto))}</span>`;
+                } else {
+                    outStr = `<span style="color:#991b1b; font-weight:bold;">${fmt(Math.abs(t.monto))}</span>`;
+                }
+                
                 return `
                 <tr>
                     <td style="text-align:left;">${fecha}</td>
-                    <td style="text-align:left; font-weight:600;">${t.categoria}</td>
-                    <td style="text-align:left;">${t.metodo}</td>
-                    <td style="font-family:'Courier New',monospace; font-weight:bold; text-align:right; ${color}">${signo}${fmt(Math.abs(t.monto))}</td>
+                    <td style="text-align:left; font-weight:600;">${t.categoria} <br><span style="font-size:7pt; font-weight:normal; opacity:0.6;">${t.metodo}</span></td>
+                    <td style="font-family:'Courier New',monospace; text-align:right;">${inStr}</td>
+                    <td style="font-family:'Courier New',monospace; text-align:right;">${outStr}</td>
+                    <td style="font-family:'Courier New',monospace; font-weight:bold; text-align:right;">${fmt(t.saldoDespues)}</td>
                 </tr>`;
             }).join('');
 
@@ -3893,14 +5490,42 @@ tr.sum td.mc{color:#7c3aed;font-size:7pt;letter-spacing:1px;text-transform:upper
             const fgen = now.toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric'});
             const hora = now.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'});
 
+            let periodoText = 'Historial Completo';
+            if (startDateStr && endDateStr) {
+                periodoText = `${startDateStr.split('-').reverse().join('/')} al ${endDateStr.split('-').reverse().join('/')}`;
+            } else if (startDateStr) {
+                periodoText = `Desde ${startDateStr.split('-').reverse().join('/')}`;
+            } else if (endDateStr) {
+                periodoText = `Hasta ${endDateStr.split('-').reverse().join('/')}`;
+            }
+
+            let totalIngresos = 0;
+            let totalEgresos = 0;
+            transacciones.forEach(t => {
+                if(t.tipo === 'ingreso') totalIngresos += Math.abs(t.monto);
+                else totalEgresos += Math.abs(t.monto);
+            });
+            const flujoNeto = totalIngresos - totalEgresos;
+
+            let saldoFinalPeriodo = banco.saldo_actual || 0;
+            let saldoInicialPeriodo = 0;
+
+            if (transacciones.length > 0) {
+                saldoFinalPeriodo = transacciones[0].saldoDespues;
+                saldoInicialPeriodo = transacciones[transacciones.length - 1].saldoAntes;
+            } else {
+                saldoFinalPeriodo = currentBal;
+                saldoInicialPeriodo = currentBal;
+            }
+
             const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <title>Historial - ${banco.nombre}</title>
 <style>
-@page { size: A4 portrait; margin: 15mm; }
-body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; background: #fff; color: #1a1a2e; }
+@page { size: A4 portrait; margin: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; background: #fff; color: #1a1a2e; margin: 0; padding: 15mm; }
 .hdr { background: linear-gradient(135deg, #1e0533 0%, #3b0764 100%); color: #fff; padding: 20px; border-radius: 8px 8px 0 0; display:flex; justify-content:space-between; align-items:center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .hdr-title { font-size: 18pt; font-weight: 800; }
 .hdr-sub { font-size: 9pt; opacity: 0.8; margin-top: 4px; }
@@ -3920,33 +5545,66 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
             <div class="hdr-sub">Historial de Movimientos y Conciliación</div>
         </div>
         <div style="text-align:right;">
-            <div style="font-weight:700;">JF SYSTEM</div>
+            <div style="font-weight:700;"><img src="${window.location.origin + window.location.pathname.replace('index.html', '')}logo.png" style="height: 24px; object-fit: contain;"></div>
             <div style="font-size:8pt; opacity:0.8;">Gestión de Liquidez</div>
         </div>
     </div>
     <div class="info-band">
         <div>
-            <div class="balance-lbl">Fecha de Generación</div>
-            <div style="font-weight:600; color:#374151;">${fgen} - ${hora}</div>
+            <div class="balance-lbl">Período de Exportación</div>
+            <div style="font-weight:600; color:#374151;">${periodoText}</div>
+        </div>
+        <div>
+            <div class="balance-lbl">Generación</div>
+            <div style="font-weight:600; color:#374151; font-size:9pt;">${fgen} - ${hora}</div>
         </div>
         <div style="text-align:right;">
-            <div class="balance-lbl">Saldo Actual en Sistema</div>
-            <div class="balance-val">${fmt(banco.saldo_actual || 0)}</div>
+            <div class="balance-lbl">Saldo Final del Período</div>
+            <div class="balance-val">${fmt(saldoFinalPeriodo)}</div>
         </div>
     </div>
+
     <table>
         <thead>
             <tr>
                 <th style="width: 15%;">Fecha</th>
-                <th style="width: 45%;">Descripción</th>
-                <th style="width: 20%;">Método</th>
-                <th style="width: 20%; text-align:right;">Monto</th>
+                <th style="width: 35%;">Descripción</th>
+                <th style="width: 15%; text-align:right;">Ingreso</th>
+                <th style="width: 15%; text-align:right;">Egreso</th>
+                <th style="width: 20%; text-align:right;">Saldo</th>
             </tr>
         </thead>
         <tbody>
-            ${rowsHTML || '<tr><td colspan="4" style="text-align:center; padding:30px; color:#6b7280;">No hay movimientos registrados.</td></tr>'}
+            ${rowsHTML || '<tr><td colspan="5" style="text-align:center; padding:30px; color:#6b7280;">No hay movimientos registrados en este período.</td></tr>'}
         </tbody>
     </table>
+    
+    <div style="margin-top: 30px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; page-break-inside: avoid;">
+        <div style="background: #f50086; padding: 12px 20px; font-weight: 700; color: #ffffff; border-bottom: 1px solid #e5e7eb; text-transform: uppercase; font-size: 9pt; letter-spacing: 0.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact;">Resumen del Período</div>
+        <div style="display: flex; flex-wrap: wrap; padding: 15px 20px; gap: 20px; background: #faf8fc;">
+            <div style="flex: 1; min-width: 120px;">
+                <div style="font-size: 8pt; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Saldo Inicial</div>
+                <div style="font-family: 'Courier New', monospace; font-size: 11pt; font-weight: 700;">${fmt(saldoInicialPeriodo)}</div>
+            </div>
+            <div style="flex: 1; min-width: 120px;">
+                <div style="font-size: 8pt; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Total Ingresos</div>
+                <div style="font-family: 'Courier New', monospace; font-size: 11pt; font-weight: 700; color: #065f46;">+${fmt(totalIngresos)}</div>
+            </div>
+            <div style="flex: 1; min-width: 120px;">
+                <div style="font-size: 8pt; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Total Egresos</div>
+                <div style="font-family: 'Courier New', monospace; font-size: 11pt; font-weight: 700; color: #991b1b;">-${fmt(totalEgresos)}</div>
+            </div>
+            <div style="flex: 1; min-width: 120px; border-left: 2px solid #e5e7eb; padding-left: 20px;">
+                <div style="font-size: 8pt; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Flujo Neto</div>
+                <div style="font-family: 'Courier New', monospace; font-size: 12pt; font-weight: 800; color: ${flujoNeto >= 0 ? '#065f46' : '#991b1b'};">${flujoNeto >= 0 ? '+' : ''}${fmt(flujoNeto)}</div>
+            </div>
+            <div style="flex: 1; min-width: 120px; background: #f3f4f6; border-radius: 6px; padding: 10px; margin-top: -10px; margin-bottom: -10px;">
+                <div style="font-size: 8pt; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Saldo Final</div>
+                <div style="font-family: 'Courier New', monospace; font-size: 13pt; font-weight: 900; color: #111827;">${fmt(saldoFinalPeriodo)}</div>
+            </div>
+        </div>
+    </div>
+
     <div class="ftr">
         <span>Documento generado por JF System</span>
         <span>Página 1 de 1</span>
@@ -4016,6 +5674,9 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
         btn.innerHTML = `${Icons.loading()} Borrando...`;
         btn.disabled = true;
 
+        const banco = (State.bancosData || []).find(b => b.id === bancoId);
+        const bancoNombre = banco ? banco.nombre : 'S/N';
+
         try {
             const batch = db.batch();
             const bancoRef = db.collection('cuentas_bancarias').doc(bancoId);
@@ -4028,6 +5689,12 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
             batch.delete(bancoRef);
             
             await batch.commit();
+
+            // Registrar log de auditoría
+            await Store.logAction('delete', 'BANCOS', `Eliminada cuenta bancaria: ${bancoNombre}`, {
+                id: bancoId,
+                nombre: bancoNombre
+            });
 
             this.showToast('Cuenta eliminada permanentemente', 'success');
             
@@ -4051,15 +5718,14 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
 
     toggleOtroBanco() {
         const seleccion = document.querySelector('input[name="banco_seleccion"]:checked').value;
-        const containerOtro = document.getElementById('container-otro-banco');
         const inputOtro = document.getElementById('banco-nombre-manual');
+        
         if (seleccion === 'Otro') {
-            containerOtro.style.display = 'block';
-            inputOtro.required = true;
+            inputOtro.value = '';
             inputOtro.focus();
         } else {
-            containerOtro.style.display = 'none';
-            inputOtro.required = false;
+            inputOtro.value = seleccion;
+            inputOtro.focus();
         }
     },
 
@@ -4094,11 +5760,23 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
         if (btn) { btn.disabled = true; btn.innerHTML = `${Icons.loading()} Guardando...`; }
 
         try {
-            await db.collection('cuentas_bancarias').doc(bancoId).update({
+            const clasificacion = document.getElementById('edit-banco-clasificacion')?.value || 'corriente';
+            const updates = {
                 nombre,
                 numero,
                 saldo_actual: saldo,
+                clasificacion: clasificacion,
                 ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            const timeout = new Promise((resolve) => setTimeout(resolve, 3000));
+            await Promise.race([db.collection('cuentas_bancarias').doc(bancoId).update(updates), timeout]);
+
+            // Registrar log de auditoría
+            await Store.logAction('update', 'BANCOS', `Actualizada cuenta bancaria: ${nombre}`, {
+                id: bancoId,
+                nombre,
+                numero,
+                saldo_actual: saldo
             });
 
             this.showToast('Cuenta actualizada correctamente', 'success');
@@ -4113,14 +5791,7 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
     async handleBancoSubmit(event) {
         event.preventDefault();
         
-        const seleccion = document.querySelector('input[name="banco_seleccion"]:checked').value;
-        let nombre = '';
-        
-        if (seleccion === 'Otro') {
-            nombre = document.getElementById('banco-nombre-manual').value.trim();
-        } else {
-            nombre = seleccion;
-        }
+        const nombre = document.getElementById('banco-nombre-manual').value.trim();
         
         const saldoInicial = parseFloat(document.getElementById('banco-saldo-inicial').value) || 0;
         const nroCuenta = document.getElementById('banco-numero-cuenta')?.value || '';
@@ -4137,17 +5808,27 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
         }
 
         try {
+            const clasificacion = document.getElementById('banco-clasificacion')?.value || 'corriente';
             await db.collection('cuentas_bancarias').add({
                 nombre,
                 numero: nroCuenta,
                 saldo_inicial: saldoInicial,
                 saldo_actual: saldoInicial,
+                clasificacion: clasificacion,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 ultima_actividad: firebase.firestore.FieldValue.serverTimestamp()
             });
 
+            // Registrar log de auditoría
+            await Store.logAction('create', 'BANCOS', `Nueva cuenta bancaria creada: ${nombre}`, {
+                nombre,
+                numero: nroCuenta,
+                saldo_inicial: saldoInicial
+            });
+
             this.showToast('Banco creado exitosamente', 'success');
             State.showBancoModal = false;
+            this.render();
         } catch (error) {
             console.error("Error creating banco:", error);
             this.showToast('Error al crear banco', 'error');
@@ -4248,6 +5929,9 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
         try {
             const batch = db.batch();
             
+            // Generate a shared UUID for the transfer
+            const transferenciaId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            
             // Referencias a cuentas
             const origenRef = db.collection('cuentas_bancarias').doc(origenId);
             const destinoRef = db.collection('cuentas_bancarias').doc(destinoId);
@@ -4264,7 +5948,11 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
                 monto: monto,
                 descripcion: desc + ` (Transferencia a ${destino?.nombre || 'otra cuenta'})`,
                 etiqueta: 'Transferencia',
-                fecha: firebase.firestore.FieldValue.serverTimestamp()
+                fecha: firebase.firestore.FieldValue.serverTimestamp(),
+                origen: 'transferencia',
+                transferenciaId: transferenciaId,
+                transferenciaDestinoId: destinoId,
+                transferenciaOrigenId: origenId
             });
             batch.update(origenRef, {
                 saldo_actual: firebase.firestore.FieldValue.increment(-monto),
@@ -4278,7 +5966,11 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
                 monto: monto,
                 descripcion: desc + ` (Transferencia desde ${origen?.nombre || 'otra cuenta'})`,
                 etiqueta: 'Transferencia',
-                fecha: firebase.firestore.FieldValue.serverTimestamp()
+                fecha: firebase.firestore.FieldValue.serverTimestamp(),
+                origen: 'transferencia',
+                transferenciaId: transferenciaId,
+                transferenciaDestinoId: destinoId,
+                transferenciaOrigenId: origenId
             });
             batch.update(destinoRef, {
                 saldo_actual: firebase.firestore.FieldValue.increment(monto),
@@ -4287,8 +5979,17 @@ td { padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 9pt; }
 
             await batch.commit();
 
+            // Registrar log de auditoría
+            await Store.logAction('update', 'BANCOS', `Transferencia de fondos realizada`, {
+                origen: origen?.nombre || 'S/N',
+                destino: destino?.nombre || 'S/N',
+                monto: monto,
+                descripcion: desc
+            });
+
             this.showToast('Transferencia realizada con éxito', 'success');
             State.showTransferModal = false;
+            this.render();
         } catch (error) {
             console.error("Error en transferencia:", error);
             this.showToast('Error al procesar transferencia', 'error');

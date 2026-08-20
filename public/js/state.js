@@ -13,10 +13,16 @@ const State = {
     theme: localStorage.getItem('theme') || 'light',
     clientEditingId: null,
     clientTab: 'active', // 'active' | 'archived'
+    clientSortAsc: true, // Default sort direction
     showClientForm: false,
+    currentClientActivities: [],
     editingCuentasCobrarId: null,
     editingCuentasPagarId: null,
     showSettingsModal: false,
+    dashboardView: localStorage.getItem('dashboardView') || 'personal',
+    dashboardMes: new Date().getMonth() + 1,
+    dashboardAnio: new Date().getFullYear(),
+    tareasData: [],
     
     // Gestión de Cuentas Data & Modals
     showAbonoModal: false,
@@ -42,6 +48,16 @@ const State = {
     sriAnio: new Date().getFullYear(), // Año seleccionado
     sriEditingId: null,                // ID del registro en edición
     sriEditingTipo: null,              // 'venta' | 'compra'
+    showSriImportModal: false,
+    sriImportData: [],
+    sriSelectedIds: new Set(),
+    sriImportSearchQuery: '',
+    sriSearch_compra: '',
+    sriSearch_venta: '',
+    sriSelectAllVenta: false,
+    sriSelectAllCompra: false,
+    sriUndoCache: [],
+    sriUndoTimeout: null,
     conciliadoAnio: new Date().getFullYear(),
     conciliadoPeriodo: 0, // 0 = Todo el año, 1 = Enero, etc.
     conciliadoFechaInicio: `${new Date().getFullYear()}-01-01`,
@@ -76,6 +92,7 @@ const State = {
     reportType: 'cobrar', // 'cobrar' | 'pagar'
 
     // Bancos
+    selectedBancoId: null,
     showBancoModal: false,
     bancosData: [],
     editingBanco: null,

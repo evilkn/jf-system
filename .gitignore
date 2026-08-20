@@ -1,6 +1,0 @@
-node_modules/
-.firebase/
-serviceAccountKey.json
-legacy_backup/
-.DS_Store
-*.log

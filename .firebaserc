@@ -1,7 +1,5 @@
 {
   "projects": {
     "default": "mcp-firebase-3b765"
-  },
-  "targets": {},
-  "etags": {}
+  }
 }
