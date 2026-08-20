@@ -321,11 +321,11 @@ const Views = {
     getBankInfo(nombre) {
         const n = nombre.toLowerCase();
         if (n.includes('caja')) return { icon: Icons.cash(24), themeClass: 'bank-theme-generic' };
-        if (n.includes('pichincha')) return { icon: '<img src="Bancos/banco_pichincha.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-pichincha' };
-        if (n.includes('guayaquil')) return { icon: '<img src="Bancos/banco_guayaquil.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-guayaquil' };
-        if (n.includes('jep')) return { icon: '<img src="Bancos/cooperativa_jep.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-jep' };
-        if (n.includes('jardín azuayo') || n.includes('jardin azuayo')) return { icon: '<img src="Bancos/cooperativa_jardin_azuayo.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-jardin' };
-        if (n.includes('austro')) return { icon: '<img src="Bancos/banco_del_austro.png" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-austro' };
+        if (n.includes('pichincha')) return { icon: '<img src="Bancos/banco_pichincha.png?v=5" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-pichincha' };
+        if (n.includes('guayaquil')) return { icon: '<img src="Bancos/banco_guayaquil.png?v=5" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-guayaquil' };
+        if (n.includes('jep')) return { icon: '<img src="Bancos/cooperativa_jep.png?v=5" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-jep' };
+        if (n.includes('jardín azuayo') || n.includes('jardin azuayo')) return { icon: '<img src="Bancos/cooperativa_jardin_azuayo.png?v=5" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-jardin' };
+        if (n.includes('austro')) return { icon: '<img src="Bancos/banco_del_austro.png?v=5" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">', themeClass: 'bank-theme-austro' };
         if (n.includes('produbanco')) return { icon: Icons.bankProdubanco(24), themeClass: 'bank-theme-produbanco' };
         if (n.includes('pacifico')) return { icon: Icons.bankPacifico(24), themeClass: 'bank-theme-pacifico' };
         return { icon: Icons.bank(24), themeClass: 'bank-theme-generic' };
@@ -346,25 +346,25 @@ const Views = {
                                 <label class="bank-option">
                                     <input type="radio" name="banco_seleccion" value="Banco Pichincha" onchange="App.toggleOtroBanco()" checked>
                                     <div class="bank-option-content">
-                                        <img src="Bancos/banco_pichincha.png" alt="Pichincha">
+                                        <img src="Bancos/banco_pichincha.png?v=5" alt="Pichincha">
                                     </div>
                                 </label>
                                 <label class="bank-option">
                                     <input type="radio" name="banco_seleccion" value="Banco Guayaquil" onchange="App.toggleOtroBanco()">
                                     <div class="bank-option-content">
-                                        <img src="Bancos/banco_guayaquil.png" alt="Guayaquil">
+                                        <img src="Bancos/banco_guayaquil.png?v=5" alt="Guayaquil">
                                     </div>
                                 </label>
                                 <label class="bank-option">
                                     <input type="radio" name="banco_seleccion" value="Cooperativa JEP" onchange="App.toggleOtroBanco()">
                                     <div class="bank-option-content">
-                                        <img src="Bancos/cooperativa_jep.png" alt="JEP">
+                                        <img src="Bancos/cooperativa_jep.png?v=5" alt="JEP">
                                     </div>
                                 </label>
                                 <label class="bank-option">
                                     <input type="radio" name="banco_seleccion" value="Cooperativa Jardín Azuayo" onchange="App.toggleOtroBanco()">
                                     <div class="bank-option-content">
-                                        <img src="Bancos/cooperativa_jardin_azuayo.png" alt="Jardín Azuayo">
+                                        <img src="Bancos/cooperativa_jardin_azuayo.png?v=5" alt="Jardín Azuayo">
                                     </div>
                                 </label>
                                 <label class="bank-option">
