@@ -642,7 +642,7 @@ const Views = {
                 cardsHtml = `
                 <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px;">
                     <div style="margin-bottom: 24px; animation: float 6s ease-in-out infinite;">
-                        <img src="img/bancos-empty.png?v=2" alt="Bancos" style="width: 100%; max-width: 220px; height: auto; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.4));">
+                        <img src="img/bancos-empty.png?v=3" alt="Bancos" style="width: 100%; max-width: 220px; height: auto; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.4));">
                     </div>
                     <h3 style="margin: 0 0 12px 0; color: var(--text-primary); font-size: 1.4rem; font-weight: 700; letter-spacing: -0.5px;">Ninguna cuenta seleccionada</h3>
                     <p style="margin: 0; color: var(--text-secondary); font-size: 1.05rem; max-width: 400px; line-height: 1.5;">Despliegue el menú superior y seleccione una cuenta bancaria para visualizar su saldo y empezar a gestionar sus transacciones.</p>
