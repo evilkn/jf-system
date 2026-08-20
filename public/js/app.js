@@ -1927,6 +1927,11 @@ const App = {
         const ids = Array.from(State.sriSelectedIds);
         const count = ids.length;
 
+        if (!(await this.confirmDialog({ 
+            title: '¿Eliminar facturas seleccionadas?', 
+            message: `Está a punto de eliminar ${count} factura(s). Esta acción actualizará las estadísticas del dashboard.` 
+        }))) return;
+
         // Guardar copia exacta en cache
         const registros = Store.get('sri_registros');
         const toDelete = registros.filter(r => State.sriSelectedIds.has(r.id));
