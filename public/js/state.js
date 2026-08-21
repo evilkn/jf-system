@@ -50,6 +50,7 @@ const State = {
     sriEditingTipo: null,              // 'venta' | 'compra'
     showSriImportModal: false,
     sriImportData: [],
+    sriImportTipo: '',              // 'venta' | 'compra'
     sriSelectedIds: new Set(),
     sriImportSearchQuery: '',
     sriSearch_compra: '',

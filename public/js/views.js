@@ -178,7 +178,7 @@ const Views = {
                     <div style="background:linear-gradient(135deg, var(--danger) 0%, #7f1d1d 100%); color:white; padding: 20px 24px; display:flex; justify-content:space-between; align-items:center;">
                         <h3 style="margin:0; font-size:1.25rem; display:flex; align-items:center; gap:10px;">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            Previsualización de Importación (Compras)
+                            ${State.sriImportTipo === 'venta' ? 'Previsualización de Importación (Ventas)' : 'Previsualización de Importación (Compras)'}
                         </h3>
                         <button class="icon-btn" onclick="App.closeSRIImportModal()" style="color:white; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.15);">X</button>
                     </div>
@@ -1745,7 +1745,13 @@ const Views = {
         <form id="sri-form-ventas" onsubmit="App.handleSRISubmit(event,'venta')" class="glass-card animate-fadeIn" style="margin-bottom:20px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
                 <h4 style="margin:0;color:var(--success);font-size:0.95rem;">${Icons.navClients()} Nuevo Registro de Venta</h4>
-                <button type="button" class="btn btn-secondary" onclick="App.resetSRIForm('ventas')" style="font-size:0.75rem;padding:5px 12px;">Limpiar</button>
+                <div style="display:flex; gap:10px;">
+                    <button type="button" class="btn btn-secondary" onclick="App.openSRIImportModal('venta')" style="font-size:0.75rem;padding:5px 12px;display:flex;align-items:center;gap:6px;border-color:var(--success);color:var(--success);">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Importar Excel
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="App.resetSRIForm('ventas')" style="font-size:0.75rem;padding:5px 12px;">Limpiar</button>
+                </div>
             </div>
             <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(175px,1fr));">
                 <div class="form-group"><label>N° Factura *</label><input type="text" id="venta-factura" placeholder="001-001-000000001" required></div>

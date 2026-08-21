@@ -1596,14 +1596,27 @@ const App = {
         }
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
-        fileInput.accept = '.txt';
-        fileInput.onchange = (e) => this.parseSRITxtFile(e, tipo);
+        fileInput.accept = tipo === 'venta'
+            ? '.xlsx,.xls,.csv'
+            : '.txt';
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (ext === 'txt') {
+                this.parseSRITxtFile(e, tipo);
+            } else {
+                this.parseSRIExcelFile(e, tipo);
+            }
+        };
         fileInput.click();
     },
 
     closeSRIImportModal() {
         State.showSriImportModal = false;
         State.sriImportData = [];
+        State.sriImportTipo = '';
+        State.sriImportSearchQuery = '';
         this.render();
     },
 
@@ -1697,21 +1710,150 @@ const App = {
         reader.readAsText(file, 'UTF-8');
     },
 
+    parseSRIExcelFile(event, tipo) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+                const result = [];
+
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+
+                    // Saltar filas vacías
+                    if (!row || row.every(c => c === '' || c === null || c === undefined)) continue;
+
+                    // --- Mapeo de columnas del Excel de terceros ---
+                    // Col 0: Fecha  |  Col 1: Número  |  Col 2: Cliente
+                    // Col 3: RUC/CI |  Col 4: Subtotal |  Col 5: IVA  |  Col 6: Total
+                    // Col 7+: Fecha Autorización, Número Autorización → IGNORAR
+
+                    let fechaRaw = row[0];
+                    const factura   = String(row[1] || '').trim();
+                    const cliente   = String(row[2] || '').trim();
+                    const ruc       = String(row[3] || '').trim();
+                    const subtotal  = parseFloat(String(row[4]).replace(',', '.') || 0) || 0;
+                    const iva       = parseFloat(String(row[5]).replace(',', '.') || 0) || 0;
+                    const total     = parseFloat(String(row[6]).replace(',', '.') || 0) || 0;
+
+                    // Saltar filas sin datos esenciales
+                    if (!factura && !cliente && !ruc) continue;
+
+                    // --- Conversión de fecha ---
+                    let fecha = '';
+                    if (fechaRaw instanceof Date) {
+                        const y = fechaRaw.getFullYear();
+                        const m = String(fechaRaw.getMonth() + 1).padStart(2, '0');
+                        const d = String(fechaRaw.getDate()).padStart(2, '0');
+                        fecha = `${y}-${m}-${d}`;
+                    } else {
+                        const fechaStr = String(fechaRaw || '').trim();
+                        const parts = fechaStr.includes('/') ? fechaStr.split('/') : fechaStr.split('-');
+                        if (parts.length !== 3) continue;
+                        // Detectar si viene DD/MM/YYYY o YYYY-MM-DD
+                        if (parts[0].length === 4) {
+                            fecha = `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+                        } else {
+                            fecha = `${parts[2].substring(0,4)}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+                        }
+                    }
+
+                    if (!fecha || parseInt(fecha.substring(0,4)) < 2000) continue;
+
+                    const mes  = parseInt(fecha.substring(5, 7), 10);
+                    const anio = parseInt(fecha.substring(0, 4), 10);
+
+                    // --- SOLUCIÓN A: Clasificación automática de subtotales ---
+                    // Si hay IVA → base imponible va a Subtotal 15%
+                    // Si IVA = 0 → base exenta va a Subtotal 0%
+                    const subt15 = iva > 0 ? parseFloat(subtotal.toFixed(2)) : 0;
+                    const subt0  = iva === 0 ? parseFloat(subtotal.toFixed(2)) : 0;
+
+                    // Recalcular total si no viene en el Excel o para garantizar consistencia
+                    const totalFinal = parseFloat((subtotal + iva).toFixed(2));
+
+                    const isDuplicate = (Store.get('sri_registros') || []).some(
+                        r => r.ruc === ruc && r.factura === factura && r.tipo === tipo
+                    );
+
+                    result.push({
+                        id: 'sri_imp_' + Date.now() + '_' + i,
+                        tipo: tipo,
+                        clientId: State.currentClientId,
+                        factura,
+                        clienteNombre: cliente,   // mismo campo que el formulario manual de ventas
+                        rucCedula: ruc,            // mismo campo que el formulario manual de ventas
+                        nombre: cliente,           // alias para compatibilidad con la previsualización
+                        ruc: ruc,                  // alias para búsqueda en la previsualización
+                        fecha,
+                        mes,
+                        anio,
+                        subt15,
+                        subt0,
+                        subt5: 0,
+                        iva: parseFloat(iva.toFixed(2)),
+                        total: totalFinal,
+                        anulada: false,
+                        _selected: !isDuplicate,
+                        _duplicate: isDuplicate,
+                        _autoClassified: true  // marca que fue clasificado automáticamente
+                    });
+                }
+
+                if (result.length === 0) {
+                    this.showToast('No se encontraron facturas válidas en el archivo. Verifica el formato.', 'warning');
+                    return;
+                }
+
+                State.sriImportData = result;
+                State.showSriImportModal = true;
+                State.sriImportTipo = tipo;
+                this.render();
+                setTimeout(() => this.renderSRIImportPreview(), 50);
+
+            } catch (err) {
+                console.error(err);
+                this.showToast('Error procesando el Excel: ' + err.message, 'danger');
+            }
+        };
+        reader.onerror = () => this.showToast('Error al leer el archivo.', 'danger');
+        reader.readAsArrayBuffer(file);
+    },
+
     renderSRIImportPreview() {
         const content = document.getElementById('sri-import-content');
         if (!content) return;
 
         if (State.sriImportData.length === 0) {
-            content.innerHTML = '<div style="text-align:center; padding: 40px; color:var(--text-secondary);">No se encontraron facturas válidas. Revisa el archivo TXT.</div>';
+            content.innerHTML = '<div style="text-align:center; padding: 40px; color:var(--text-secondary);">No se encontraron facturas válidas. Revisa el archivo.</div>';
             document.getElementById('sri-import-stats').innerText = '';
             return;
         }
 
         const query = this.removeAccents((State.sriImportSearchQuery || '').toLowerCase());
+        const tipo = State.sriImportTipo || (State.sriImportData[0]?.tipo) || 'compra';
+        const esVenta = tipo === 'venta';
+        const labelPersona = esVenta ? 'Cliente' : 'Proveedor';
+
+        const hayAutoClassified = State.sriImportData.some(r => r._autoClassified);
+        const infoClassif = hayAutoClassified
+            ? `<div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius:8px; padding: 10px 14px; margin-bottom:12px; font-size:0.82rem; color:var(--text-secondary); display:flex; align-items:center; gap:8px;">
+                <span style="font-size:1rem;">ℹ️</span>
+                <span>La <strong>clasificación de Subtotales</strong> fue aplicada automáticamente: facturas con IVA > 0 → Subt 15%; IVA = 0 → Subt 0%. Verifica antes de confirmar.</span>
+               </div>`
+            : '';
 
         let html = `
+            ${infoClassif}
             <div style="margin-bottom: 12px;">
-                <input type="text" id="sri-import-search-input" placeholder="🔍 Buscar por Proveedor, Factura o RUC..." 
+                <input type="text" id="sri-import-search-input" placeholder="🔍 Buscar por ${labelPersona}, Factura o RUC..." 
                     oninput="App.setSRIImportSearch(this.value)" 
                     value="${State.sriImportSearchQuery || ''}"
                     style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
@@ -1722,7 +1864,7 @@ const App = {
                         <th style="padding: 10px; text-align: left; width: 40px;"><input type="checkbox" checked onchange="App.toggleAllSRIImport(this.checked)"></th>
                         <th style="padding: 10px; text-align: left;">Fecha</th>
                         <th style="padding: 10px; text-align: left;">Factura</th>
-                        <th style="padding: 10px; text-align: left;">Proveedor</th>
+                        <th style="padding: 10px; text-align: left;">${labelPersona}</th>
                         <th style="padding: 10px; text-align: right;">Subt 15%</th>
                         <th style="padding: 10px; text-align: right;">Subt 0%</th>
                         <th style="padding: 10px; text-align: right;">IVA</th>
@@ -1742,11 +1884,16 @@ const App = {
                 totalVal += parseFloat(row.total || 0);
             }
 
-            const searchStr = this.removeAccents(`${row.proveedor} ${row.factura} ${row.ruc}`.toLowerCase());
+            // Soporte para campo nombre (ventas) o proveedor (compras)
+            const nombrePersona = row.nombre || row.proveedor || '';
+            const searchStr = this.removeAccents(`${nombrePersona} ${row.factura} ${row.ruc}`.toLowerCase());
             const isHidden = query && !searchStr.includes(query);
             if (!isHidden) visibleCount++;
 
             const badge = row._duplicate ? `<span style="background:var(--warning); color:#fff; font-size:0.65rem; padding:2px 4px; border-radius:3px; margin-left:6px; white-space:nowrap;" title="Esta factura ya está registrada en el sistema">⚠️ Ya registrada</span>` : '';
+            const classifBadge = row._autoClassified
+                ? `<span style="background: rgba(99,102,241,0.15); color:var(--primary); font-size:0.6rem; padding:1px 4px; border-radius:3px; margin-left:4px;" title="Clasificado automáticamente por IVA">AUTO</span>`
+                : '';
             const trStyle = row._duplicate ? 'background-color: rgba(255, 193, 7, 0.08);' : '';
 
             html += `
@@ -1755,11 +1902,11 @@ const App = {
                     <td style="padding: 10px;">${row.fecha}</td>
                     <td style="padding: 10px;">${row.factura}</td>
                     <td style="padding: 10px;">
-                        <div style="font-weight: 500;">${row.proveedor} ${badge}</div>
+                        <div style="font-weight: 500;">${nombrePersona} ${badge}</div>
                         <div style="font-size: 0.75rem; color: var(--text-secondary);">${row.ruc}</div>
                     </td>
-                    <td style="padding: 8px; text-align: right;">$${this.formatNumber(row.subt15)}</td>
-                    <td style="padding: 8px; text-align: right;">$${this.formatNumber(row.subt0)}</td>
+                    <td style="padding: 8px; text-align: right;">${row.subt15 > 0 ? `<span style="color:var(--success);">$${this.formatNumber(row.subt15)}</span>${classifBadge}` : '<span style="color:var(--text-secondary);">—</span>'}</td>
+                    <td style="padding: 8px; text-align: right;">${row.subt0 > 0 ? `<span>$${this.formatNumber(row.subt0)}</span>${classifBadge}` : '<span style="color:var(--text-secondary);">—</span>'}</td>
                     <td style="padding: 8px; text-align: right;">$${this.formatNumber(row.iva)}</td>
                     <td style="padding: 8px; text-align: right; font-weight: 600;">$${this.formatNumber(row.total)}</td>
                 </tr>
@@ -1828,6 +1975,8 @@ const App = {
                 const docRef = firebase.firestore().collection('sri_registros').doc(docId);
                 const cleanRow = { ...row, id: docId };
                 delete cleanRow._selected;
+                delete cleanRow._duplicate;
+                delete cleanRow._autoClassified;
                 cleanRow.timestamp = firebase.firestore.FieldValue.serverTimestamp();
                 batch.set(docRef, cleanRow);
             });
